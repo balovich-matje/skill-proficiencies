@@ -49,7 +49,10 @@ public class SpecialitiesClient implements ClientModInitializer {
 			HudElementRegistry.replaceElement(element, SpecialitiesClient::raised);
 		}
 
-		HudElementRegistry.attachElementAfter(VanillaHudElements.EXPERIENCE_LEVEL,
+		// Anchor to HOTBAR, not EXPERIENCE_LEVEL: vanilla skips the experience
+		// level element entirely when the player has 0 XP levels, and attached
+		// elements are skipped with their anchor.
+		HudElementRegistry.attachElementAfter(VanillaHudElements.HOTBAR,
 				Specialities.id("skill_xp_bar"), SkillXpHudBar::render);
 
 		ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
