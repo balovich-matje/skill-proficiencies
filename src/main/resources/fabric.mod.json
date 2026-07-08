@@ -1,0 +1,38 @@
+{
+	"schemaVersion": 1,
+	"id": "specialities",
+	"version": "${version}",
+	"name": "Specialities",
+	"description": "mcMMO-style skills: 12 skills levelled through vanilla gameplay, granting break speed, passive Fortune/Looting/Luck of the Sea, weapon damage, fall protection, stealth and more.",
+	"authors": [
+		"balovich-matje"
+	],
+	"contact": {
+		"homepage": "https://github.com/balovich-matje/specialities",
+		"sources": "https://github.com/balovich-matje/specialities"
+	},
+	"license": "CC0-1.0",
+	"icon": "assets/specialities/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.specialities.Specialities"
+		],
+		"client": [
+			"com.specialities.client.SpecialitiesClient"
+		]
+	},
+	"mixins": [
+		"specialities.mixins.json",
+		{
+			"config": "specialities.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.19.3",
+		"minecraft": "~26.2",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}

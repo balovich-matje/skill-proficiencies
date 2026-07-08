@@ -1,0 +1,22 @@
+{
+	"required": true,
+	"package": "com.specialities.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"mixins": [
+		"AbstractArrowAccessor",
+		"AbstractArrowMixin",
+		"BlockMixin",
+		"BowItemMixin",
+		"CrossbowItemMixin",
+		"EnchantmentHelperMixin",
+		"FishingHookMixin",
+		"LivingEntityMixin",
+		"PlayerMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}
