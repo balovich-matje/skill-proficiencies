@@ -48,4 +48,4 @@ All bonuses stack **additively** with the matching vanilla enchantments (e.g. a 
 
 ## License
 
-[CC0 1.0](LICENSE) — public domain. Do whatever you like; modpacks welcome.
+[MIT](LICENSE). Modpacks welcome — no permission needed. Forks and redistributions must keep the copyright notice.

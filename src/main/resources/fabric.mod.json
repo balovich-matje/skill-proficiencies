@@ -11,7 +11,7 @@
 		"homepage": "https://github.com/balovich-matje/specialities",
 		"sources": "https://github.com/balovich-matje/specialities"
 	},
-	"license": "CC0-1.0",
+	"license": "MIT",
 	"icon": "assets/specialities/icon.png",
 	"environment": "*",
 	"entrypoints": {
