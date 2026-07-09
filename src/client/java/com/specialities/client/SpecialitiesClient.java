@@ -2,6 +2,7 @@ package com.specialities.client;
 
 import com.specialities.Specialities;
 import com.specialities.SkillUpdatePayload;
+import com.specialities.StealthStatePayload;
 
 import com.specialities.client.mixin.AbstractContainerScreenAccessor;
 
@@ -34,6 +35,8 @@ public class SpecialitiesClient implements ClientModInitializer {
 	public void onInitializeClient() {
 		ClientPlayNetworking.registerGlobalReceiver(SkillUpdatePayload.TYPE,
 				(payload, context) -> SkillHudState.onUpdate(payload, context.client()));
+		ClientPlayNetworking.registerGlobalReceiver(StealthStatePayload.TYPE,
+				(payload, context) -> StealthVignette.onUpdate(payload, context.client()));
 
 		Identifier[] raisedElements = {
 				VanillaHudElements.INFO_BAR,
@@ -54,6 +57,10 @@ public class SpecialitiesClient implements ClientModInitializer {
 		// elements are skipped with their anchor.
 		HudElementRegistry.attachElementAfter(VanillaHudElements.HOTBAR,
 				Specialities.id("skill_xp_bar"), SkillXpHudBar::render);
+
+		// Under the hotbar/health, alongside the vanilla vignette and overlays.
+		HudElementRegistry.attachElementAfter(VanillaHudElements.MISC_OVERLAYS,
+				Specialities.id("stealth_vignette"), StealthVignette::render);
 
 		ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
 			if (!(screen instanceof InventoryScreen) && !(screen instanceof CreativeModeInventoryScreen)) {

@@ -24,6 +24,7 @@ public class Specialities implements ModInitializer {
 		ModItems.initialize();
 
 		PayloadTypeRegistry.clientboundPlay().register(SkillUpdatePayload.TYPE, SkillUpdatePayload.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(StealthStatePayload.TYPE, StealthStatePayload.CODEC);
 
 		SkillEvents.register();
 

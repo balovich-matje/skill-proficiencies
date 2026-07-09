@@ -5,6 +5,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import com.specialities.StealthStatePayload;
+
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
@@ -12,36 +15,55 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.monster.Enemy;
 
 /**
- * Sneaking XP: once a second while sneaking near hostiles that haven't
- * noticed the player, scaling with proximity — x1 at the edge of range up to
- * x10 right next to the mob.
+ * Sneaking server logic, scanning nearby hostiles every half second:
+ * proximity XP (once a second) while unaware hostiles are near, and the
+ * stealth state (hidden/detected/none) pushed to the client for the vignette.
  */
 public final class SneakingTicker {
+	private static final int SCAN_INTERVAL_TICKS = 10;
+
 	private static final Map<UUID, Integer> sneakTicks = new HashMap<>();
+	private static final Map<UUID, Boolean> xpParity = new HashMap<>();
+	private static final Map<UUID, Integer> lastState = new HashMap<>();
 
 	private SneakingTicker() {
 	}
 
 	public static void onEndServerTick(final MinecraftServer server) {
 		for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-			if (!player.isDiscrete() || player.isCreative()
-					|| SkillManager.get(player).level(Skill.SNEAKING) >= Tuning.MAX_LEVEL) {
+			if (!player.isDiscrete() || player.isCreative() || player.isSpectator()) {
 				sneakTicks.remove(player.getUUID());
+				updateState(player, StealthStatePayload.NONE);
 				continue;
 			}
 
 			int ticks = sneakTicks.merge(player.getUUID(), 1, Integer::sum);
-			if (ticks < 20) {
+			if (ticks < SCAN_INTERVAL_TICKS) {
 				continue;
 			}
 
 			sneakTicks.put(player.getUUID(), 0);
 
-			List<Mob> unaware = player.level().getEntitiesOfClass(Mob.class,
+			List<Mob> hostiles = player.level().getEntitiesOfClass(Mob.class,
 					player.getBoundingBox().inflate(Tuning.SNEAK_XP_RANGE),
-					mob -> mob instanceof Enemy && mob.isAlive() && mob.getTarget() != player);
+					mob -> mob instanceof Enemy && mob.isAlive());
 
-			if (unaware.isEmpty()) {
+			boolean detected = hostiles.stream().anyMatch(mob -> mob.getTarget() == player);
+			List<Mob> unaware = hostiles.stream().filter(mob -> mob.getTarget() != player).toList();
+
+			if (detected) {
+				updateState(player, StealthStatePayload.DETECTED);
+			} else if (!unaware.isEmpty()) {
+				updateState(player, StealthStatePayload.HIDDEN);
+			} else {
+				updateState(player, StealthStatePayload.NONE);
+			}
+
+			// XP once a second (every second scan), only while undetected near
+			// unaware hostiles and below the level cap.
+			boolean awardTurn = Boolean.TRUE.equals(xpParity.merge(player.getUUID(), true, (a, b) -> !a));
+			if (!awardTurn || detected || unaware.isEmpty()
+					|| SkillManager.get(player).level(Skill.SNEAKING) >= Tuning.MAX_LEVEL) {
 				continue;
 			}
 
@@ -60,7 +82,17 @@ public final class SneakingTicker {
 		}
 	}
 
+	private static void updateState(final ServerPlayer player, final int state) {
+		Integer previous = lastState.put(player.getUUID(), state);
+
+		if (previous == null || previous != state) {
+			ServerPlayNetworking.send(player, new StealthStatePayload(state));
+		}
+	}
+
 	public static void onLeave(final ServerPlayer player) {
 		sneakTicks.remove(player.getUUID());
+		xpParity.remove(player.getUUID());
+		lastState.remove(player.getUUID());
 	}
 }
