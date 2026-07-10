@@ -7,23 +7,25 @@ import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.resources.Identifier;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.ARGB;
 import net.minecraft.util.Mth;
 import net.minecraft.util.Util;
 
 /**
  * Sneaking feedback overlay. While sneaking undetected near hostiles the
- * screen edges darken; when a hostile spots the player the dark vignette
- * flips to a light one that fades out over ~2 seconds, with a soft sculk
- * click as the audio cue.
+ * screen edges tint dark purple (distinguishable from plain darkness at
+ * night); when a hostile spots the player it flips to a light vignette that
+ * fades out over ~2 seconds.
  */
 public final class StealthVignette {
 	private static final Identifier TEXTURE = Specialities.id("textures/misc/stealth_vignette.png");
 
-	private static final float DARK_MAX_ALPHA = 0.45F;
+	private static final float DARK_MAX_ALPHA = 0.50F;
+	// Deep violet, so the stealth tint reads as "sneak mode" rather than "night".
+	private static final float DARK_RED = 0.30F;
+	private static final float DARK_GREEN = 0.05F;
+	private static final float DARK_BLUE = 0.45F;
 	private static final float LIGHT_MAX_ALPHA = 0.55F;
 	private static final long FLASH_DURATION_MS = 2000;
 	/** Per-second exponential approach rate for the dark vignette fade in/out. */
@@ -40,7 +42,6 @@ public final class StealthVignette {
 	public static void onUpdate(final StealthStatePayload payload, final Minecraft client) {
 		if (payload.state() == StealthStatePayload.DETECTED && state != StealthStatePayload.DETECTED) {
 			flashStartMs = Util.getMillis();
-			client.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.SCULK_CLICKING, 0.8F, 0.6F));
 		}
 
 		state = payload.state();
@@ -61,7 +62,7 @@ public final class StealthVignette {
 		darkAlpha += (target - darkAlpha) * Math.min(1.0F, DARK_FADE_RATE * dt);
 
 		if (darkAlpha > 0.01F) {
-			draw(graphics, ARGB.colorFromFloat(darkAlpha, 0.0F, 0.0F, 0.0F));
+			draw(graphics, ARGB.colorFromFloat(darkAlpha, DARK_RED, DARK_GREEN, DARK_BLUE));
 		}
 
 		// Detection flash: light vignette fading out.
