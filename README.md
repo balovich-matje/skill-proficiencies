@@ -20,6 +20,9 @@ Works in singleplayer and multiplayer (all skill logic is server-authoritative; 
 | **Acrobatics** | Surviving fall damage | Fall damage reduction that stacks with Feather Falling — full immunity at level 100 + FF IV |
 | **Athletics** | Sprinting | Up to -50% sprint hunger drain, Swiftness I/II at 50/100 (capped, no FOV zoom) |
 | **Sneaking** | Sneaking near unaware hostiles (closer = more XP) | Up to -90% detection range (heavy armor dampens it), stealth crits x2.0–x3.0 (once per enemy) |
+| **Smithing** | Crafting tools, weapons and armor (XP scales with material value) | Resourcefulness returns some crafting materials; smelted metals can multicraft x2/x4/x8 |
+| **Alchemy** | Brewing potions | Up to 50% chance the brewing ingredient isn't consumed |
+| **Enchanting** | Enchanting at a table | Up to 100% chance an enchant costs half the XP; up to 50% chance of a bonus or upgraded enchantment |
 
 All bonuses stack **additively** with the matching vanilla enchantments (e.g. a Fortune II pickaxe at Mining 60 digs like Fortune V).
 
@@ -28,6 +31,7 @@ All bonuses stack **additively** with the matching vanilla enchantments (e.g. a 
 - Skill XP bar right above the vanilla XP bar, showing the skill of your held tool/weapon; XP gains animate with converging tool icons.
 - Advancement-style level-up toasts (the big jingle only at levels 50/100).
 - Skills overview screen via the "S" button in the inventory, with per-skill bonus tooltips.
+- Stealth vignette: sneaking near unaware hostiles tints the screen edges violet; being spotted flashes them light.
 - Testing/creative: knowledge books (+25 / +100 levels per skill) in the Tools & Utilities tab.
 
 ## Versions

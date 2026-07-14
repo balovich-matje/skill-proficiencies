@@ -3,7 +3,7 @@
 	"id": "specialities",
 	"version": "${version}",
 	"name": "Specialities",
-	"description": "mcMMO-style skills: 12 skills levelled through vanilla gameplay, granting break speed, passive Fortune/Looting/Luck of the Sea, weapon damage, fall protection, stealth and more.",
+	"description": "mcMMO-style skills: 15 skills levelled through vanilla gameplay, granting break speed, passive Fortune/Looting/Luck of the Sea, weapon damage, fall protection, stealth, and crafting/brewing/enchanting perks.",
 	"authors": [
 		"balovich-matje"
 	],
