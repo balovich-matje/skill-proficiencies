@@ -16,7 +16,8 @@
 		"FurnaceResultSlotMixin",
 		"LivingEntityMixin",
 		"PlayerMixin",
-		"ResultSlotMixin"
+		"ResultSlotMixin",
+		"ServerPlayerMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

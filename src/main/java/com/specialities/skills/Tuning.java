@@ -86,6 +86,13 @@ public final class Tuning {
 	public static final float SPRINT_SPEED_CAP = 0.8F;
 	public static final int SPRINT_XP_INTERVAL_TICKS = 60;
 	public static final int SPRINT_XP_PER_INTERVAL = 5;
+	/**
+	 * Jump XP mirrors vanilla's exhaustion split — a sprint jump costs 0.2
+	 * exhaustion against a standing jump's 0.05 — so the hungriest way to move
+	 * is also the fastest way to train.
+	 */
+	public static final int JUMP_XP = 1;
+	public static final int SPRINT_JUMP_XP = 4;
 
 	/** Swiftness tier while sprinting: I at 50, II at 100. */
 	public static int swiftnessTier(final int level) {
