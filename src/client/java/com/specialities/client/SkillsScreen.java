@@ -1,8 +1,10 @@
 package com.specialities.client;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import com.specialities.skills.PlayerSkills;
 import com.specialities.skills.Skill;
@@ -12,21 +14,38 @@ import com.specialities.skills.Tuning;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.util.ARGB;
+import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.util.Mth;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Lists discovered skills (level > 0) with their level and XP; hovering a row
- * shows the bonuses that skill currently provides.
+ * Lists every skill — greyed out until you start levelling it, so new players
+ * can see what exists. Each row expands (click the arrow or the row) to show
+ * where that skill's XP comes from; hovering shows the bonuses it provides.
  */
 public class SkillsScreen extends Screen {
 	private static final int ROW_HEIGHT = 24;
-	private static final int ROW_WIDTH = 220;
-	private static final int LIST_TOP = 40;
+	private static final int ROW_WIDTH = 240;
+	private static final int ICON_SIZE = 16;
+	private static final int LINE_HEIGHT = 10;
+	private static final int TITLE_Y = 12;
+	private static final int LIST_TOP = 30;
+	/** Space reserved at the bottom for the Done button. */
+	private static final int LIST_BOTTOM_MARGIN = 38;
+
+	private static final int DIM_ALPHA = 0x55;
+	private static final int FULL_ALPHA = 0xFF;
 
 	private final @Nullable Screen parent;
+	private final Set<Skill> expanded = EnumSet.noneOf(Skill.class);
+	private double scroll;
 
 	public SkillsScreen(final @Nullable Screen parent) {
 		super(Component.translatable("screen.specialities.skills"));
@@ -45,61 +64,218 @@ public class SkillsScreen extends Screen {
 		this.minecraft.setScreen(this.parent);
 	}
 
+	private int listBottom() {
+		return this.height - LIST_BOTTOM_MARGIN;
+	}
+
+	private int viewportHeight() {
+		return Math.max(0, this.listBottom() - LIST_TOP);
+	}
+
+	private List<FormattedCharSequence> sourceLines(final Skill skill) {
+		return this.font.split(
+				Component.translatable("screen.specialities.skills.source." + skill.id()), ROW_WIDTH - 24);
+	}
+
+	/** Height of a row's expanded panel: header line + wrapped source lines + padding. */
+	private int expandedHeight(final Skill skill) {
+		return LINE_HEIGHT * (1 + this.sourceLines(skill).size()) + 5;
+	}
+
+	private int contentHeight() {
+		int height = 0;
+
+		for (Skill skill : Skill.values()) {
+			height += ROW_HEIGHT + (this.expanded.contains(skill) ? this.expandedHeight(skill) : 0);
+		}
+
+		return height;
+	}
+
+	private double maxScroll() {
+		return Math.max(0, this.contentHeight() - this.viewportHeight());
+	}
+
+	private void clampScroll() {
+		this.scroll = Mth.clamp(this.scroll, 0.0, this.maxScroll());
+	}
+
+	@Override
+	public boolean mouseScrolled(final double x, final double y, final double scrollX, final double scrollY) {
+		if (this.maxScroll() > 0) {
+			this.scroll = Mth.clamp(this.scroll - scrollY * LINE_HEIGHT, 0.0, this.maxScroll());
+			return true;
+		}
+
+		return super.mouseScrolled(x, y, scrollX, scrollY);
+	}
+
+	@Override
+	public boolean mouseClicked(final MouseButtonEvent event, final boolean doubleClick) {
+		if (super.mouseClicked(event, doubleClick)) {
+			return true;
+		}
+
+		if (event.button() != 0) {
+			return false;
+		}
+
+		int left = (this.width - ROW_WIDTH) / 2;
+		if (event.x() < left || event.x() >= left + ROW_WIDTH
+				|| event.y() < LIST_TOP || event.y() >= this.listBottom()) {
+			return false;
+		}
+
+		int y = LIST_TOP - (int) this.scroll;
+
+		for (Skill skill : Skill.values()) {
+			if (event.y() >= y && event.y() < y + ROW_HEIGHT - 2) {
+				if (!this.expanded.remove(skill)) {
+					this.expanded.add(skill);
+				}
+
+				this.clampScroll();
+				this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+				return true;
+			}
+
+			y += ROW_HEIGHT + (this.expanded.contains(skill) ? this.expandedHeight(skill) : 0);
+		}
+
+		return false;
+	}
+
 	@Override
 	public void extractRenderState(final GuiGraphicsExtractor graphics, final int mouseX, final int mouseY, final float a) {
 		super.extractRenderState(graphics, mouseX, mouseY, a);
 
-		graphics.text(this.font, this.title, (this.width - this.font.width(this.title)) / 2, 16, 0xFFFFFFFF, true);
+		graphics.text(this.font, this.title, (this.width - this.font.width(this.title)) / 2, TITLE_Y, 0xFFFFFFFF, true);
 
 		if (this.minecraft.player == null) {
 			return;
 		}
 
 		PlayerSkills skills = SkillManager.get(this.minecraft.player);
-		List<Skill> discovered = new ArrayList<>();
+		int left = (this.width - ROW_WIDTH) / 2;
+		int bottom = this.listBottom();
+		this.clampScroll();
+
+		List<Component> tooltip = null;
+		boolean mouseInList = mouseX >= left && mouseX < left + ROW_WIDTH
+				&& mouseY >= LIST_TOP && mouseY < bottom;
+		graphics.enableScissor(left, LIST_TOP, left + ROW_WIDTH, bottom);
+		int y = LIST_TOP - (int) this.scroll;
 
 		for (Skill skill : Skill.values()) {
-			if (skills.discovered(skill)) {
-				discovered.add(skill);
+			boolean visible = y + ROW_HEIGHT > LIST_TOP && y < bottom;
+			boolean hovered = mouseInList && mouseY >= y && mouseY < y + ROW_HEIGHT - 2;
+
+			if (visible) {
+				this.renderRow(graphics, skills, skill, left, y, hovered);
+
+				if (hovered) {
+					tooltip = this.bonusLines(skill, skills, skills.level(skill));
+				}
+			}
+
+			y += ROW_HEIGHT;
+
+			if (this.expanded.contains(skill)) {
+				int panelHeight = this.expandedHeight(skill);
+
+				if (y + panelHeight > LIST_TOP && y < bottom) {
+					this.renderSourcePanel(graphics, skill, left, y);
+				}
+
+				y += panelHeight;
 			}
 		}
 
-		if (discovered.isEmpty()) {
-			Component none = Component.translatable("screen.specialities.skills.none");
-			graphics.text(this.font, none, (this.width - this.font.width(none)) / 2, LIST_TOP + 20, 0xFFAAAAAA, true);
+		graphics.disableScissor();
+		this.renderScrollbar(graphics, left, bottom);
+
+		// Outside the scissor: the deferred tooltip must not be clipped.
+		if (tooltip != null) {
+			graphics.setTooltipForNextFrame(this.font, tooltip, Optional.empty(), mouseX, mouseY);
+		}
+	}
+
+	private void renderRow(final GuiGraphicsExtractor graphics, final PlayerSkills skills, final Skill skill,
+			final int left, final int top, final boolean hovered) {
+		int level = skills.level(skill);
+		boolean started = skills.discovered(skill);
+		int alpha = started ? FULL_ALPHA : DIM_ALPHA;
+
+		graphics.fill(left, top, left + ROW_WIDTH, top + ROW_HEIGHT - 2, hovered ? 0x66FFFFFF : 0x44000000);
+
+		boolean open = this.expanded.contains(skill);
+		drawArrow(graphics, left + 5, top + (open ? 9 : 8), open, ARGB.color(alpha, 0xFFFFFF));
+
+		graphics.blitSprite(RenderPipelines.GUI_TEXTURED, SkillIcons.sprite(skill),
+				left + 15, top + 3, ICON_SIZE, ICON_SIZE, ARGB.color(alpha, 0xFFFFFF));
+
+		graphics.text(this.font, skill.displayName(), left + 36, top + 3, ARGB.color(alpha, skill.color()), true);
+		graphics.text(this.font, Component.translatable("screen.specialities.skills.level", level),
+				left + 36, top + 13, ARGB.color(alpha, 0xDDDDDD), false);
+
+		// Progress bar on the right.
+		int barLeft = left + 150;
+		int barRight = left + ROW_WIDTH - 6;
+		int barTop = top + 9;
+		graphics.fill(barLeft, barTop, barRight, barTop + 5, ARGB.color(alpha, 0x222222));
+
+		int intoLevel = skills.totalXp(skill) - Tuning.totalXpForLevel(level);
+		int needed = Tuning.xpToNext(level);
+		float progress = level >= Tuning.MAX_LEVEL ? 1.0F : Math.min(1.0F, intoLevel / (float) needed);
+		int fill = (int) ((barRight - barLeft - 2) * progress);
+
+		if (fill > 0) {
+			graphics.fill(barLeft + 1, barTop + 1, barLeft + 1 + fill, barTop + 4, ARGB.color(alpha, skill.color()));
+		}
+	}
+
+	private void renderSourcePanel(final GuiGraphicsExtractor graphics, final Skill skill, final int left, final int top) {
+		int height = this.expandedHeight(skill);
+		graphics.fill(left + 12, top - 2, left + ROW_WIDTH, top + height - 4, 0x33000000);
+
+		graphics.text(this.font, Component.translatable("screen.specialities.skills.source_header"),
+				left + 18, top + 1, 0xFFAAAAAA, false);
+
+		int lineY = top + 1 + LINE_HEIGHT;
+
+		for (FormattedCharSequence line : this.sourceLines(skill)) {
+			graphics.text(this.font, line, left + 24, lineY, 0xFFEEEEEE, false);
+			lineY += LINE_HEIGHT;
+		}
+	}
+
+	private void renderScrollbar(final GuiGraphicsExtractor graphics, final int left, final int bottom) {
+		double max = this.maxScroll();
+
+		if (max <= 0) {
 			return;
 		}
 
-		int left = (this.width - ROW_WIDTH) / 2;
+		int trackHeight = bottom - LIST_TOP;
+		int trackX = left + ROW_WIDTH + 2;
+		int thumbHeight = Math.max(16, (int) (trackHeight * (trackHeight / (float) this.contentHeight())));
+		int thumbY = LIST_TOP + (int) ((trackHeight - thumbHeight) * (this.scroll / max));
 
-		for (int i = 0; i < discovered.size(); i++) {
-			Skill skill = discovered.get(i);
-			int top = LIST_TOP + i * ROW_HEIGHT;
-			int level = skills.level(skill);
+		graphics.fill(trackX, LIST_TOP, trackX + 3, bottom, 0x44000000);
+		graphics.fill(trackX, thumbY, trackX + 3, thumbY + thumbHeight, 0xAAFFFFFF);
+	}
 
-			boolean hovered = mouseX >= left && mouseX < left + ROW_WIDTH && mouseY >= top && mouseY < top + ROW_HEIGHT - 2;
-			graphics.fill(left, top, left + ROW_WIDTH, top + ROW_HEIGHT - 2, hovered ? 0x66FFFFFF : 0x44000000);
-
-			graphics.fakeItem(new ItemStack(skill.icon()), left + 3, top + 3);
-			graphics.text(this.font, skill.displayName(), left + 26, top + 3, skill.color(), true);
-			graphics.text(this.font, Component.translatable("screen.specialities.skills.level", level),
-					left + 26, top + 13, 0xFFDDDDDD, false);
-
-			// Mini progress bar on the right half of the row.
-			int barLeft = left + 120;
-			int barRight = left + ROW_WIDTH - 6;
-			int barTop = top + 9;
-			int intoLevel = skills.totalXp(skill) - Tuning.totalXpForLevel(level);
-			int needed = Tuning.xpToNext(level);
-			float progress = level >= Tuning.MAX_LEVEL ? 1.0F : Math.min(1.0F, intoLevel / (float) needed);
-			graphics.fill(barLeft, barTop, barRight, barTop + 5, 0xFF222222);
-			int fill = (int) ((barRight - barLeft - 2) * progress);
-			if (fill > 0) {
-				graphics.fill(barLeft + 1, barTop + 1, barLeft + 1 + fill, barTop + 4, skill.color());
+	/** Small pixel triangle: right-pointing when collapsed, down-pointing when open. */
+	private static void drawArrow(final GuiGraphicsExtractor graphics, final int x, final int y,
+			final boolean open, final int color) {
+		if (open) {
+			for (int i = 0; i < 4; i++) {
+				graphics.fill(x + i, y + i, x + 7 - i, y + i + 1, color);
 			}
-
-			if (hovered) {
-				graphics.setTooltipForNextFrame(this.font, this.bonusLines(skill, skills, level), Optional.empty(), mouseX, mouseY);
+		} else {
+			for (int i = 0; i < 7; i++) {
+				int width = 4 - Math.abs(i - 3);
+				graphics.fill(x, y + i, x + width, y + i + 1, color);
 			}
 		}
 	}
