@@ -32,10 +32,13 @@ import org.jspecify.annotations.Nullable;
  * that skill's XP comes from; hovering the skill shows the bonuses it provides.
  */
 public class SkillsScreen extends Screen {
-	private static final Identifier ARROW_CLOSED = Identifier.withDefaultNamespace("transferable_list/select");
-	private static final Identifier ARROW_CLOSED_HOVER = Identifier.withDefaultNamespace("transferable_list/select_highlighted");
-	private static final Identifier ARROW_OPEN = Identifier.withDefaultNamespace("transferable_list/move_down");
-	private static final Identifier ARROW_OPEN_HOVER = Identifier.withDefaultNamespace("transferable_list/move_down_highlighted");
+	/**
+	 * One sprite for both states, rotated a quarter turn when open — vanilla's
+	 * own down arrow draws a smaller triangle, which made the two states
+	 * mismatch in size.
+	 */
+	private static final Identifier ARROW = Identifier.withDefaultNamespace("transferable_list/select");
+	private static final Identifier ARROW_HOVER = Identifier.withDefaultNamespace("transferable_list/select_highlighted");
 
 	private static final int ROW_HEIGHT = 24;
 	private static final int ROW_WIDTH = 240;
@@ -253,17 +256,19 @@ public class SkillsScreen extends Screen {
 	private void renderArrow(final GuiGraphicsExtractor graphics, final Skill skill, final int left, final int top,
 			final boolean mouseInArrows, final int mouseY) {
 		int arrowTop = top + (ROW_HEIGHT - 2 - ARROW_SIZE) / 2;
-		boolean open = this.expanded.contains(skill);
 		boolean hovered = mouseInArrows && mouseY >= arrowTop && mouseY < arrowTop + ARROW_SIZE;
+		Identifier sprite = hovered ? ARROW_HOVER : ARROW;
 
-		Identifier sprite;
-		if (open) {
-			sprite = hovered ? ARROW_OPEN_HOVER : ARROW_OPEN;
+		if (this.expanded.contains(skill)) {
+			// Quarter turn clockwise: the arrow points down while open.
+			graphics.pose().pushMatrix();
+			graphics.pose().rotateAbout((float) (Math.PI / 2.0),
+					left + ARROW_SIZE / 2.0F, arrowTop + ARROW_SIZE / 2.0F);
+			graphics.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, left, arrowTop, ARROW_SIZE, ARROW_SIZE);
+			graphics.pose().popMatrix();
 		} else {
-			sprite = hovered ? ARROW_CLOSED_HOVER : ARROW_CLOSED;
+			graphics.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, left, arrowTop, ARROW_SIZE, ARROW_SIZE);
 		}
-
-		graphics.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, left, arrowTop, ARROW_SIZE, ARROW_SIZE);
 	}
 
 	private void renderSourcePanel(final GuiGraphicsExtractor graphics, final Skill skill, final int left, final int top) {
