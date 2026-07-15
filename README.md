@@ -32,7 +32,7 @@ All bonuses stack **additively** with the matching vanilla enchantments (e.g. a 
 
 - Skill XP bar right above the vanilla XP bar, showing the skill of your held tool/weapon; XP gains animate with converging tool icons.
 - Advancement-style level-up toasts (the big jingle only at levels 50/100).
-- Skills overview screen via the "S" button in the inventory, with per-skill bonus tooltips.
+- Skills overview screen via the "S" button in the inventory: every skill is listed (greyed out until started), hovering shows its current bonuses, and the arrow beside each one opens a note on where its XP comes from.
 - Stealth vignette: sneaking near unaware hostiles tints the screen edges violet; being spotted flashes them light.
 - Testing/creative: knowledge books (+25 / +100 levels per skill) in the Tools & Utilities tab.
 
