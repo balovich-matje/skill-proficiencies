@@ -19,6 +19,7 @@ import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.ARGB;
 import net.minecraft.util.FormattedCharSequence;
@@ -27,13 +28,22 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Lists every skill — greyed out until you start levelling it, so new players
- * can see what exists. Each row expands (click the arrow or the row) to show
- * where that skill's XP comes from; hovering shows the bonuses it provides.
+ * can see what exists. The arrow button beside each skill opens a note on where
+ * that skill's XP comes from; hovering the skill shows the bonuses it provides.
  */
 public class SkillsScreen extends Screen {
+	private static final Identifier ARROW_CLOSED = Identifier.withDefaultNamespace("transferable_list/select");
+	private static final Identifier ARROW_CLOSED_HOVER = Identifier.withDefaultNamespace("transferable_list/select_highlighted");
+	private static final Identifier ARROW_OPEN = Identifier.withDefaultNamespace("transferable_list/move_down");
+	private static final Identifier ARROW_OPEN_HOVER = Identifier.withDefaultNamespace("transferable_list/move_down_highlighted");
+
 	private static final int ROW_HEIGHT = 24;
 	private static final int ROW_WIDTH = 240;
 	private static final int ICON_SIZE = 16;
+	/** Native sprite is 32x32; halving keeps the pixel art crisp. */
+	private static final int ARROW_SIZE = 16;
+	private static final int ARROW_GAP = 4;
+	private static final int TOTAL_WIDTH = ARROW_SIZE + ARROW_GAP + ROW_WIDTH;
 	private static final int LINE_HEIGHT = 10;
 	private static final int TITLE_Y = 12;
 	private static final int LIST_TOP = 30;
@@ -74,7 +84,7 @@ public class SkillsScreen extends Screen {
 
 	private List<FormattedCharSequence> sourceLines(final Skill skill) {
 		return this.font.split(
-				Component.translatable("screen.specialities.skills.source." + skill.id()), ROW_WIDTH - 24);
+				Component.translatable("screen.specialities.skills.source." + skill.id()), ROW_WIDTH - 16);
 	}
 
 	/** Height of a row's expanded panel: header line + wrapped source lines + padding. */
@@ -120,8 +130,10 @@ public class SkillsScreen extends Screen {
 			return false;
 		}
 
-		int left = (this.width - ROW_WIDTH) / 2;
-		if (event.x() < left || event.x() >= left + ROW_WIDTH
+		int left = (this.width - TOTAL_WIDTH) / 2;
+
+		// Only the arrow button toggles; the skill row itself is not clickable.
+		if (event.x() < left || event.x() >= left + ARROW_SIZE
 				|| event.y() < LIST_TOP || event.y() >= this.listBottom()) {
 			return false;
 		}
@@ -129,7 +141,9 @@ public class SkillsScreen extends Screen {
 		int y = LIST_TOP - (int) this.scroll;
 
 		for (Skill skill : Skill.values()) {
-			if (event.y() >= y && event.y() < y + ROW_HEIGHT - 2) {
+			int arrowTop = y + (ROW_HEIGHT - 2 - ARROW_SIZE) / 2;
+
+			if (event.y() >= arrowTop && event.y() < arrowTop + ARROW_SIZE) {
 				if (!this.expanded.remove(skill)) {
 					this.expanded.add(skill);
 				}
@@ -156,22 +170,26 @@ public class SkillsScreen extends Screen {
 		}
 
 		PlayerSkills skills = SkillManager.get(this.minecraft.player);
-		int left = (this.width - ROW_WIDTH) / 2;
+		int left = (this.width - TOTAL_WIDTH) / 2;
+		int blockLeft = left + ARROW_SIZE + ARROW_GAP;
 		int bottom = this.listBottom();
 		this.clampScroll();
 
 		List<Component> tooltip = null;
-		boolean mouseInList = mouseX >= left && mouseX < left + ROW_WIDTH
+		boolean mouseInRows = mouseX >= blockLeft && mouseX < blockLeft + ROW_WIDTH
 				&& mouseY >= LIST_TOP && mouseY < bottom;
-		graphics.enableScissor(left, LIST_TOP, left + ROW_WIDTH, bottom);
+		boolean mouseInArrows = mouseX >= left && mouseX < left + ARROW_SIZE
+				&& mouseY >= LIST_TOP && mouseY < bottom;
+		graphics.enableScissor(left, LIST_TOP, left + TOTAL_WIDTH, bottom);
 		int y = LIST_TOP - (int) this.scroll;
 
 		for (Skill skill : Skill.values()) {
 			boolean visible = y + ROW_HEIGHT > LIST_TOP && y < bottom;
-			boolean hovered = mouseInList && mouseY >= y && mouseY < y + ROW_HEIGHT - 2;
+			boolean hovered = mouseInRows && mouseY >= y && mouseY < y + ROW_HEIGHT - 2;
 
 			if (visible) {
-				this.renderRow(graphics, skills, skill, left, y, hovered);
+				this.renderArrow(graphics, skill, left, y, mouseInArrows, mouseY);
+				this.renderRow(graphics, skills, skill, blockLeft, y, hovered);
 
 				if (hovered) {
 					tooltip = this.bonusLines(skill, skills, skills.level(skill));
@@ -184,7 +202,7 @@ public class SkillsScreen extends Screen {
 				int panelHeight = this.expandedHeight(skill);
 
 				if (y + panelHeight > LIST_TOP && y < bottom) {
-					this.renderSourcePanel(graphics, skill, left, y);
+					this.renderSourcePanel(graphics, skill, blockLeft, y);
 				}
 
 				y += panelHeight;
@@ -208,15 +226,12 @@ public class SkillsScreen extends Screen {
 
 		graphics.fill(left, top, left + ROW_WIDTH, top + ROW_HEIGHT - 2, hovered ? 0x66FFFFFF : 0x44000000);
 
-		boolean open = this.expanded.contains(skill);
-		drawArrow(graphics, left + 5, top + (open ? 9 : 8), open, ARGB.color(alpha, 0xFFFFFF));
-
 		graphics.blitSprite(RenderPipelines.GUI_TEXTURED, SkillIcons.sprite(skill),
-				left + 15, top + 3, ICON_SIZE, ICON_SIZE, ARGB.color(alpha, 0xFFFFFF));
+				left + 4, top + 3, ICON_SIZE, ICON_SIZE, ARGB.color(alpha, 0xFFFFFF));
 
-		graphics.text(this.font, skill.displayName(), left + 36, top + 3, ARGB.color(alpha, skill.color()), true);
+		graphics.text(this.font, skill.displayName(), left + 25, top + 3, ARGB.color(alpha, skill.color()), true);
 		graphics.text(this.font, Component.translatable("screen.specialities.skills.level", level),
-				left + 36, top + 13, ARGB.color(alpha, 0xDDDDDD), false);
+				left + 25, top + 13, ARGB.color(alpha, 0xDDDDDD), false);
 
 		// Progress bar on the right.
 		int barLeft = left + 150;
@@ -234,17 +249,34 @@ public class SkillsScreen extends Screen {
 		}
 	}
 
+	/** The expand/collapse button: the vanilla resource-pack picker arrow. */
+	private void renderArrow(final GuiGraphicsExtractor graphics, final Skill skill, final int left, final int top,
+			final boolean mouseInArrows, final int mouseY) {
+		int arrowTop = top + (ROW_HEIGHT - 2 - ARROW_SIZE) / 2;
+		boolean open = this.expanded.contains(skill);
+		boolean hovered = mouseInArrows && mouseY >= arrowTop && mouseY < arrowTop + ARROW_SIZE;
+
+		Identifier sprite;
+		if (open) {
+			sprite = hovered ? ARROW_OPEN_HOVER : ARROW_OPEN;
+		} else {
+			sprite = hovered ? ARROW_CLOSED_HOVER : ARROW_CLOSED;
+		}
+
+		graphics.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, left, arrowTop, ARROW_SIZE, ARROW_SIZE);
+	}
+
 	private void renderSourcePanel(final GuiGraphicsExtractor graphics, final Skill skill, final int left, final int top) {
 		int height = this.expandedHeight(skill);
-		graphics.fill(left + 12, top - 2, left + ROW_WIDTH, top + height - 4, 0x33000000);
+		graphics.fill(left, top - 2, left + ROW_WIDTH, top + height - 4, 0x33000000);
 
 		graphics.text(this.font, Component.translatable("screen.specialities.skills.source_header"),
-				left + 18, top + 1, 0xFFAAAAAA, false);
+				left + 6, top + 1, 0xFFAAAAAA, false);
 
 		int lineY = top + 1 + LINE_HEIGHT;
 
 		for (FormattedCharSequence line : this.sourceLines(skill)) {
-			graphics.text(this.font, line, left + 24, lineY, 0xFFEEEEEE, false);
+			graphics.text(this.font, line, left + 12, lineY, 0xFFEEEEEE, false);
 			lineY += LINE_HEIGHT;
 		}
 	}
@@ -257,27 +289,12 @@ public class SkillsScreen extends Screen {
 		}
 
 		int trackHeight = bottom - LIST_TOP;
-		int trackX = left + ROW_WIDTH + 2;
+		int trackX = left + TOTAL_WIDTH + 2;
 		int thumbHeight = Math.max(16, (int) (trackHeight * (trackHeight / (float) this.contentHeight())));
 		int thumbY = LIST_TOP + (int) ((trackHeight - thumbHeight) * (this.scroll / max));
 
 		graphics.fill(trackX, LIST_TOP, trackX + 3, bottom, 0x44000000);
 		graphics.fill(trackX, thumbY, trackX + 3, thumbY + thumbHeight, 0xAAFFFFFF);
-	}
-
-	/** Small pixel triangle: right-pointing when collapsed, down-pointing when open. */
-	private static void drawArrow(final GuiGraphicsExtractor graphics, final int x, final int y,
-			final boolean open, final int color) {
-		if (open) {
-			for (int i = 0; i < 4; i++) {
-				graphics.fill(x + i, y + i, x + 7 - i, y + i + 1, color);
-			}
-		} else {
-			for (int i = 0; i < 7; i++) {
-				int width = 4 - Math.abs(i - 3);
-				graphics.fill(x, y + i, x + width, y + i + 1, color);
-			}
-		}
 	}
 
 	private List<Component> bonusLines(final Skill skill, final PlayerSkills skills, final int level) {
@@ -346,7 +363,6 @@ public class SkillsScreen extends Screen {
 			case ACROBATICS -> {
 				int reduction = Math.round(Tuning.acrobaticsProtectionPoints(level) * 4.0F);
 				lines.add(Component.translatable("tooltip.specialities.fall_damage", Math.min(100, reduction)));
-				lines.add(Component.translatable("tooltip.specialities.fall_immunity"));
 			}
 			case ATHLETICS -> {
 				int hunger = Math.round((1.0F - Tuning.recoveryTimeMultiplier(level)) * 100.0F);
