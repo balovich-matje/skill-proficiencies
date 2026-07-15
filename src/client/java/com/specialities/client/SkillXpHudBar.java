@@ -11,7 +11,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.data.AtlasIds;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.ARGB;
 import net.minecraft.util.Mth;
@@ -110,9 +109,7 @@ public final class SkillXpHudBar {
 			int iconAlpha = (int) (BASE_ALPHA * 255.0F * (1.0F - eased));
 
 			if (iconAlpha > 8) {
-				TextureAtlasSprite sprite = minecraft.getAtlasManager()
-						.getAtlasOrThrow(AtlasIds.ITEMS)
-						.getSprite(iconSprite(skill));
+				TextureAtlasSprite sprite = SkillIcons.sprite(skill);
 
 				int iconY = top - (ICON_SIZE - BAR_HEIGHT) / 2;
 				int centerX = left + BAR_WIDTH / 2 - ICON_SIZE / 2;
@@ -156,25 +153,5 @@ public final class SkillXpHudBar {
 
 		int intoLevel = totalXp - Tuning.totalXpForLevel(level);
 		return Mth.clamp(intoLevel / (float) Tuning.xpToNext(level), 0.0F, 1.0F);
-	}
-
-	private static Identifier iconSprite(final Skill skill) {
-		return switch (skill) {
-			case MINING -> Identifier.withDefaultNamespace("item/iron_pickaxe");
-			case WOODCUTTING -> Identifier.withDefaultNamespace("item/iron_axe");
-			case COMBAT -> Identifier.withDefaultNamespace("item/iron_sword");
-			case ARMS_MASTERY -> Identifier.withDefaultNamespace("item/iron_spear");
-			case ARCHERY -> Identifier.withDefaultNamespace("item/bow");
-			case HARVESTING -> Identifier.withDefaultNamespace("item/iron_hoe");
-			case EXCAVATION -> Identifier.withDefaultNamespace("item/iron_shovel");
-			case FISHING -> Identifier.withDefaultNamespace("item/fishing_rod");
-			case DEFENCE -> Identifier.withDefaultNamespace("item/iron_chestplate");
-			case ACROBATICS -> Identifier.withDefaultNamespace("item/feather");
-			case ATHLETICS -> Identifier.withDefaultNamespace("item/golden_boots");
-			case SNEAKING -> Identifier.withDefaultNamespace("item/leather_boots");
-			case SMITHING -> Identifier.withDefaultNamespace("item/iron_ingot");
-			case ALCHEMY -> Identifier.withDefaultNamespace("item/brewing_stand");
-			case ENCHANTING -> Identifier.withDefaultNamespace("item/enchanted_book");
-		};
 	}
 }
