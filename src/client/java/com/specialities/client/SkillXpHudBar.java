@@ -18,9 +18,9 @@ import net.minecraft.util.Mth;
 /**
  * Always-visible skill XP bar sitting right above the vanilla experience bar,
  * showing the most recent skill that gained XP. Kept vanilla-slick: just the
- * bar and the skill level in the middle, at ~50% opacity. On each XP gain two
- * translucent icons of the skill's tool converge into the bar, then the bar
- * grows.
+ * bar and the skill level in the middle, drawn fully opaque like the vanilla
+ * experience bar. On each XP gain two icons of the skill's tool converge into
+ * the bar (fading in), then the bar grows.
  */
 public final class SkillXpHudBar {
 	private static final Identifier BAR_BACKGROUND_SPRITE = Identifier.withDefaultNamespace("hud/experience_bar_background");
@@ -32,7 +32,8 @@ public final class SkillXpHudBar {
 	 */
 	private static final int BOTTOM_OFFSET = 29;
 
-	private static final float BASE_ALPHA = 0.5F;
+	/** Opaque, matching the vanilla XP bar; also the peak alpha of the converging-icon fade. */
+	private static final float BASE_ALPHA = 1.0F;
 	private static final long ICON_ANIM_MS = 450;
 	private static final long GROW_ANIM_MS = 250;
 	/** After a gain, keep showing the gaining skill this long before returning to the held tool's skill. */
@@ -87,7 +88,7 @@ public final class SkillXpHudBar {
 
 		int fillWidth = (int) (progress * (BAR_WIDTH - 2));
 		if (fillWidth > 0) {
-			int fillColor = (skill.color() & 0x00FFFFFF) | 0x80000000;
+			int fillColor = (skill.color() & 0x00FFFFFF) | 0xFF000000;
 			graphics.fill(left + 1, top + 1, left + 1 + fillWidth, top + BAR_HEIGHT - 1, fillColor);
 		}
 
@@ -96,12 +97,12 @@ public final class SkillXpHudBar {
 		String label = Integer.toString(shownLevel);
 		int textX = left + BAR_WIDTH + 4;
 		int textY = top - 2;
-		int outline = ARGB.color(0xB4, 0x000000);
+		int outline = ARGB.color(0xFF, 0x000000);
 		graphics.text(minecraft.font, label, textX + 1, textY, outline, false);
 		graphics.text(minecraft.font, label, textX - 1, textY, outline, false);
 		graphics.text(minecraft.font, label, textX, textY + 1, outline, false);
 		graphics.text(minecraft.font, label, textX, textY - 1, outline, false);
-		graphics.text(minecraft.font, label, textX, textY, ARGB.color(0xB4, skill.color()), false);
+		graphics.text(minecraft.font, label, textX, textY, ARGB.color(0xFF, skill.color()), false);
 
 		// Converging tool icons while the animation runs.
 		if (age < ICON_ANIM_MS) {
