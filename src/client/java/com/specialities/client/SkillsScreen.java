@@ -1,14 +1,16 @@
 package com.specialities.client;
 
 import java.util.ArrayList;
-import java.util.EnumSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import com.specialities.api.SkillType;
 import com.specialities.skills.PlayerSkills;
 import com.specialities.skills.Skill;
 import com.specialities.skills.SkillManager;
+import com.specialities.skills.SkillTypes;
 import com.specialities.skills.Tuning;
 
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -57,7 +59,7 @@ public class SkillsScreen extends Screen {
 	private static final int FULL_ALPHA = 0xFF;
 
 	private final @Nullable Screen parent;
-	private final Set<Skill> expanded = EnumSet.noneOf(Skill.class);
+	private final Set<SkillType> expanded = new LinkedHashSet<>();
 	private double scroll;
 
 	public SkillsScreen(final @Nullable Screen parent) {
@@ -85,20 +87,20 @@ public class SkillsScreen extends Screen {
 		return Math.max(0, this.listBottom() - LIST_TOP);
 	}
 
-	private List<FormattedCharSequence> sourceLines(final Skill skill) {
+	private List<FormattedCharSequence> sourceLines(final SkillType skill) {
 		return this.font.split(
 				Component.translatable("screen.specialities.skills.source." + skill.id()), ROW_WIDTH - 16);
 	}
 
 	/** Height of a row's expanded panel: header line + wrapped source lines + padding. */
-	private int expandedHeight(final Skill skill) {
+	private int expandedHeight(final SkillType skill) {
 		return LINE_HEIGHT * (1 + this.sourceLines(skill).size()) + 5;
 	}
 
 	private int contentHeight() {
 		int height = 0;
 
-		for (Skill skill : Skill.values()) {
+		for (SkillType skill : SkillTypes.all()) {
 			height += ROW_HEIGHT + (this.expanded.contains(skill) ? this.expandedHeight(skill) : 0);
 		}
 
@@ -143,7 +145,7 @@ public class SkillsScreen extends Screen {
 
 		int y = LIST_TOP - (int) this.scroll;
 
-		for (Skill skill : Skill.values()) {
+		for (SkillType skill : SkillTypes.all()) {
 			int arrowTop = y + (ROW_HEIGHT - 2 - ARROW_SIZE) / 2;
 
 			if (event.y() >= arrowTop && event.y() < arrowTop + ARROW_SIZE) {
@@ -186,7 +188,7 @@ public class SkillsScreen extends Screen {
 		graphics.enableScissor(left, LIST_TOP, left + TOTAL_WIDTH, bottom);
 		int y = LIST_TOP - (int) this.scroll;
 
-		for (Skill skill : Skill.values()) {
+		for (SkillType skill : SkillTypes.all()) {
 			boolean visible = y + ROW_HEIGHT > LIST_TOP && y < bottom;
 			boolean hovered = mouseInRows && mouseY >= y && mouseY < y + ROW_HEIGHT - 2;
 
@@ -221,7 +223,7 @@ public class SkillsScreen extends Screen {
 		}
 	}
 
-	private void renderRow(final GuiGraphicsExtractor graphics, final PlayerSkills skills, final Skill skill,
+	private void renderRow(final GuiGraphicsExtractor graphics, final PlayerSkills skills, final SkillType skill,
 			final int left, final int top, final boolean hovered) {
 		int level = skills.level(skill);
 		boolean started = skills.discovered(skill);
@@ -253,7 +255,7 @@ public class SkillsScreen extends Screen {
 	}
 
 	/** The expand/collapse button: the vanilla resource-pack picker arrow. */
-	private void renderArrow(final GuiGraphicsExtractor graphics, final Skill skill, final int left, final int top,
+	private void renderArrow(final GuiGraphicsExtractor graphics, final SkillType skill, final int left, final int top,
 			final boolean mouseInArrows, final int mouseY) {
 		int arrowTop = top + (ROW_HEIGHT - 2 - ARROW_SIZE) / 2;
 		boolean hovered = mouseInArrows && mouseY >= arrowTop && mouseY < arrowTop + ARROW_SIZE;
@@ -271,7 +273,7 @@ public class SkillsScreen extends Screen {
 		}
 	}
 
-	private void renderSourcePanel(final GuiGraphicsExtractor graphics, final Skill skill, final int left, final int top) {
+	private void renderSourcePanel(final GuiGraphicsExtractor graphics, final SkillType skill, final int left, final int top) {
 		int height = this.expandedHeight(skill);
 		graphics.fill(left, top - 2, left + ROW_WIDTH, top + height - 4, 0x33000000);
 
@@ -302,7 +304,7 @@ public class SkillsScreen extends Screen {
 		graphics.fill(trackX, thumbY, trackX + 3, thumbY + thumbHeight, 0xAAFFFFFF);
 	}
 
-	private List<Component> bonusLines(final Skill skill, final PlayerSkills skills, final int level) {
+	private List<Component> bonusLines(final SkillType skill, final PlayerSkills skills, final int level) {
 		List<Component> lines = new ArrayList<>();
 		lines.add(skill.displayName().copy().append(" — ").append(Component.translatable("screen.specialities.skills.level", level)));
 
@@ -316,7 +318,14 @@ public class SkillsScreen extends Screen {
 		int speedBonus = Math.round((Tuning.breakSpeedMultiplier(level) - 1.0F) * 100.0F);
 		int luck = Tuning.luckBonus(level);
 
-		switch (skill) {
+		// External skills describe themselves; the luck footer below is
+		// built-in-only, so they are complete here.
+		if (!(skill instanceof Skill builtin)) {
+			lines.addAll(skill.screenLines(level));
+			return lines;
+		}
+
+		switch (builtin) {
 			case MINING -> {
 				lines.add(Component.translatable("tooltip.specialities.break_speed", speedBonus, Component.translatable("tool.specialities.pickaxes")));
 				lines.add(Component.translatable("tooltip.specialities.fortune", luck));
@@ -399,7 +408,7 @@ public class SkillsScreen extends Screen {
 			}
 		}
 
-		boolean usesLuck = switch (skill) {
+		boolean usesLuck = switch (builtin) {
 			case MINING, WOODCUTTING, HARVESTING, EXCAVATION, COMBAT, FISHING -> true;
 			default -> false;
 		};

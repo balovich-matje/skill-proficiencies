@@ -2,6 +2,7 @@ package com.specialities;
 
 import com.specialities.config.ConfigManager;
 import com.specialities.skills.SkillEvents;
+import com.specialities.skills.SkillTypes;
 
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
@@ -22,6 +23,8 @@ public class Specialities implements ModInitializer {
 	@Override
 	public void onInitialize() {
 		ConfigManager.load();
+		// Other mods' skills come in before anything can touch player state.
+		SkillTypes.pullEntrypoints();
 		ModAttachments.initialize();
 		ModItems.initialize();
 

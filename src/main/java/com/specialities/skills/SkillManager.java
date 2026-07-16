@@ -1,6 +1,7 @@
 package com.specialities.skills;
 
 import com.specialities.ModAttachments;
+import com.specialities.api.SkillType;
 import com.specialities.SkillUpdatePayload;
 import com.specialities.config.ConfigManager;
 
@@ -21,7 +22,7 @@ public final class SkillManager {
 		return ((AttachmentTarget) player).getAttachedOrElse(ModAttachments.SKILLS, PlayerSkills.EMPTY);
 	}
 
-	public static void addXp(final ServerPlayer player, final Skill skill, final int amount) {
+	public static void addXp(final ServerPlayer player, final SkillType skill, final int amount) {
 		if (amount <= 0) {
 			return;
 		}
@@ -44,7 +45,7 @@ public final class SkillManager {
 	}
 
 	/** Used by knowledge books: jump ahead a number of levels (progress resets to the level start). */
-	public static void addLevels(final ServerPlayer player, final Skill skill, final int levels) {
+	public static void addLevels(final ServerPlayer player, final SkillType skill, final int levels) {
 		PlayerSkills old = get(player);
 		int newLevel = Math.min(Tuning.MAX_LEVEL, old.level(skill) + levels);
 		int newTotal = Tuning.totalXpForLevel(newLevel);
@@ -56,7 +57,7 @@ public final class SkillManager {
 		apply(player, skill, old, newTotal);
 	}
 
-	private static void apply(final ServerPlayer player, final Skill skill, final PlayerSkills old, final int newTotal) {
+	private static void apply(final ServerPlayer player, final SkillType skill, final PlayerSkills old, final int newTotal) {
 		PlayerSkills updated = old.withTotalXp(skill, newTotal);
 		((AttachmentTarget) player).setAttached(ModAttachments.SKILLS, updated);
 

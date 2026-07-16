@@ -1,7 +1,8 @@
 package com.specialities.client;
 
 import com.specialities.SkillUpdatePayload;
-import com.specialities.skills.Skill;
+import com.specialities.api.SkillType;
+import com.specialities.skills.SkillTypes;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.Util;
@@ -13,7 +14,7 @@ import org.jspecify.annotations.Nullable;
  * convergence + bar grow animation.
  */
 public final class SkillHudState {
-	private static @Nullable Skill skill;
+	private static @Nullable SkillType skill;
 	private static int fromTotalXp;
 	private static int totalXp;
 	private static int fromLevel;
@@ -24,7 +25,13 @@ public final class SkillHudState {
 	}
 
 	public static void onUpdate(final SkillUpdatePayload payload, final Minecraft client) {
-		Skill updated = Skill.byId(payload.skillId());
+		SkillType updated = SkillTypes.byId(payload.skillId());
+
+		// An id nothing registered (mismatched mod sets) is dropped, not fatal.
+		if (updated == null) {
+			return;
+		}
+
 		skill = updated;
 		fromTotalXp = payload.fromTotalXp();
 		totalXp = payload.totalXp();
@@ -37,7 +44,7 @@ public final class SkillHudState {
 		}
 	}
 
-	public static @Nullable Skill skill() {
+	public static @Nullable SkillType skill() {
 		return skill;
 	}
 

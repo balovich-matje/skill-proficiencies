@@ -1,7 +1,7 @@
 package com.specialities.client;
 
 import com.specialities.skills.PlayerSkills;
-import com.specialities.skills.Skill;
+import com.specialities.api.SkillType;
 import com.specialities.skills.SkillCategories;
 import com.specialities.skills.SkillManager;
 import com.specialities.skills.Tuning;
@@ -53,16 +53,16 @@ public final class SkillXpHudBar {
 		// The held tool/weapon picks the displayed skill; a recent XP gain
 		// temporarily overrides it (with the gain animation), then lingers a
 		// moment before switching back.
-		Skill gained = SkillHudState.skill();
+		SkillType gained = SkillHudState.skill();
 		long age = SkillHudState.animAgeMs();
-		Skill held = SkillCategories.toolSkill(minecraft.player.getMainHandItem());
+		SkillType held = SkillCategories.toolSkill(minecraft.player.getMainHandItem());
 
 		if (held == null) {
 			// Shields usually sit in the offhand.
 			held = SkillCategories.toolSkill(minecraft.player.getOffhandItem());
 		}
 		boolean showGained = gained != null && (age < GAIN_LINGER_MS || held == null);
-		Skill skill = showGained ? gained : held;
+		SkillType skill = showGained ? gained : held;
 
 		if (skill == null) {
 			return;

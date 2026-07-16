@@ -1,6 +1,6 @@
 package com.specialities.client;
 
-import com.specialities.skills.Skill;
+import com.specialities.api.SkillType;
 
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -29,13 +29,13 @@ public class SkillLevelUpToast implements Toast {
 	private static final Identifier BACKGROUND_SPRITE = Identifier.withDefaultNamespace("toast/advancement");
 	private static final long DISPLAY_TIME_MS = 5000;
 
-	private final Skill skill;
+	private final SkillType skill;
 	private final int fromLevel;
 	private final int newLevel;
 	private final ItemStack icon;
 	private Toast.Visibility wantedVisibility = Toast.Visibility.HIDE;
 
-	public SkillLevelUpToast(final Skill skill, final int fromLevel, final int newLevel) {
+	public SkillLevelUpToast(final SkillType skill, final int fromLevel, final int newLevel) {
 		this.skill = skill;
 		this.fromLevel = fromLevel;
 		this.newLevel = newLevel;

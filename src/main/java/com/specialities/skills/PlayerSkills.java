@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import com.mojang.serialization.Codec;
+import com.specialities.api.SkillType;
 
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
@@ -35,19 +36,19 @@ public record PlayerSkills(Map<String, Integer> xp) {
 				return new PlayerSkills(Map.copyOf(map));
 			});
 
-	public int totalXp(final Skill skill) {
+	public int totalXp(final SkillType skill) {
 		return this.xp.getOrDefault(skill.id(), 0);
 	}
 
-	public int level(final Skill skill) {
+	public int level(final SkillType skill) {
 		return Tuning.levelForTotalXp(this.totalXp(skill));
 	}
 
-	public boolean discovered(final Skill skill) {
+	public boolean discovered(final SkillType skill) {
 		return this.level(skill) > 0;
 	}
 
-	public PlayerSkills withTotalXp(final Skill skill, final int totalXp) {
+	public PlayerSkills withTotalXp(final SkillType skill, final int totalXp) {
 		Map<String, Integer> map = new HashMap<>(this.xp);
 		map.put(skill.id(), totalXp);
 		return new PlayerSkills(Map.copyOf(map));
