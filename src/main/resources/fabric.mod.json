@@ -20,6 +20,9 @@
 		],
 		"client": [
 			"com.specialities.client.SpecialitiesClient"
+		],
+		"modmenu": [
+			"com.specialities.client.config.ModMenuIntegration"
 		]
 	},
 	"mixins": [
@@ -34,5 +37,9 @@
 		"minecraft": "~26.1",
 		"java": ">=25",
 		"fabric-api": "*"
+	},
+	"suggests": {
+		"modmenu": "*",
+		"cloth-config": "*"
 	}
 }

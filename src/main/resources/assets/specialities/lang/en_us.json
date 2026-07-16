@@ -95,5 +95,19 @@
 	"tool.specialities.pickaxes": "pickaxes",
 	"tool.specialities.axes": "axes",
 	"tool.specialities.hoes": "hoes",
-	"tool.specialities.shovels": "shovels"
+	"tool.specialities.shovels": "shovels",
+	"config.specialities.title": "Specialities",
+	"config.specialities.category.combat": "Combat",
+	"config.specialities.category.skills": "Skills",
+	"config.specialities.category.general": "General",
+	"config.specialities.combatDamageMaxBonus": "Combat damage bonus at level 100",
+	"config.specialities.combatDamageMaxBonus.tooltip": "Extra weapon damage at combat level 100, as a fraction. 0.5 = +50% (x1.5). Set to 1.0 for the old +100% (x2.0).",
+	"config.specialities.attackSpeedMaxReduction": "Attack/draw speed bonus at level 100",
+	"config.specialities.attackSpeedMaxReduction.tooltip": "Fraction of attack-recovery / bow-draw time removed at level 100. 0.3 = ~1.4x faster. Set to 0.5 for the old 2x faster.",
+	"config.specialities.miningSpeedMaxBonus": "Mining speed bonus at level 100",
+	"config.specialities.miningSpeedMaxBonus.tooltip": "Extra block-breaking speed at mining level 100, as a fraction. 1.0 = +100% (x2.0).",
+	"config.specialities.luckLevelsPerBonus": "Levels per +1 Fortune/Looting",
+	"config.specialities.luckLevelsPerBonus.tooltip": "Skill levels required for each +1 passive Fortune/Looting. Lower = luck comes faster. Default 20.",
+	"config.specialities.xpRateMultiplier": "Global XP rate multiplier",
+	"config.specialities.xpRateMultiplier.tooltip": "Multiplier on all skill XP gains. 1.0 = normal, 2.0 = double, 0.0 = disabled."
 }

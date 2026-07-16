@@ -12,6 +12,20 @@ repositories {
 	// Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
 	// See https://docs.gradle.org/current/userguide/declaring_repositories.html
 	// for more information about repositories.
+
+	// Mod Menu and Cloth Config (optional config UI) come from the Modrinth maven,
+	// scoped to the maven.modrinth group so it doesn't intercept other lookups.
+	exclusiveContent {
+		forRepository {
+			maven {
+				name = "Modrinth"
+				url = "https://api.modrinth.com/maven"
+			}
+		}
+		filter {
+			includeGroup "maven.modrinth"
+		}
+	}
 }
 
 loom {
@@ -32,6 +46,13 @@ dependencies {
 
 	// Fabric API. This is technically optional, but you probably want it anyway.
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	// Optional config UI. Compiled against and present in the dev client, but only
+	// soft dependencies (declared under "suggests" in fabric.mod.json, guarded by
+	// isModLoaded at runtime) — the JSON config works without either mod installed.
+	// Declared with plain `implementation` to match this project's mod-dep style.
+	implementation "maven.modrinth:modmenu:${project.modmenu_version}"
+	implementation "maven.modrinth:cloth-config:${project.cloth_config_version}"
 }
 
 processResources {

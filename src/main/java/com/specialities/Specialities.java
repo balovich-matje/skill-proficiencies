@@ -1,5 +1,6 @@
 package com.specialities;
 
+import com.specialities.config.ConfigManager;
 import com.specialities.skills.SkillEvents;
 
 import net.fabricmc.api.ModInitializer;
@@ -20,6 +21,7 @@ public class Specialities implements ModInitializer {
 
 	@Override
 	public void onInitialize() {
+		ConfigManager.load();
 		ModAttachments.initialize();
 		ModItems.initialize();
 

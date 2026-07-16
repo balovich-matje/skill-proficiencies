@@ -334,7 +334,8 @@ public class SkillsScreen extends Screen {
 				lines.add(Component.translatable("tooltip.specialities.fortune", luck));
 			}
 			case COMBAT -> {
-				lines.add(Component.translatable("tooltip.specialities.damage", level));
+				int damageBonus = Math.round((Tuning.damageMultiplier(level) - 1.0F) * 100.0F);
+				lines.add(Component.translatable("tooltip.specialities.damage", damageBonus));
 				lines.add(Component.translatable("tooltip.specialities.looting", luck));
 			}
 			case ARMS_MASTERY -> {
@@ -402,8 +403,8 @@ public class SkillsScreen extends Screen {
 			case MINING, WOODCUTTING, HARVESTING, EXCAVATION, COMBAT, FISHING -> true;
 			default -> false;
 		};
-		if (usesLuck && level < Tuning.MAX_LEVEL && luck < Tuning.MAX_LEVEL / Tuning.LUCK_BREAKPOINT) {
-			lines.add(Component.translatable("tooltip.specialities.next_luck", (luck + 1) * Tuning.LUCK_BREAKPOINT));
+		if (usesLuck && level < Tuning.MAX_LEVEL && luck < Tuning.MAX_LEVEL / Tuning.luckBreakpoint()) {
+			lines.add(Component.translatable("tooltip.specialities.next_luck", (luck + 1) * Tuning.luckBreakpoint()));
 		}
 
 		return lines;

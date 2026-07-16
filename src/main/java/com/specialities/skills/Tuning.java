@@ -1,12 +1,14 @@
 package com.specialities.skills;
 
+import com.specialities.config.ConfigManager;
+
 /**
- * All balance knobs in one place.
+ * All balance knobs in one place. A handful of them (combat damage, attack
+ * speed, mining speed, luck breakpoint, XP rate) are player-editable and read
+ * from {@link ConfigManager}; the rest are compile-time constants.
  */
 public final class Tuning {
 	public static final int MAX_LEVEL = 100;
-	/** Every N levels grant +1 passive fortune/looting. */
-	public static final int LUCK_BREAKPOINT = 20;
 	/** Combat XP per point of damage dealt. */
 	public static final float COMBAT_XP_PER_DAMAGE = 2.0F;
 	/** Every N arms mastery levels grant +1 passive sweeping edge. */
@@ -19,10 +21,11 @@ public final class Tuning {
 
 	/**
 	 * Multiplier for attack recovery time (arms mastery) and bow/crossbow draw
-	 * time (archery): 1.0 at level 0, 0.5 at level 100.
+	 * time (archery): 1.0 at level 0, down to (1 - attackSpeedMaxReduction) at
+	 * level 100 (default 0.7, i.e. ~1.4x faster; 1.2.0 used 0.5 / 2x faster).
 	 */
 	public static float recoveryTimeMultiplier(final int level) {
-		return 1.0F - 0.5F * level / MAX_LEVEL;
+		return (float) (1.0 - ConfigManager.get().attackSpeedMaxReduction * level / MAX_LEVEL);
 	}
 
 	/** Passive sweeping edge levels from arms mastery. */
@@ -186,18 +189,23 @@ public final class Tuning {
 		return level;
 	}
 
-	/** +1% block breaking speed per level, so x2.0 at level 100. */
+	/** Block breaking speed multiplier: +miningSpeedMaxBonus at level 100 (default +100%, x2.0). */
 	public static float breakSpeedMultiplier(final int level) {
-		return 1.0F + 0.01F * level;
+		return (float) (1.0 + ConfigManager.get().miningSpeedMaxBonus * level / MAX_LEVEL);
+	}
+
+	/** Skill levels required per +1 passive Fortune/Looting (player-configurable). */
+	public static int luckBreakpoint() {
+		return ConfigManager.get().luckLevelsPerBonus;
 	}
 
 	/** Passive fortune/looting levels granted by a skill level. */
 	public static int luckBonus(final int level) {
-		return level / LUCK_BREAKPOINT;
+		return level / luckBreakpoint();
 	}
 
-	/** Weapon damage multiplier: +0% at level 0, x2.0 at level 100. */
+	/** Weapon damage multiplier: +0% at level 0, +combatDamageMaxBonus at level 100 (default +50%, x1.5; 1.2.0 was x2.0). */
 	public static float damageMultiplier(final int level) {
-		return 1.0F + level / 100.0F;
+		return (float) (1.0 + ConfigManager.get().combatDamageMaxBonus * level / MAX_LEVEL);
 	}
 }

@@ -2,6 +2,7 @@ package com.specialities.skills;
 
 import com.specialities.ModAttachments;
 import com.specialities.SkillUpdatePayload;
+import com.specialities.config.ConfigManager;
 
 import net.fabricmc.fabric.api.attachment.v1.AttachmentTarget;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -25,9 +26,15 @@ public final class SkillManager {
 			return;
 		}
 
+		// Global XP-rate knob (config): 1.0 = normal, 0.0 = disabled.
+		int scaled = (int) Math.round(amount * ConfigManager.get().xpRateMultiplier);
+		if (scaled <= 0) {
+			return;
+		}
+
 		PlayerSkills old = get(player);
 		int cap = Tuning.totalXpForLevel(Tuning.MAX_LEVEL);
-		int newTotal = Math.min(cap, old.totalXp(skill) + amount);
+		int newTotal = Math.min(cap, old.totalXp(skill) + scaled);
 
 		if (newTotal == old.totalXp(skill)) {
 			return;
