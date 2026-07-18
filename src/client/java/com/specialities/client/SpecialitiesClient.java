@@ -63,22 +63,33 @@ public class SpecialitiesClient implements ClientModInitializer {
 				Specialities.id("stealth_vignette"), StealthVignette::render);
 
 		ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
-			if (!(screen instanceof InventoryScreen) && !(screen instanceof CreativeModeInventoryScreen)) {
-				return;
+			if (screen instanceof InventoryScreen) {
+				// Survival inventory: a bookmark on the top edge, clear of
+				// the effect list vanilla draws to the panel's right. The
+				// recipe book shifts leftPos without re-running init, so it
+				// re-anchors every tick.
+				BookmarkTab tab = new BookmarkTab(Component.translatable("screen.specialities.skills"),
+						() -> client.gui.setScreen(new SkillsScreen(screen)));
+				anchorTab((AbstractContainerScreen<?>) screen, tab);
+				Screens.getWidgets(screen).add(tab);
+
+				ScreenEvents.afterTick(screen).register(
+						s -> anchorTab((AbstractContainerScreen<?>) s, tab));
+			} else if (screen instanceof CreativeModeInventoryScreen) {
+				// Creative keeps the compact square to the panel's right:
+				// the top edge belongs to the real creative tabs, and
+				// creative shows no effect list to collide with.
+				Button button = Button.builder(Component.literal("S"),
+								b -> client.gui.setScreen(new SkillsScreen(screen)))
+						.bounds(0, 0, 20, 20)
+						.tooltip(Tooltip.create(Component.translatable("screen.specialities.skills")))
+						.build();
+				anchorButton((AbstractContainerScreen<?>) screen, button);
+				Screens.getWidgets(screen).add(button);
+
+				ScreenEvents.afterTick(screen).register(
+						s -> anchorButton((AbstractContainerScreen<?>) s, button));
 			}
-
-			Button button = Button.builder(Component.literal("S"),
-							b -> client.gui.setScreen(new SkillsScreen(screen)))
-					.bounds(0, 0, 20, 20)
-					.tooltip(Tooltip.create(Component.translatable("screen.specialities.skills")))
-					.build();
-			anchorButton((AbstractContainerScreen<?>) screen, button);
-			Screens.getWidgets(screen).add(button);
-
-			// The recipe book shifts leftPos without re-running init, so keep the
-			// button glued to the panel's top-right corner every tick.
-			ScreenEvents.afterTick(screen).register(
-					s -> anchorButton((AbstractContainerScreen<?>) s, button));
 		});
 	}
 
@@ -95,5 +106,11 @@ public class SpecialitiesClient implements ClientModInitializer {
 		AbstractContainerScreenAccessor accessor = (AbstractContainerScreenAccessor) screen;
 		button.setX(accessor.specialities$getLeftPos() + accessor.specialities$getImageWidth() + 4);
 		button.setY(accessor.specialities$getTopPos());
+	}
+
+	private static void anchorTab(final AbstractContainerScreen<?> screen, final BookmarkTab tab) {
+		AbstractContainerScreenAccessor accessor = (AbstractContainerScreenAccessor) screen;
+		tab.setX(accessor.specialities$getLeftPos() + 4);
+		tab.setY(accessor.specialities$getTopPos() - BookmarkTab.HEIGHT);
 	}
 }
