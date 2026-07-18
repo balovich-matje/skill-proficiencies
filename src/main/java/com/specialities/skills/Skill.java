@@ -1,6 +1,5 @@
 package com.specialities.skills;
 
-import java.util.Locale;
 import java.util.function.Supplier;
 
 import com.specialities.api.SkillType;
@@ -81,9 +80,5 @@ public enum Skill implements SkillType {
 	@Override
 	public Component displayName() {
 		return Component.translatable("skill.specialities." + this.id);
-	}
-
-	public static Skill byId(final String id) {
-		return valueOf(id.toUpperCase(Locale.ROOT));
 	}
 }
