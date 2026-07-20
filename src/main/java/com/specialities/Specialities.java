@@ -1,5 +1,6 @@
 package com.specialities;
 
+import com.specialities.command.SkillCommands;
 import com.specialities.config.ConfigManager;
 import com.specialities.skills.SkillEvents;
 import com.specialities.skills.SkillTypes;
@@ -32,6 +33,7 @@ public class Specialities implements ModInitializer {
 		PayloadTypeRegistry.clientboundPlay().register(StealthStatePayload.TYPE, StealthStatePayload.CODEC);
 
 		SkillEvents.register();
+		SkillCommands.register();
 
 		LOGGER.info("Skills mod initialized");
 	}
