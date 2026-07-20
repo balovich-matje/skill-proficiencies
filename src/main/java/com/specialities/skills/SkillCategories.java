@@ -228,11 +228,6 @@ public final class SkillCategories {
 		return 1;
 	}
 
-	/** Whether this damage counts as a weapon attack for the combat skill. */
-	public static boolean isWeaponAttack(final ServerPlayer attacker, final DamageSource source) {
-		return specializationSkill(attacker, source) != null;
-	}
-
 	/**
 	 * Which combat specialization this damage trains, or null if it isn't a
 	 * weapon attack at all. Arrows fired from bows/crossbows train archery;
@@ -283,5 +278,27 @@ public final class SkillCategories {
 
 		ItemStack weapon = arrow.getWeaponItem();
 		return weapon != null && weapon.is(ModTags.RANGED_WEAPONS);
+	}
+
+	/**
+	 * Whether this damage is a melee weapon the attacker threw — in vanilla a
+	 * trident, and a spear too if one is ever made throwable, since the test is
+	 * the {@code specialities:melee_weapons} tag rather than a hardcoded item.
+	 * A thrown trident is a {@code ThrownTrident}, which is an
+	 * {@link AbstractArrow} whose weapon item is the trident itself, so
+	 * {@link #isRangedWeaponShot} (bows and crossbows, by the
+	 * {@code specialities:ranged_weapons} tag) says no to it and this says yes.
+	 *
+	 * <p>Separate from that test because the two callers want different things:
+	 * the combat skill counts a thrown trident as a weapon attack, the sneaking
+	 * skill's stealth crit deliberately does not.
+	 */
+	public static boolean isThrownMeleeWeapon(final ServerPlayer attacker, final DamageSource source) {
+		if (!(source.getDirectEntity() instanceof AbstractArrow projectile) || projectile.getOwner() != attacker) {
+			return false;
+		}
+
+		ItemStack weapon = projectile.getWeaponItem();
+		return weapon != null && weapon.is(ModTags.MELEE_WEAPONS);
 	}
 }

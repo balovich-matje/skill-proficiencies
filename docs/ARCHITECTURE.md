@@ -105,10 +105,17 @@ possible so modded blocks/tools are covered automatically:
 - `blockBreakXp(player, state)` + `blockBreakSkill(state)` — the XP table for
   breaking a block. These two must stay mirrored. Only mature crops grant crop
   XP; ore XP requires the correct tool for drops.
-- `specializationSkill(attacker, source)` — routes weapon damage: an
+- `specializationSkill(attacker, source)` — routes combat XP: an
   `AbstractArrow` whose `getWeaponItem()` is in `ModTags.RANGED_WEAPONS` →
   `ARCHERY`; melee hits with a `MELEE_WEAPONS` mainhand → `ARMS_MASTERY`.
-  `isWeaponAttack` is `specializationSkill != null`.
+  This is the loose test, and XP is all it is allowed to decide.
+- `isMeleeSwing` / `isRangedWeaponShot` / `isThrownMeleeWeapon` — the strict
+  tests, for damage *bonuses*. A `DamageSource` cannot tell a swing from a
+  damage-over-time or a thorns reflect (both name the player as the causing
+  AND the direct entity), so `isMeleeSwing` asks `MeleeSwing` whether the
+  player is actually inside `Player.attack` right now. The combat multiplier
+  takes all three; the sneaking stealth crit takes the first two, since a
+  returning trident is a weapon attack but not a stealth opener.
 
 ### Event-driven XP: `SkillEvents`
 

@@ -26,11 +26,27 @@ import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Combat skill damage multiplier — weapons only (melee weapons by tag,
- * projectiles by damage source) — and the acrobatics fall-protection uncap.
+ * Combat skill damage multiplier — real weapon attacks only — and the
+ * acrobatics fall-protection uncap.
  */
 @Mixin(LivingEntity.class)
 public abstract class LivingEntityMixin {
+	/**
+	 * Combat: more damage per level, on a weapon attack and nothing else.
+	 *
+	 * <p>Three things qualify, and they are spelled out here rather than hidden
+	 * behind one predicate because the sneaking skill below takes two of the
+	 * same three: a real melee swing (the strict test — see
+	 * {@link com.specialities.MeleeSwing}, a damage source cannot be trusted to
+	 * say what a swing is), an arrow from a bow or crossbow, and a thrown
+	 * melee weapon, which in vanilla means a trident. A trident stab is already
+	 * a swing, so both halves of the trident are covered.
+	 *
+	 * <p>Everything else is out: bleeds, poison, magic, thorns reflects and any
+	 * other passive proc that borrows the player as its damage source, from
+	 * this mod or any other. They all name the player as both the causing and
+	 * the direct entity, which is why the damage source alone cannot be asked.
+	 */
 	@ModifyVariable(
 			method = "hurtServer(Lnet/minecraft/server/level/ServerLevel;"
 					+ "Lnet/minecraft/world/damagesource/DamageSource;F)Z",
@@ -42,7 +58,9 @@ public abstract class LivingEntityMixin {
 			return damage;
 		}
 
-		if (!SkillCategories.isWeaponAttack(attacker, source)) {
+		if (!SkillCategories.isMeleeSwing(attacker, source)
+				&& !SkillCategories.isRangedWeaponShot(attacker, source)
+				&& !SkillCategories.isThrownMeleeWeapon(attacker, source)) {
 			return damage;
 		}
 
@@ -117,6 +135,12 @@ public abstract class LivingEntityMixin {
 	 * arrow from a bow or crossbow gets the weaker ranged one. Magic, bleeds,
 	 * poison, thorns and every other passive that borrows the player as its
 	 * damage source get nothing.
+	 *
+	 * <p>Narrower than the combat multiplier above, which also takes a thrown
+	 * trident. That difference is deliberate and stays where the author put it:
+	 * the ranged tier here is the {@code specialities:ranged_weapons} tag, the
+	 * same thing archery trains off, and widening it is a balance call rather
+	 * than something to slip in while fixing combat's scope.
 	 */
 	@ModifyVariable(
 			method = "hurtServer(Lnet/minecraft/server/level/ServerLevel;"

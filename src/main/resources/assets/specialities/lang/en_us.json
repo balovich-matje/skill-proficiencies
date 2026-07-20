@@ -68,7 +68,7 @@
 	"tooltip.specialities.break_speed": "+%s%% break speed with %s",
 	"tooltip.specialities.fortune": "+%s Fortune",
 	"tooltip.specialities.fortune_logs": "+%s Fortune (works on logs)",
-	"tooltip.specialities.damage": "+%s%% weapon damage",
+	"tooltip.specialities.damage": "+%s%% damage on melee swings, arrows and thrown tridents",
 	"tooltip.specialities.looting": "+%s Looting",
 	"tooltip.specialities.next_luck": "Next Fortune/Looting bonus at level %s",
 	"tooltip.specialities.attack_recovery": "-%s%% attack recovery time (melee weapons)",
