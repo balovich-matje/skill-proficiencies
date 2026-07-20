@@ -57,6 +57,25 @@ public final class SkillManager {
 		apply(player, skill, old, newTotal);
 	}
 
+	/**
+	 * Put a skill at exactly {@code level}, up or down (progress resets to that
+	 * level's start). Used by the operator commands; unlike {@link #addLevels}
+	 * this is not clamped to only ever move forward, so it can undo a test.
+	 *
+	 * @return true if anything changed
+	 */
+	public static boolean setLevel(final ServerPlayer player, final SkillType skill, final int level) {
+		PlayerSkills old = get(player);
+		int newTotal = Tuning.totalXpForLevel(Math.clamp(level, 0, Tuning.MAX_LEVEL));
+
+		if (newTotal == old.totalXp(skill)) {
+			return false;
+		}
+
+		apply(player, skill, old, newTotal);
+		return true;
+	}
+
 	private static void apply(final ServerPlayer player, final SkillType skill, final PlayerSkills old, final int newTotal) {
 		PlayerSkills updated = old.withTotalXp(skill, newTotal);
 		((AttachmentTarget) player).setAttached(ModAttachments.SKILLS, updated);
