@@ -1,5 +1,6 @@
 package com.specialities.mixin;
 
+import com.specialities.MeleeSwing;
 import com.specialities.ModTags;
 import com.specialities.skills.Skill;
 import com.specialities.skills.SkillCategories;
@@ -7,12 +8,15 @@ import com.specialities.skills.SkillManager;
 import com.specialities.skills.Tuning;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
@@ -125,5 +129,37 @@ public abstract class PlayerMixin {
 		double enchantRatio = enchantLevel > 0 ? (double) enchantLevel / (enchantLevel + 1) : 0.0;
 		double effectiveRatio = (double) effectiveLevel / (effectiveLevel + 1);
 		return original - enchantRatio + effectiveRatio;
+	}
+
+	/**
+	 * Mark the one path a real melee swing takes, so the sneaking skill's
+	 * stealth crit can tell a swing from everything else a player's damage
+	 * source can be — see {@link MeleeSwing} for what that was costing.
+	 *
+	 * <p>Wrapped rather than a HEAD/RETURN injector pair because an exception
+	 * anywhere under this call would leave the flag standing, and every later
+	 * hit on the server would read as a swing until something else overwrote
+	 * it. The {@code finally} makes that impossible.
+	 *
+	 * <p>Only the server copy opens a swing: {@code attack} also runs on the
+	 * client for prediction, and in singleplayer that would race the integrated
+	 * server's own thread over one static field. Every reader is server-side.
+	 */
+	@WrapMethod(method = "attack")
+	private void specialities$markSwing(final Entity target, final Operation<Void> original) {
+		Player self = (Player) (Object) this;
+
+		if (self.level().isClientSide()) {
+			original.call(target);
+			return;
+		}
+
+		Entity previous = MeleeSwing.begin(self);
+
+		try {
+			original.call(target);
+		} finally {
+			MeleeSwing.end(previous);
+		}
 	}
 }

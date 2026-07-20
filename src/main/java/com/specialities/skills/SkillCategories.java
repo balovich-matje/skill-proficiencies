@@ -1,5 +1,6 @@
 package com.specialities.skills;
 
+import com.specialities.MeleeSwing;
 import com.specialities.ModTags;
 
 import net.minecraft.server.level.ServerPlayer;
@@ -254,5 +255,34 @@ public final class SkillCategories {
 		}
 
 		return null;
+	}
+
+	/**
+	 * Whether this damage is the attacker landing an actual melee swing with a
+	 * melee weapon — the strict test, for bonuses that must not ride on
+	 * damage-over-time, thorns or any other passive that borrows the player as
+	 * its damage source. {@link MeleeSwing} explains why the damage source
+	 * alone cannot answer this; the weapon-in-hand check is still the thing
+	 * that keeps a bare fist or a pickaxe out.
+	 */
+	public static boolean isMeleeSwing(final ServerPlayer attacker, final DamageSource source) {
+		return MeleeSwing.isSwinging(attacker)
+				&& source.getDirectEntity() == attacker
+				&& attacker.getMainHandItem().is(ModTags.MELEE_WEAPONS);
+	}
+
+	/**
+	 * Whether this damage is an arrow the attacker fired from a bow or a
+	 * crossbow. Reuses the mod's existing definition of a ranged weapon
+	 * ({@code specialities:ranged_weapons}, the same tag archery trains off),
+	 * so a thrown trident, a snowball or a splash potion is not ranged.
+	 */
+	public static boolean isRangedWeaponShot(final ServerPlayer attacker, final DamageSource source) {
+		if (!(source.getDirectEntity() instanceof AbstractArrow arrow) || arrow.getOwner() != attacker) {
+			return false;
+		}
+
+		ItemStack weapon = arrow.getWeaponItem();
+		return weapon != null && weapon.is(ModTags.RANGED_WEAPONS);
 	}
 }

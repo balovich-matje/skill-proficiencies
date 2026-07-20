@@ -118,9 +118,26 @@ public final class Tuning {
 		return 1.0F - SNEAK_MAX_DETECTION_REDUCTION * (level / (float) MAX_LEVEL) * armorFactor;
 	}
 
-	/** Stealth crit multiplier: x2.0 base, +0.25 at 25/50/75/100 -> x3.0 at max. */
-	public static float stealthCritMultiplier(final int level) {
+	/**
+	 * Stealth crit multiplier for a melee swing: x2.0 base, +0.25 at
+	 * 25/50/75/100 -> x3.0 at max.
+	 *
+	 * <p>Keep this and {@link #stealthCritRangedMultiplier} the same shape —
+	 * base plus a quarter-mark step — so a change to one reads as an obvious
+	 * omission in the other.
+	 */
+	public static float stealthCritMeleeMultiplier(final int level) {
 		return 2.0F + 0.25F * (level / 25);
+	}
+
+	/**
+	 * Stealth crit multiplier for an arrow from a bow or crossbow: x1.5 base,
+	 * +0.125 at 25/50/75/100 -> x2.0 at max. Weaker than the melee tier because
+	 * a shot from stealth risks nothing — no approach, no counterattack — and
+	 * archery already stacks its own bonuses on top.
+	 */
+	public static float stealthCritRangedMultiplier(final int level) {
+		return 1.5F + 0.125F * (level / 25);
 	}
 
 	// --- Smithing ---

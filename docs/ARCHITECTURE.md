@@ -142,6 +142,7 @@ sugar) are used throughout.
 | | | `doSweepAttack` (`getAttributeValue` expr) | Passive sweeping edge, recomputed as effective level |
 | | | `onEnchantmentPerformed` (arg) | Enchanting XP-cost discount |
 | | | `causeFoodExhaustion` (arg) | Athletics reduced sprint hunger |
+| | | `attack` (wrap) | Opens/closes `MeleeSwing` so a real swing is distinguishable from any damage source that merely names the player |
 | `BlockMixin` | `Block` | `getDrops` (tool arg + return) | Passive Fortune (boosted tool copy) + manual log-drop bonus |
 | `LivingEntityMixin` | `LivingEntity` | `hurtServer` (damage arg, ×3) | Combat damage multiplier, fall-protection uncap, stealth crit |
 | | | `getVisibilityPercent` (return) | Sneaking detection reduction |

@@ -86,7 +86,7 @@
 	"tooltip.specialities.swiftness": "Swiftness %s while sprinting (capped +80%%)",
 	"tooltip.specialities.detection": "-%s%% mob detection range while sneaking",
 	"tooltip.specialities.heavy_armor": "Heavy armor: -25%% of the bonus per piece",
-	"tooltip.specialities.stealth_crit": "Stealth crit x%s (once per enemy)",
+	"tooltip.specialities.stealth_crit": "Stealth crit x%s melee, x%s arrows (once per enemy)",
 	"tooltip.specialities.resourcefulness": "%s%% chance to recover materials when crafting gear",
 	"tooltip.specialities.smelt_multicraft": "Smelting multicraft: %s%% x2, %s%% x4, %s%% x8",
 	"tooltip.specialities.brew_return": "%s%% chance brewing ingredients aren't consumed",

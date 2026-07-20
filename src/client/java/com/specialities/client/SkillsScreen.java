@@ -389,7 +389,8 @@ public class SkillsScreen extends Screen {
 				lines.add(Component.translatable("tooltip.specialities.detection", detection));
 				lines.add(Component.translatable("tooltip.specialities.heavy_armor"));
 				lines.add(Component.translatable("tooltip.specialities.stealth_crit",
-						String.format("%.2f", Tuning.stealthCritMultiplier(level))));
+						String.format("%.2f", Tuning.stealthCritMeleeMultiplier(level)),
+						String.format("%.2f", Tuning.stealthCritRangedMultiplier(level))));
 			}
 			case SMITHING -> {
 				lines.add(Component.translatable("tooltip.specialities.resourcefulness", level));
