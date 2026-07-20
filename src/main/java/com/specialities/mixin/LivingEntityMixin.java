@@ -110,6 +110,13 @@ public abstract class LivingEntityMixin {
 
 	/**
 	 * Sneaking: guaranteed critical hit on an unaware target — once per enemy.
+	 *
+	 * <p>Two tiers, and nothing else qualifies for either. A melee swing (the
+	 * strict test — see {@link com.specialities.MeleeSwing}, a damage source
+	 * cannot be trusted to say what a swing is) gets the full multiplier; an
+	 * arrow from a bow or crossbow gets the weaker ranged one. Magic, bleeds,
+	 * poison, thorns and every other passive that borrows the player as its
+	 * damage source get nothing.
 	 */
 	@ModifyVariable(
 			method = "hurtServer(Lnet/minecraft/server/level/ServerLevel;"
@@ -126,7 +133,14 @@ public abstract class LivingEntityMixin {
 			return damage;
 		}
 
-		if (!SkillCategories.isWeaponAttack(attacker, source)) {
+		int sneakLevel = SkillManager.get(attacker).level(Skill.SNEAKING);
+		float multiplier;
+
+		if (SkillCategories.isMeleeSwing(attacker, source)) {
+			multiplier = Tuning.stealthCritMeleeMultiplier(sneakLevel);
+		} else if (SkillCategories.isRangedWeaponShot(attacker, source)) {
+			multiplier = Tuning.stealthCritRangedMultiplier(sneakLevel);
+		} else {
 			return damage;
 		}
 
@@ -135,7 +149,6 @@ public abstract class LivingEntityMixin {
 		}
 
 		((AttachmentTarget) mob).setAttached(ModAttachments.STEALTH_CRIT_DONE, true);
-		int sneakLevel = SkillManager.get(attacker).level(Skill.SNEAKING);
-		return damage * Tuning.stealthCritMultiplier(sneakLevel);
+		return damage * multiplier;
 	}
 }
