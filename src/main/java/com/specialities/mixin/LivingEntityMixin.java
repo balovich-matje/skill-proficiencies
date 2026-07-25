@@ -358,6 +358,17 @@ public abstract class LivingEntityMixin {
 
 		return original + Math.round(Tuning.acrobaticsProtectionPoints(SkillManager.get(player).level(Skill.ACROBATICS)));
 	}
+	*///?}
+
+	// THE `>=1.21` BLOCK ABOVE USED TO RUN TO THE END OF THIS FILE and now closes here instead.
+	// That re-bracketing is required, not cosmetic: the looting handler below needs a THIRD arm
+	// for the loader axis, and a directive nested inside an already-disabled branch needs the
+	// `*` -> `^` marker escalation (conventions §4). Leaving it nested and writing the inner
+	// chain with plain `*` markers fails preprocessing outright —
+	//   e: mixin/LivingEntityMixin.java:420:16 Unclosed scope
+	// — which is at least loud; the escalated form is the one that fails SILENTLY when it is got
+	// wrong, so the block was split instead. Everything this adds to the generated source of the
+	// five Fabric nodes is comment lines, so their bytecode is untouched.
 
 	// Passive looting has to reach the LOOT TABLE and nothing else, and below 1.21 the hook
 	// that delivers it is wider than that. Census of every `getMobLooting(LivingEntity)I`
@@ -385,13 +396,57 @@ public abstract class LivingEntityMixin {
 	// ONE `getMobLooting` call in `dropAllDeathLoot` (offset 16, stored to the `i` that
 	// offset 74 hands to `dropCustomDeathLoot`), so no ordinal. `dropFromLootTable` at offset
 	// 66 reads looting again, through the loot function, and that read still gets the bonus.
-	@ModifyExpressionValue(
+	//
+	// THE ANCHOR IS THE ONE THING THAT FORKS PER LOADER, and it is the only injection point in
+	// the whole tree that does. LexForge PATCHES this method and the `getMobLooting` call is
+	// what it replaces:
+	//
+	//   patches/net/minecraft/world/entity/LivingEntity.java.patch
+	//     minus:  int i; if (entity instanceof Player) i = EnchantmentHelper.getMobLooting(entity);
+	//     plus:   int i = ForgeHooks.getLootingLevel(this, entity, cause);
+	//
+	// So on the forge node there is NO `getMobLooting` INVOKE in `dropAllDeathLoot` at all, and
+	// the Fabric anchor fails the injection check outright — measured on a real server boot:
+	//   Critical injection failure: Callback method
+	//   specialities$equipmentDropsWithoutPassiveLooting(ILnet/minecraft/world/damagesource/
+	//   DamageSource;)I in specialities.mixins.json:LivingEntityMixin failed injection check,
+	//   (0/1) succeeded. Scanned 1 target(s). No refMap loaded.
+	//
+	// `ForgeHooks.getLootingLevel` is the exact substitute: `javap -c` of the PATCHED
+	// LivingEntity (forge-1.20.1-47.4.22-server.jar) shows one `invokestatic` of it at offset 8,
+	// `istore_3`, and that same local `iload_3` at offset 70 feeding the single
+	// `m_7472_(DamageSource,I,Z)` — i.e. it occupies the identical position in the identical
+	// dataflow, and it also reads the bonus in, since its own body calls
+	// `EnchantmentHelper.getMobLooting(killer)` and EnchantmentHelperMixin still hooks that.
+	// A `@ModifyArg` on `dropCustomDeathLoot` would have been one anchor for both loaders and is
+	// arguably a better one, but it would have moved 1.20.1-fabric's bytecode, and the five
+	// Fabric nodes are required to stay instruction-identical while the loader axis lands.
+	//
+	// TWO FLAT TOP-LEVEL CHAINS, not one: only the ANNOTATION forks and the handler BODY is
+	// shared (conventions §5a). The `elif fabric` arm below is character-identical to what this
+	// file shipped before the fork, so 1.20.1-fabric's generated source — and therefore its
+	// bytecode — is unchanged.
+	//? if >=1.21 {
+	//?} elif fabric {
+	/*@ModifyExpressionValue(
 			method = "dropAllDeathLoot(Lnet/minecraft/world/damagesource/DamageSource;)V",
 			at = @At(
 					value = "INVOKE",
 					target = "Lnet/minecraft/world/item/enchantment/EnchantmentHelper;"
 							+ "getMobLooting(Lnet/minecraft/world/entity/LivingEntity;)I"))
-	private int specialities$equipmentDropsWithoutPassiveLooting(final int original,
+	*///?} elif forge {
+	/*@ModifyExpressionValue(
+			method = "dropAllDeathLoot(Lnet/minecraft/world/damagesource/DamageSource;)V",
+			at = @At(
+					value = "INVOKE",
+					target = "Lnet/minecraftforge/common/ForgeHooks;"
+							+ "getLootingLevel(Lnet/minecraft/world/entity/Entity;"
+							+ "Lnet/minecraft/world/entity/Entity;"
+							+ "Lnet/minecraft/world/damagesource/DamageSource;)I"))
+	*///?}
+	//? if >=1.21 {
+	//?} else {
+	/*private int specialities$equipmentDropsWithoutPassiveLooting(final int original,
 			@Local(argsOnly = true) final DamageSource source) {
 		return original - SkillCategories.passiveLootingBonus(source.getEntity());
 	}

@@ -1,0 +1,73 @@
+# The 1.20.1-forge node's metadata. Shipped only by that node — build.fabric.gradle.kts and
+# build.neoforge.gradle.kts both exclude it, the way this node excludes fabric.mod.json.
+#
+# FILE NAME AND SHAPE VERIFIED against the one LexForge ships for itself:
+#   unzip -p forge-1.20.1-47.4.22-universal.jar META-INF/mods.toml
+# which gives modLoader / loaderVersion / issueTrackerURL / license and a [[mods]] block with
+# modId / version / displayName / credits / authors / description.
+#
+# THREE DIFFERENCES FROM THE NEOFORGE FILE, all measured, none guessable:
+#   1. `META-INF/mods.toml`, not `META-INF/neoforge.mods.toml`.
+#   2. dependency entries use `mandatory = true/false`, NOT NeoForge's `type = "required"`.
+#      Getting this wrong makes the dependency silently OPTIONAL.
+#   3. There is NO [[mixins]] table. Forge's own mods.toml has none, and mixin configs are
+#      found through the JAR MANIFEST attribute `MixinConfigs` — proven twice:
+#        * mixin-0.8.5.jar, javap of Constants.ManifestAttributes in
+#          org.spongepowered.asm.util -> `public static final String MIXINCONFIGS =
+#          "MixinConfigs"`
+#        * the phase-B trial build: `loom.forge { mixinConfig("trialforge.mixins.json") }`
+#          produced a jar whose MANIFEST.MF read `MixinConfigs: trialforge.mixins.json` and no
+#          mods.toml entry.
+#      So the config list lives in build.forge.gradle.kts, not here.
+#
+# The placeholders below are filled by the node script's processResources `expand`, from the
+# same property map fabric.mod.json gets plus forge_floor and minecraft_range.
+#
+# CAREFUL WHEN EDITING EVEN THE COMMENTS: `expand` runs this whole file, comments included,
+# through Groovy's SimpleTemplateEngine, so a dollar sign here is template syntax and not text.
+# A literal dollar-brace-ellipsis in a comment on this line failed the build with
+# "SimpleTemplateScript1.groovy: Unexpected input: '('", and a bare dollar sign in front of an
+# identifier (an inner-class reference read out of javap) would have been a missing-property
+# error at copy time. Neither is caught by anything before processResources runs.
+
+modLoader = "javafml"
+# The range is on the javafml LANGUAGE PROVIDER version, which is 47 for the 1.20.1 line
+# (MANIFEST of javafmllanguage-1.20.1-47.4.22.jar). Forge's own file says "[24,]" for itself
+# because that is the FML version, not the language provider's.
+loaderVersion = "[47,)"
+license = "MIT"
+issueTrackerURL = "https://github.com/balovich-matje/skill-proficiencies/issues"
+
+[[mods]]
+modId = "${id}"
+version = "${version}"
+displayName = "${name}"
+authors = "balovich-matje"
+displayURL = "https://github.com/balovich-matje/skill-proficiencies"
+logoFile = "icon.png"
+description = '''
+Level up 15 RPG skills just by playing — mine, chop, fight, fish, sneak, craft. Bonuses stack with vanilla enchantments.
+'''
+
+# Third-party skill contributions on this loader (see platform/ForgePlatform.skillProviders).
+# The CONTRIBUTING mod writes this in its own mods.toml — same key as NeoForge, so a mod that
+# ships for both loaders declares it once:
+#
+#   [modproperties.theirmodid]
+#   specialities_skills = "com.their.mod.TheirSkillsEntrypoint"
+
+[[dependencies.${id}]]
+modId = "forge"
+mandatory = true
+versionRange = "[${forge_floor},)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.${id}]]
+modId = "minecraft"
+mandatory = true
+# A MAVEN range, not Fabric's `mod.mc_compat` syntax — which is why the loader-axis nodes have
+# their own toml key, `mod.mc_range` under [forge."1.20.1"].
+versionRange = "${minecraft_range}"
+ordering = "NONE"
+side = "BOTH"

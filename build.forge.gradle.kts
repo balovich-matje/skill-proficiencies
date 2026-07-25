@@ -179,9 +179,20 @@ val metadataProps: Map<String, String> = mapOf(
 
 tasks.withType<ProcessResources>().configureEach {
 	// Mixin 0.8.5's CompatibilityLevel enum tops out at JAVA_18 (javap of mixin-0.8.5.jar:
-	// JAVA_6 … JAVA_17, JAVA_18 and nothing above). JAVA_17 is therefore accepted, which is
-	// what design §1.10 predicted — and it is the reason the `${java}` substitution needs no
-	// special case here.
+	// JAVA_6 … JAVA_17, JAVA_18 and nothing above), so `JAVA_17` is a legal value and the
+	// `${java}` substitution needs no special case here — which is what design §1.10 predicted.
+	//
+	// MEASURED CORRECTION, from the Tier-2 boot: the enum having the constant is not the same as
+	// the runtime ACCEPTING it. LexForge's bundled Mixin logs, once per config,
+	//   [main/WARN] [mixin/]: Compatibility level JAVA_17 specified by specialities.mixins.json
+	//   is higher than the maximum level supported by this version of mixin (JAVA_13).
+	// and then clamps. It is benign — all 15 common mixins applied in the same run, under
+	// `-Dmixin.checks=true -Dmixin.debug.countInjections=true`, with zero injection failures —
+	// because the level governs which mixin-class features Mixin will vouch for, not whether ASM
+	// can read a class-file-major-61 mixin. The Fabric nodes do not print it: fabric-loader
+	// ships sponge-mixin 0.15.x (Mixin 0.8.7), whose supported maximum is higher.
+	// DO NOT "fix" this by writing JAVA_13 into the shared config: that would lower the level for
+	// every node and change five Fabric jars' resource bytes for a log line.
 	val mixinJava = "JAVA_${requiredJava.majorVersion}"
 	metadataProps.forEach { (k, v) -> inputs.property(k, v) }
 	inputs.property("mixinJava", mixinJava)
@@ -236,16 +247,30 @@ tasks.withType<ProcessResources>().configureEach {
 	// fabric.mod.json is in the shared src/main/resources and must not ship here.
 	exclude("fabric.mod.json")
 
-	// PACK.MCMETA, and where it is NOT: this loader does not mount a mod's assets/ or data/
-	// roots without one, so this node needs the file — but it must NOT go in the shared
-	// `src/main/resources`. Fabric needs no pack.mcmeta, and adding one there would move all
-	// five Fabric jars' resource bytes and break the reproduction gate. It therefore lives as
-	// a per-node override (conventions §4 mechanism 2) at
-	//   versions/<node>/src/main/resources/pack.mcmeta
-	// which also keeps the two Phase B nodes' copies genuinely independent: `pack_format` is
-	// 15 here and 48 on 1.21.1-neoforge, and only the newer one carries `supported_formats`,
-	// so this is deliberately NOT one shared file with a substituted number. Owned by the
-	// agent that owns this node.
+	// PACK.MCMETA AND MODS.TOML, and where they are NOT: both live as PER-NODE OVERRIDES at
+	//   versions/1.20.1-forge/src/main/resources/pack.mcmeta
+	//   versions/1.20.1-forge/src/main/resources/META-INF/mods.toml
+	// not in the shared `src/main/resources`, and for the same reason in both cases: this node
+	// is the only one that wants them, and the shared tree is read by all seven. Fabric needs no
+	// pack.mcmeta at all, and neither Fabric nor NeoForge wants `META-INF/mods.toml` — putting
+	// either in `src/main/resources` would ship it inside all five Fabric jars and the NeoForge
+	// one, moving their resource bytes and breaking the reproduction gate. There is no
+	// `exclude("META-INF/mods.toml")` in build.fabric.gradle.kts to lean on, which is exactly
+	// why the override route was taken instead of the shared-plus-exclude route that
+	// `fabric.mod.json` uses in the other direction (that one predates the loader axis).
+	//
+	// pack.mcmeta is load-bearing, not cosmetic: without it this loader mounts neither the mod's
+	// `assets/` nor its `data/` root, so the six tag JSONs are read by nothing and the R-16
+	// cascade fires silently. `pack_format = 15` and no `supported_formats` — the value is what
+	// `unzip -p forge-1.20.1-47.4.22-universal.jar pack.mcmeta` reports for Forge's own file.
+	// 1.21.1-neoforge's copy is 48 plus `supported_formats`, so these are genuinely two files
+	// and not one file with a substituted number.
+	//
+	// A trap in mods.toml worth knowing before editing it: `expand` runs the WHOLE file, comments
+	// included, through Groovy's SimpleTemplateEngine, so a dollar sign anywhere in it is
+	// template syntax. A literal `${…}` written inside a comment failed this task with
+	// "SimpleTemplateScript1.groovy: Unexpected input: '('", and a bare `Foo$Inner` in a comment
+	// would have been a missing-property error. Nothing before processResources catches either.
 }
 
 tasks {
