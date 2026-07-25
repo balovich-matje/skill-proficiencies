@@ -6,7 +6,9 @@ import java.util.UUID;
 
 import com.specialities.Specialities;
 
+//? if >=1.21 {
 import net.minecraft.resources.Identifier;
+//?}
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -20,13 +22,35 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
  * potions/beacons + skill never exceed +80%) and sprint-time XP.
  */
 public final class AthleticsTicker {
+	// Attribute modifiers are keyed by a UUID + a display name below 1.21, and by a
+	// ResourceLocation from 1.21 up. The UUID must be a STABLE literal, not a fresh random
+	// one: DefencePassives' modifiers are permanent, so they are written into the player's
+	// Attributes NBT and a per-session id would pile up duplicates on every login. This
+	// one is transient, but it is derived the same way for consistency.
+	//
+	// Each literal is `UUID.nameUUIDFromBytes("<the 1.21+ identifier>".getBytes(UTF_8))`, so
+	// it is reproducible from the id it replaces rather than invented — one line of Java or
+	// a version-3 MD5 name UUID in any other language re-derives it.
+	//? if >=1.21 {
 	private static final Identifier SPRINT_MODIFIER_ID = Specialities.id("athletics_sprint");
+	//?} else {
+	/*private static final UUID SPRINT_MODIFIER_ID = UUID.fromString("0fb147b0-ee56-3419-a1e6-c099b25a86fe");
+	private static final String SPRINT_MODIFIER_NAME = "specialities:athletics_sprint";
+	*///?}
 	private static final Map<UUID, Integer> sprintTicks = new HashMap<>();
 
 	private AthleticsTicker() {
 	}
 
+	// The return type is what `client/mixin/AbstractClientPlayerMixin` passes to
+	// `AttributeInstance.getModifier(...)`. The two must fork TOGETHER — flagged as a
+	// cross-set coupling hazard by Stage 2e and recorded in design §3.4 — which is why both
+	// halves land in one commit.
+	//? if >=1.21 {
 	public static Identifier sprintModifierId() {
+	//?} else {
+	/*public static UUID sprintModifierId() {
+	*///?}
 		return SPRINT_MODIFIER_ID;
 	}
 
@@ -76,7 +100,15 @@ public final class AthleticsTicker {
 		}
 
 		AttributeModifier existing = speed.getModifier(SPRINT_MODIFIER_ID);
+		// `AttributeModifier.amount()` was `getAmount()` before the record rewrite, and the
+		// three Operation constants were renamed (ADD_VALUE/ADD_MULTIPLIED_BASE/
+		// ADD_MULTIPLIED_TOTAL were ADDITION/MULTIPLY_BASE/MULTIPLY_TOTAL). Same operation,
+		// same arithmetic — only the names and the extra display-name argument move.
+		//? if >=1.21 {
 		double current = existing == null ? 0.0 : existing.amount();
+		//?} else {
+		/*double current = existing == null ? 0.0 : existing.getAmount();
+		*///?}
 
 		if (current == desired) {
 			return;
@@ -84,8 +116,13 @@ public final class AthleticsTicker {
 
 		speed.removeModifier(SPRINT_MODIFIER_ID);
 		if (desired > 0) {
+			//? if >=1.21 {
 			speed.addTransientModifier(new AttributeModifier(SPRINT_MODIFIER_ID, desired,
 					AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+			//?} else {
+			/*speed.addTransientModifier(new AttributeModifier(SPRINT_MODIFIER_ID, SPRINT_MODIFIER_NAME, desired,
+					AttributeModifier.Operation.MULTIPLY_TOTAL));
+			*///?}
 		}
 	}
 }

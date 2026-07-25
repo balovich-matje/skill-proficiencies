@@ -64,8 +64,19 @@ public final class SkillCommands {
 	private static final SuggestionProvider<CommandSourceStack> SKILL_SUGGESTIONS =
 			(context, builder) -> SharedSuggestionProvider.suggest(SkillTypes.all().stream().map(SkillType::id), builder);
 
+	// `Component.translatableEscape` is a 1.20.5 addition (it escapes an untrusted argument
+	// so a hostile skill id cannot inject formatting). Below that only `translatable` exists,
+	// which is what every vanilla `DynamicCommandExceptionType` on that version uses — the
+	// argument here is a command-line token that has already failed to match a registered
+	// skill id, and it is rendered as plain text, so the substitution is the same message
+	// with vanilla's own escaping behaviour for that version.
+	//? if >=1.20.5 {
 	private static final DynamicCommandExceptionType ERROR_UNKNOWN_SKILL = new DynamicCommandExceptionType(
 			id -> Component.translatableEscape("commands.specialities.unknown_skill", id));
+	//?} else {
+	/*private static final DynamicCommandExceptionType ERROR_UNKNOWN_SKILL = new DynamicCommandExceptionType(
+			id -> Component.translatable("commands.specialities.unknown_skill", id));
+	*///?}
 
 	private SkillCommands() {
 	}
