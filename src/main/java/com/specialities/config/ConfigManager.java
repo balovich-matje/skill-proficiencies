@@ -4,8 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonParseException;
 import com.specialities.Specialities;
-
-import net.fabricmc.loader.api.FabricLoader;
+import com.specialities.platform.Platform;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -21,7 +20,7 @@ import java.nio.file.Path;
  */
 public final class ConfigManager {
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-	private static final Path PATH = FabricLoader.getInstance().getConfigDir().resolve("specialities.json");
+	private static final Path PATH = Platform.INSTANCE.configDir().resolve("specialities.json");
 
 	private static SpecialitiesConfig instance = new SpecialitiesConfig();
 

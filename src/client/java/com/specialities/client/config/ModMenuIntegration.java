@@ -1,9 +1,9 @@
 package com.specialities.client.config;
 
+import com.specialities.platform.Platform;
+
 import com.terraformersmc.modmenu.api.ConfigScreenFactory;
 import com.terraformersmc.modmenu.api.ModMenuApi;
-
-import net.fabricmc.loader.api.FabricLoader;
 
 /**
  * Mod Menu entrypoint. This class only references the Mod Menu API and our own
@@ -15,7 +15,7 @@ import net.fabricmc.loader.api.FabricLoader;
 public final class ModMenuIntegration implements ModMenuApi {
 	@Override
 	public ConfigScreenFactory<?> getModConfigScreenFactory() {
-		FabricLoader loader = FabricLoader.getInstance();
+		Platform loader = Platform.INSTANCE;
 		boolean clothPresent = loader.isModLoaded("cloth-config")
 				|| loader.isModLoaded("cloth_config")
 				|| loader.isModLoaded("cloth-config2");

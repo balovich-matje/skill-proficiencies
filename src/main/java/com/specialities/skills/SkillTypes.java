@@ -7,9 +7,7 @@ import java.util.Map;
 
 import com.specialities.Specialities;
 import com.specialities.api.SkillType;
-import com.specialities.api.SkillsEntrypoint;
-
-import net.fabricmc.loader.api.FabricLoader;
+import com.specialities.platform.Platform;
 
 /**
  * Every skill the engine knows: the fifteen built-ins in enum order, then
@@ -35,24 +33,22 @@ public final class SkillTypes {
 
 	/** Called once from common init, before any player state can exist. */
 	public static void pullEntrypoints() {
-		FabricLoader.getInstance()
-				.getEntrypointContainers("specialities:skills", SkillsEntrypoint.class)
-				.forEach(container -> container.getEntrypoint().registerSkills(skill -> {
+		Platform.INSTANCE.skillProviders()
+				.forEach(provider -> provider.entrypoint().registerSkills(skill -> {
 					String id = skill.id();
 
 					if (id == null || id.isBlank() || !id.equals(id.toLowerCase(Locale.ROOT))) {
 						throw new IllegalArgumentException("Invalid skill id '" + id + "' from "
-								+ container.getProvider().getMetadata().getId());
+								+ provider.modId());
 					}
 
 					if (BY_ID.putIfAbsent(id, skill) != null) {
 						throw new IllegalArgumentException("Duplicate skill id '" + id + "' from "
-								+ container.getProvider().getMetadata().getId());
+								+ provider.modId());
 					}
 
 					all = List.copyOf(BY_ID.values());
-					Specialities.LOGGER.info("Registered skill '{}' from {}", id,
-							container.getProvider().getMetadata().getId());
+					Specialities.LOGGER.info("Registered skill '{}' from {}", id, provider.modId());
 				}));
 	}
 
