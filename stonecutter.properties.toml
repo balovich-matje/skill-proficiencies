@@ -121,3 +121,19 @@ mod.loader_floor = ">=0.16.10"
 deps.fabric_api = "0.92.11+1.20.1"
 # No modmenu/cloth_config keys: the optional config UI is gated to >=26.1 in
 # build.fabric.gradle.kts, so this node must not declare them.
+
+[forge."1.20.1"]
+# Maven range, not Fabric's `mod.mc_compat` syntax — see the note under [neoforge."1.21.1"].
+mod.mc_range = "[1.20,1.20.2)"
+# The version string WITHOUT the `1.20.1-` prefix: build.forge.gradle.kts assembles the
+# coordinate as `net.minecraftforge:forge:${sc.current.version}-${deps.forge}`.
+# Architectury Loom 1.17.491 + this pin trial-compiled on this machine
+# (scratchpad/phase-b-prep/trial-forge, BUILD SUCCESSFUL in 16s).
+deps.forge = "47.4.22"
+# R-10: LexForge bundles NO MixinExtras — measured, forge-1.20.1-47.4.22-userdev.jar's own
+# config.json lists `org.spongepowered:mixin:0.8.5` and zero llamalad7 entries — so the mod's
+# @WrapMethod/@WrapOperation/@ModifyReturnValue/@Local usage has to be jar-in-jar'd. 0.5.4 is
+# what fabric-loader 0.19.3 bundles, i.e. the same library the 26.x nodes run against.
+deps.mixinextras = "0.5.4"
+# `loom.platform=forge` deliberately does NOT live here: Arch Loom reads it during plugin
+# apply, before Stonecutter's properties exist. It is in versions/1.20.1-forge/gradle.properties.

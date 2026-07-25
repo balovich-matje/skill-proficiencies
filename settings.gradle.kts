@@ -65,7 +65,18 @@ stonecutter {
 		// 1.20.1), which is what makes conventions §5e enforceable: from here on the
 		// shared tree is compiled at source level 17 somewhere, so a Java 21+ API in
 		// shared code is a build failure on this node instead of a latent one.
-		match("1.20.1", "fabric")
+		//
+		// The `forge` half is the SECOND Phase B node and the only one that is not on a
+		// fabric-family loom: `build.forge.gradle.kts` applies Architectury Loom, and
+		// `versions/1.20.1-forge/gradle.properties` carries `loom.platform=forge` because Arch
+		// Loom reads it during plugin apply. It is also the only node with no template of any
+		// kind behind its script (design R-12), the only one that must jar-in-jar MixinExtras
+		// (R-10), and — being below 1.20.5 — the only one that lands on the shared tree's
+		// `<1.20.5` branches while carrying a non-Fabric loader.
+		//
+		// Same as the NeoForge node: `:1.20.1-forge:build` FAILS by design until the Forge
+		// seam impls land; `stonecutterGenerate` and `printPublishMetadata` are green.
+		match("1.20.1", "fabric", "forge")
 
 		// The node whose state the shared `src/` is committed in.
 		vcsVersion = "26.2-fabric"
