@@ -1,7 +1,7 @@
 {
 	"required": true,
 	"package": "com.specialities.mixin",
-	"compatibilityLevel": "JAVA_25",
+	"compatibilityLevel": "${java}",
 	"mixins": [
 		"AbstractArrowAccessor",
 		"AbstractArrowMixin",
