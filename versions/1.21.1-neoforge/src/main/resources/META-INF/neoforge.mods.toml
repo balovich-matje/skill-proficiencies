@@ -1,0 +1,127 @@
+# The 1.21.1-neoforge node's mod metadata — the counterpart of fabric.mod.json.
+#
+# WHY THIS FILE IS A PER-NODE OVERRIDE (`versions/1.21.1-neoforge/src/main/resources/`) AND
+# NOT IN THE SHARED `src/main/resources/`, which is where the Phase B prep plan put it:
+# the shared resource root ships into EVERY node's jar. `build.fabric.gradle.kts` excludes the
+# loader-only JAVA files by glob but has no resource exclusion, and that script is not this
+# node's to edit — so a shared `META-INF/neoforge.mods.toml` would land in all five Fabric jars
+# and move their resource bytes, which is exactly the reproduction gate Stage 6 is required to
+# keep. `pack.mcmeta` is a per-node override for the same reason (conventions §4 mechanism 2,
+# and the §4 bullet that already says so for pack.mcmeta). The cost is the usual drift hazard:
+# an override does not inherit, so anything added to the shared metadata has to be mirrored
+# here by hand.
+#
+# SHAPE VERIFIED against the file NeoForge ships for itself —
+#   unzip -p neoforge-21.1.243-universal.jar META-INF/neoforge.mods.toml
+# which is modLoader / loaderVersion / issueTrackerURL / logoFile / license, then [[mods]] with
+# modId/version/displayName/authors/description, then [[mixins]] config = "…".
+#
+# NOTE THE FILE NAME: `neoforge.mods.toml`, not `mods.toml`. LexForge 1.20.1 still reads
+# `META-INF/mods.toml` (verified the same way against forge-1.20.1-47.4.22-universal.jar), so
+# the two Phase B nodes' metadata files differ in NAME as well as in content — which is why
+# neither node needs a processResources rename.
+#
+# The dollar-brace placeholders below are filled by build.neoforge.gradle.kts's
+# processResources `expand`, exactly as fabric.mod.json's are. The property names are the same
+# set the Fabric script computes, plus `minecraft_range` and `neoforge_floor`.
+#
+# CARE, MEASURED THE HARD WAY (twice): `expand` runs the WHOLE file through Groovy's
+# SimpleTemplateEngine, comments included. A dollar sign followed by a brace or by a word is a
+# GString expression even inside a `#` comment — quoting the placeholder syntax, or writing a
+# nested class with the JVM's inner-class separator, fails the COPY with either
+# "Failed to parse template script … Unexpected input: '('" or
+# "Missing property (Inner) for Groovy template expansion". Write a dot for the inner-class
+# separator and describe the placeholder syntax in words.
+#
+# TOML, not JSON — but `//?` would still be wrong here, and is unnecessary: this file exists
+# on one node only.
+
+modLoader = "javafml"
+# The javafml LANGUAGE PROVIDER's version, not the Minecraft or NeoForge version. It lives in
+# net.neoforged.fancymodloader:loader, which the neoforge 21.1.243 POM pins at 4.0.43 (:41-43)
+# — hence the 4 floor. NeoForge's own file says "[3,]", which 4.0.43 also satisfies; the
+# accurate floor is preferred here so a future 21.x bump cannot silently widen it.
+loaderVersion = "[4,)"
+license = "MIT"
+issueTrackerURL = "https://github.com/balovich-matje/skill-proficiencies/issues"
+# Jar-root-relative, the way NeoForge's own "neoforged_logo.png" is. The mod's icon has always
+# lived at assets/specialities/icon.png (fabric.mod.json points there too) and is NOT moved:
+# moving it would change the shared resource tree and every Fabric jar with it.
+logoFile = "assets/specialities/icon.png"
+
+[[mods]]
+modId = "${id}"
+version = "${version}"
+displayName = "${name}"
+authors = "balovich-matje"
+displayURL = "https://github.com/balovich-matje/skill-proficiencies"
+description = '''
+Level up 15 RPG skills just by playing — mine, chop, fight, fish, sneak, craft. Bonuses stack with vanilla enchantments.
+'''
+
+# HOW `specialities:skills` IS REPLACED ON THIS LOADER — see NeoForgePlatform.skillProviders,
+# which documents the two rejected mechanisms. A CONTRIBUTING mod puts this in its OWN
+# metadata file, not in ours; it is recorded here so the contract lives beside the file that
+# defines its syntax:
+#
+#   [modproperties.theirmodid]
+#   specialities_skills = "com.their.mod.TheirSkillsEntrypoint"
+#
+# Read back through IModInfo.getModProperties() over ModList.get().getMods() (the sorted list,
+# so registration order is deterministic the way Fabric's entrypoint order is). This is a
+# second PUBLISHED API surface and README.md is deliberately NOT edited for it yet — that is
+# the user's call (prep Q5).
+
+# Mixin configs: NeoForge reads them from `[[mixins]]` here, proven by NeoForge's own
+# neoforge.mods.toml declaring `config = "neoforge.mixins.json"` this way. LexForge 1.20.1 has
+# no `[[mixins]]` support and uses the jar manifest attribute `MixinConfigs` instead, so this
+# is one of the two places the Phase B nodes genuinely differ in mechanism.
+[[mixins]]
+config = "specialities.mixins.json"
+
+# PREP Q4, ANSWERED BY MEASUREMENT ON A REAL HEADLESS DEDICATED SERVER — and the answer is NOT
+# the one the artifact reading predicted, so read this rather than re-deriving it.
+#
+# The client config is listed unconditionally, because NeoForge's `[[mixins]]` table has no
+# per-config `environment` key the way fabric.mod.json does. The PREDICTION was that the
+# `"client"` array inside the config would be the side gate: MixinConfig keeps three lists
+# (`mixinClasses` / `mixinClassesClient` / `mixinClassesServer`) and switches on
+# `MixinEnvironment.getSide()` (javap -c of sponge-mixin-0.15.2, the artifact NeoForge 21.1.243
+# itself ships). MEASURED, that is not what happens on this loader: the boot log says
+# "Preparing specialities.client.mixins.json (2)", i.e. both client-only mixins were SELECTED
+# on a dedicated server, next to "Preparing specialities.mixins.json (15)".
+#
+# It is still harmless, and here is why, all from the same run: neither mixin ever APPLIED (no
+# "Mixing AbstractClientPlayerMixin …" line), there was no warning and no error, and the server
+# reached "Done" and stopped with exit 0. Their targets — AbstractClientPlayer and
+# AbstractContainerScreen — are not in the dedicated server's Minecraft jar at all (checked:
+# zero `net/minecraft/client/` entries in server-1.21.1-20240808.144430-srg.jar), and Mixin does
+# not resolve a target class until that class is loaded, which on a dedicated server never
+# happens. So `injectors.defaultRequire: 1` cannot fire on them.
+#
+# WHAT IS NOT ESTABLISHED: why Mixin selected them despite the side lists. Selection is
+# harmless here, so it was not chased further — but do not turn this comment into a claim that
+# the side arrays gate anything on NeoForge, and do not add a client mixin whose target class
+# IS present server-side expecting the array to protect it.
+[[mixins]]
+config = "specialities.client.mixins.json"
+
+[[dependencies.${id}]]
+modId = "neoforge"
+type = "required"
+# The floor is `deps.neoforge` from stonecutter.properties.toml. It is not cosmetic: NeoForge
+# gained data-attachment SYNC at 21.1.200 (design R-09), which is what lets
+# NeoForgeSkillStore.resyncSkills stay a no-op, so a 21.1.x below that would load the mod and
+# then never give any client its skill map.
+versionRange = "[${neoforge_floor},)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.${id}]]
+modId = "minecraft"
+type = "required"
+# NOT `mod.mc_compat` — that value is Fabric range syntax (">=1.21 <=1.21.1"). mods.toml wants
+# a Maven range, so the loader-axis nodes read their own toml key, `mod.mc_range`.
+versionRange = "${minecraft_range}"
+ordering = "NONE"
+side = "BOTH"

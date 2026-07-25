@@ -38,6 +38,29 @@ val requiredJava: JavaVersion = when {
 val compatibleVersions: List<String> = sc.properties.rawOrNull("mod", "mc_releases")
 	?.asList().orEmpty().map { it.toString() }
 
+// DESIGN R-09 AS A BUILD GATE, not as a comment. Data-attachment SYNC — `AttachmentType
+// .Builder.sync(...)` and the `AttachmentSync.syncInitialPlayerAttachments` call the patched
+// PlayerList makes on login — arrived at NeoForge 21.1.200. `NeoForgeSkillStore.resyncSkills`
+// is a NO-OP *because* of it, so a pin below the floor would build, load, and then never give
+// any client its skill map: no crash, no log line, an entirely blank HUD bar and skills screen.
+// That is the exact failure class this project keeps failing the build on instead
+// (conventions §5d's reasoning applied to a dependency pin), hence a configuration-time
+// `require` rather than a runtime check.
+val neoForgeVersion: String = sc.properties["deps.neoforge"]
+
+run {
+	val parts = neoForgeVersion.split('.', '-')
+	val major = parts.getOrNull(0)?.toIntOrNull() ?: 0
+	val minor = parts.getOrNull(1)?.toIntOrNull() ?: 0
+	val patch = parts.getOrNull(2)?.toIntOrNull() ?: 0
+	val hasAttachmentSync = major > 21 || (major == 21 && minor > 1) || (major == 21 && minor == 1 && patch >= 200)
+	require(hasAttachmentSync) {
+		"deps.neoforge for node ${sc.current.project} is $neoForgeVersion, which is below the " +
+			"21.1.200 data-attachment-sync floor (design R-09). Either raise the pin or make " +
+			"SkillStore.resyncSkills real on this node — which is a third wire id and needs the user's go-ahead."
+	}
+}
+
 repositories {
 	fun strictMaven(url: String, alias: String, vararg groups: String) = exclusiveContent {
 		forRepository { maven(url) { name = alias } }
@@ -128,7 +151,7 @@ val metadataProps: Map<String, String> = mapOf(
 	// `mod.mc_compat` is FABRIC range syntax (">=1.21 <=1.21.1"). mods.toml wants a Maven
 	// range, so the toml needs its own key per non-Fabric node: `mod.mc_range`.
 	"minecraft_range" to sc.properties["mod.mc_range"],
-	"neoforge_floor" to sc.properties["deps.neoforge"],
+	"neoforge_floor" to neoForgeVersion,
 	"java_floor" to requiredJava.majorVersion,
 )
 
@@ -142,6 +165,13 @@ tasks.withType<ProcessResources>().configureEach {
 	inputs.property("legacyTagDir", sc.current.parsed < "1.21")
 	inputs.property("legacyItemModels", sc.current.parsed < "1.21.4")
 
+	// MEASURED TRAP, and it cost two build cycles: `expand` runs the WHOLE file through Groovy's
+	// SimpleTemplateEngine, `#` comments included. A dollar sign followed by `{` or by a word is
+	// a GString expression wherever it appears, so quoting the placeholder syntax in a comment
+	// fails the COPY with "Failed to parse template script … Unexpected input: '('", and naming
+	// a nested class with the JVM inner-class separator fails it with "Missing property (Inner)
+	// for Groovy template expansion". The metadata file carries the same warning at the top; do
+	// not "improve" its prose back into either shape.
 	filesMatching("META-INF/neoforge.mods.toml") { expand(metadataProps) }
 	// Mixin 0.8.7 ships with NeoForge 21.1.243 (POM: net.fabricmc:sponge-mixin:0.15.2+mixin.0.8.7)
 	// and its CompatibilityLevel enum goes up to JAVA_22 (javap of the artifact), so JAVA_21
@@ -197,16 +227,35 @@ tasks.withType<ProcessResources>().configureEach {
 	// it defeats the resource-byte gate. The template excludes it for the same reason.
 	exclude("fabric.mod.json")
 
-	// PACK.MCMETA, and where it is NOT: this loader does not mount a mod's assets/ or data/
-	// roots without one, so this node needs the file — but it must NOT go in the shared
-	// `src/main/resources`. Fabric needs no pack.mcmeta, and adding one there would move all
-	// five Fabric jars' resource bytes and break the reproduction gate. It therefore lives as
-	// a per-node override (conventions §4 mechanism 2) at
-	//   versions/<node>/src/main/resources/pack.mcmeta
-	// which also keeps the two Phase B nodes' copies genuinely independent: `pack_format`
-	// differs (48 here vs 15 on 1.20.1) and so does whether `supported_formats` is present,
-	// so this is deliberately NOT one shared file with a substituted number. Owned by the
-	// agent that owns this node.
+	// EVERY LOADER-ONLY RESOURCE ON THIS NODE IS A PER-NODE OVERRIDE (conventions §4
+	// mechanism 2), living under
+	//   versions/1.21.1-neoforge/src/{main,client}/resources/…
+	// and NOT in the shared `src/`. There are three, and the reason is the same for all three:
+	// the shared resource roots ship into every node's jar, `build.fabric.gradle.kts` excludes
+	// the loader-only JAVA files by glob but has no resource exclusion, and that script is not
+	// this node's to edit — so a shared copy would land in all five Fabric jars and move their
+	// resource bytes, which is precisely the reproduction gate this stage has to keep. Verified
+	// present in the produced jar with `unzip -l`, since an override that silently does not
+	// apply looks exactly like a working one until the game says otherwise.
+	//
+	//   META-INF/neoforge.mods.toml   the mod metadata. Different FILE NAME from LexForge's
+	//                                 META-INF/mods.toml, so the two Phase B nodes need no
+	//                                 rename, only their own copies.
+	//   pack.mcmeta                   this loader mounts neither assets/ nor data/ without one.
+	//                                 Missing it reproduces the R-16 tag cascade by another
+	//                                 route, and silently — the §7 Tier-2 positive tag probe is
+	//                                 the only automatic detector. `pack_format` 48 +
+	//                                 `supported_formats` here vs 15 and none on 1.20.1-forge,
+	//                                 both read out of each loader's own universal jar, which is
+	//                                 why one shared file with a substituted number was not the
+	//                                 shape chosen.
+	//   specialities.client.mixins.json   the shared config lists UseDurationMixin, whose target
+	//                                 class is >=1.21.11. Same override 1.21.1-fabric already
+	//                                 needs; this node's copy differs from that one in NOT
+	//                                 listing GuiMixin (see NeoForgeClientEvents' HUD javadoc).
+	//
+	// Cost, and it is the usual one: an override does not inherit. Anything added to a shared
+	// resource that this node needs has to be mirrored here by hand.
 }
 
 tasks {
