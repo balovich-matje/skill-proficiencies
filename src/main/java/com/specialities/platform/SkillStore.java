@@ -6,7 +6,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
-//? if >=1.20.5 {
+//? if >=1.21 {
 //?} else {
 /*import net.minecraft.world.item.ItemStack;
 *///?}
@@ -98,23 +98,31 @@ public interface SkillStore {
 
 	// --- the fifth transient pair: a single-node member, and deliberately so ---
 	//
-	// `AbstractArrow.getWeaponItem()ItemStack` does not exist below 1.21.2 (design R-04:
-	// "ABSENT ANYWHERE in 1.20.1"), and three balance tests in SkillCategories are built
-	// on it — archery-vs-arms-mastery XP routing, the ranged half of the combat damage
-	// multiplier, and the thrown-melee-weapon case. On that node the firing weapon is
-	// stamped onto the projectile at the moment it is spawned (BowItemMixin,
-	// CrossbowItemMixin) and read back here at damage time, which keeps all three tests
-	// semantically identical instead of approximating them.
+	// `AbstractArrow.getWeaponItem()ItemStack` does not exist below 1.21, and three balance
+	// tests in SkillCategories are built on it — archery-vs-arms-mastery XP routing, the
+	// ranged half of the combat damage multiplier, and the thrown-melee-weapon case. On the
+	// nodes without it the firing weapon is stamped onto the projectile at the moment it is
+	// spawned (BowItemMixin, CrossbowItemMixin) and read back here at damage time, which
+	// keeps all three tests semantically identical instead of approximating them.
+	//
+	// THE PREDICATE IS `>=1.21` ON EVERY PIECE OF THE STAMP, and that is the whole reason it
+	// is spelled out here: `>=1.21` is the frozen row `AbstractArrow.getWeaponItem()` sits in
+	// (conventions §3), measured — 1.21.1 mojmap has `getWeaponItem()` and the
+	// `firedFromWeapon` field on AbstractArrow, 1.20.1 has neither. This declaration and its
+	// Fabric implementation used to say `>=1.20.5`, which picks the same five nodes today and
+	// would silently split the stamp in half the first time a node landed between 1.20.5 and
+	// 1.21 — the store would stop declaring the pair the mixins still call. Earlier text here
+	// said "below 1.21.2"; that number was never right for this API either.
 	//
 	// Gated rather than declared for every node on purpose: a method no other node can
 	// call is the speculative surface design §2 sets out to avoid (§2.4 deviations 5
 	// and 7), and declaring it unconditionally would add an attachment id to worlds
-	// that never use it. A Phase B loader below 1.21.2 implements this pair; every
+	// that never use it. A Phase B loader below 1.21 implements this pair; every
 	// other one does not see it.
 	// A disabled branch may not carry `/** … */` javadoc — the `*/` would close the
 	// branch comment early (conventions §5e-ter), so these two are documented with
 	// line comments instead.
-	//? if >=1.20.5 {
+	//? if >=1.21 {
 	//?} else {
 	/*// The weapon a projectile was fired from, or null for a projectile nothing stamped
 	// (a dispenser shot, a skeleton's arrow, a thrown trident — SkillCategories answers

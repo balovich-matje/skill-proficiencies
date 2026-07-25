@@ -400,6 +400,31 @@ after adding the tag-directory rename and the item-model conversion reported
 `processResources UP-TO-DATE` and shipped the untransformed resources. Any new conditional
 transform needs its decision declared with `inputs.property(...)` in the same edit.
 
+**5k. A substitute carries the boundary of the API it substitutes FOR — never a
+different predicate that happens to select the same nodes.** Added after the Stage-5
+balance-parity review, which found the firing-weapon stamp gated `>=1.20.5` in
+`platform/SkillStore` and `platform/FabricSkillStore` but `>=1.21` in
+`skills/SkillCategories` and the Bow/Crossbow mixins. Every registered node is on the same
+side of both predicates, so it was invisible — and it is exactly half a feature waiting to
+break: a node between 1.20.5 and 1.21 would get mixins that stamp through a `SkillStore`
+that no longer declares the pair.
+
+- **Unified on `>=1.21`, because that is the boundary of the missing API**:
+  `AbstractArrow.getWeaponItem()` is a frozen `>=1.21` row in §3, measured per node — 1.21.1
+  mojmap has both `getWeaponItem()ItemStack` and the `firedFromWeapon` field on
+  `AbstractArrow`, 1.20.1 has neither. Five sites now say `>=1.21`: the two `SkillStore`
+  declarations, the `FIRING_WEAPON` attachment and the two `FabricSkillStore` overrides, the
+  `SkillCategories.weaponItem` substitute, and both `@WrapOperation` stamps. Comments naming
+  "1.21.2" for this API were wrong and are gone.
+- **The rule cuts the other way too**: `mixin/LivingEntityMixin`'s 1.20.1-only handlers were
+  one `<1.20.5` block holding two unrelated substitutes. They are now two blocks, because
+  `ServerLivingEntityEvents.AFTER_DAMAGE` is a fabric-api `>=1.20.5` row while both
+  re-rooted `EnchantmentHelper` overloads are vanilla `>=1.21` rows. Same node set today;
+  the split is what keeps it true tomorrow.
+- **Test to apply in review**: for every `//?` block that exists because an API is missing,
+  ask which row of §3 that API is in. If the block's predicate is not that row, it is either
+  a new boundary (add it to §3 in the same commit) or a bug.
+
 **5f. Build scripts are NOT preprocessed.** Stonecutter only walks the source sets
 (`StonecutterBuildImpl`: `project.sourceSets.all { … }`). Version conditionals in
 `build.fabric.gradle.kts` must be plain Kotlin `if (sc.current.parsed >= "…")`. Design

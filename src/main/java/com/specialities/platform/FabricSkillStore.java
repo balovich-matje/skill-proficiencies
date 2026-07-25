@@ -20,7 +20,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
-//? if >=1.20.5 {
+//? if >=1.21 {
 //?} else {
 /*import net.minecraft.world.item.ItemStack;
 *///?}
@@ -87,12 +87,16 @@ final class FabricSkillStore implements SkillStore {
 	private static final AttachmentType<String> BREWING_OWNER =
 			AttachmentRegistry.create(Specialities.id("brewing_owner"));
 
-	// The fifth transient pair, and the ONLY one that exists on a single node: below
-	// 1.21.2 there is no `AbstractArrow.getWeaponItem()` (design R-04), so the firing
-	// weapon is stamped onto the projectile by the Bow/Crossbow mixins and read back in
-	// the damage hooks. Registering it above 1.20.5 too would put a sixth attachment id
-	// into worlds that have no use for it.
-	//? if >=1.20.5 {
+	// The fifth transient pair, and the ONLY one that exists on a single node: below 1.21
+	// there is no `AbstractArrow.getWeaponItem()` (design R-04), so the firing weapon is
+	// stamped onto the projectile by the Bow/Crossbow mixins and read back in the damage
+	// hooks. Registering it above 1.21 too would put a sixth attachment id into worlds that
+	// have no use for it.
+	//
+	// `>=1.21`, not `>=1.20.5`: same five nodes today, but it is the boundary of the API
+	// being substituted for, which is the one predicate every piece of the stamp must share.
+	// SkillStore's declaration of the pair carries the reasoning.
+	//? if >=1.21 {
 	//?} else {
 	/*private static final AttachmentType<ItemStack> FIRING_WEAPON =
 			AttachmentRegistry.create(Specialities.id("firing_weapon"));
@@ -176,7 +180,7 @@ final class FabricSkillStore implements SkillStore {
 		((AttachmentTarget) stand).setAttached(BREWING_OWNER, uuid);
 	}
 
-	//? if >=1.20.5 {
+	//? if >=1.21 {
 	//?} else {
 	/*@Override
 	public @Nullable ItemStack getFiringWeapon(final Entity projectile) {

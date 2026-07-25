@@ -22,12 +22,15 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
 import com.specialities.ModTags;
 import com.specialities.platform.SkillStore;
-//? if >=1.20.5 {
+// `>=1.21` on both, which is one step wider than the `>=1.20.5` block below: the two
+// re-rooted EnchantmentHelper handlers at the end of this file are `<1.21` and the
+// AFTER_DAMAGE substitute is `<1.20.5`, and `Local` is used by all three.
+//? if >=1.21 {
 //?} else {
 /*import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 *///?}
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
-//? if >=1.20.5 {
+//? if >=1.21 {
 //?} else {
 /*import com.llamalad7.mixinextras.sugar.Local;
 *///?}
@@ -272,6 +275,13 @@ public abstract class LivingEntityMixin {
 	// balance logic: the first calls the same SkillEvents code the real event calls, the
 	// second adds the same Tuning value EnchantmentHelperMixin adds, and the third keeps the
 	// re-rooted looting hook as narrow as the modern one.
+	//
+	// TWO boundaries, not one, because each substitute carries the boundary of the API it
+	// substitutes FOR: `ServerLivingEntityEvents.AFTER_DAMAGE` is a `>=1.20.5` fabric-api
+	// row, while both EnchantmentHelper re-roots are `>=1.21` vanilla rows. Identical node
+	// sets today — nothing is registered between 1.20.5 and 1.21 — and deliberately not
+	// collapsed into one block for that reason: writing the wrong-but-equivalent predicate is
+	// how a node landing in that gap gets a handler with no counterpart on either side.
 	//? if >=1.20.5 {
 	//?} else {
 	/*// ServerLivingEntityEvents.AFTER_DAMAGE does not exist in fabric-api 0.92.11
@@ -321,8 +331,11 @@ public abstract class LivingEntityMixin {
 
 		SkillEvents.afterDamage(self, source, damageTaken);
 	}
+	*///?}
 
-	// Acrobatics protection points, re-rooted (design R-05). Above 1.21 this is
+	//? if >=1.21 {
+	//?} else {
+	/*// Acrobatics protection points, re-rooted (design R-05). Above 1.21 this is
 	// EnchantmentHelperMixin's @ModifyReturnValue on
 	// `getDamageProtection(ServerLevel, LivingEntity, DamageSource)F`, which cannot work
 	// here because the legacy overload takes no victim. The call site inside
