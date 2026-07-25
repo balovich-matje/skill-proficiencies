@@ -1,6 +1,14 @@
-# Builds every registered node on push and pull request. This is the drift detector for the
-# multi-version workspace: with `injectors.defaultRequire: 1` in both mixin configs, a `//?`
-# fork that stops resolving on ANY node fails the build here (design §7 tier 1).
+# Builds every registered node on push and pull request. This is the COMPILE-side drift
+# detector for the multi-version workspace: a `//?` fork whose live branch stops type-checking
+# on any node fails here (design §7 tier 1).
+#
+# What it does NOT catch — corrected in Stage 4, do not restore the old claim: it does not
+# validate a single mixin injection point. Loom never applies mixins; Mixin is a runtime
+# transformer and `injectors.defaultRequire: 1` is only consulted when a target class is first
+# loaded. Measured: `:1.21.1-fabric:build` was green while a mixin targeted a method that node
+# does not have, and it surfaced only as an `InvalidInjectionException` on server boot. The
+# injector gate is the Tier-2 dedicated-server smoke test, run by hand per node, and it must
+# force-load the lazily-loaded targets or its count comes out short.
 #
 # This workflow NEVER publishes. It runs `buildAndCollect` and nothing else; `publishModrinth`
 # is in the `publishing` group and no lifecycle task depends on it, the repository holds no
