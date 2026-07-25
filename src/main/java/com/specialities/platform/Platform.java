@@ -22,17 +22,19 @@ import com.specialities.api.SkillsEntrypoint;
  * stay byte-identical either way).
  *
  * <p>{@link #INSTANCE} is unconditional on purpose. Every registered node is a
- * Fabric node, so a {@code //? if fabric} block around it would be a branch no
- * build can exercise. Phase B forks exactly this line, in the inline form
- * conventions §4 documents:
+ * Fabric node, so a loader-constant block around it would be a branch no build
+ * can exercise, and a disabled branch naming a class that does not exist yet is
+ * the silently-wrong case. Phase B forks exactly this line using the INLINE
+ * (expression) directive form — the initializer is a fragment, not a whole
+ * statement, so the directive cannot own its own line; conventions §4 has the
+ * literal syntax, and {@code client/SpecialitiesClient} has two worked examples
+ * of it in the tree. It must also exclude the unused implementation class from
+ * that node's source set, the way {@code client/config} is excluded below 26.1
+ * (conventions §5e-ter).
  *
- * <pre>
- * Platform INSTANCE = /*? if fabric {*&#47;new FabricPlatform();
- *                     /*?} elif neoforge *&#47;//new NeoForgePlatform();
- * </pre>
- *
- * and excludes the unused implementation class from that node's source set the
- * way {@code client/config/**} is excluded below 26.1 (conventions §5e-ter).
+ * <p>No directive token is written out here on purpose: Stonecutter scans
+ * javadoc like any other text, so a sample directive in a comment is a live
+ * directive.
  */
 public interface Platform {
 	Platform INSTANCE = new FabricPlatform();
