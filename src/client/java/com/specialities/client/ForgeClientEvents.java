@@ -8,9 +8,13 @@ import java.util.function.Consumer;
 
 import com.specialities.Specialities;
 
+import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ScreenEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.events.GuiEventListener;
@@ -46,10 +50,17 @@ import net.minecraft.client.gui.screens.Screen;
  *     {@code Opening} and {@code Closing}.</li>
  * </ul>
  *
- * <p><b>Nothing here is registered until {@code SpecialitiesClient} asks for it.</b> There is no
- * {@code initialize()} to forget to call: each method registers what it needs on first use, so
- * the shared call sites in {@code SpecialitiesClient} are the only wiring.
+ * <p><b>The helper methods register nothing until {@code SpecialitiesClient} asks for them</b> —
+ * each registers what it needs on first use. But someone has to RUN {@code SpecialitiesClient}
+ * in the first place, and on this loader that is {@link #onClientSetup}: LexForge 1.20.1 has no
+ * dist-gated {@code @Mod} (NeoForge's second-entrypoint pattern), so this class doubles as the
+ * client bootstrap via {@code @Mod.EventBusSubscriber(value = Dist.CLIENT, bus = MOD)} — the
+ * annotation scan finds it on the client dist only, so {@code src/main} never has to name a
+ * client class. Shipping the helpers WITHOUT this bootstrap was the port's one in-game-only
+ * failure: everything compiled, the dedicated server booted clean, and the client simply never
+ * wired its HUD or screen hooks (found on the user's first 1.20.1-forge launch, 2026-07-25).
  */
+@Mod.EventBusSubscriber(modid = Specialities.MOD_ID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.MOD)
 final class ForgeClientEvents {
 	/**
 	 * The per-screen tick listeners, and the one genuine RE-ROOTING in this file.
@@ -88,6 +99,20 @@ final class ForgeClientEvents {
 	private static boolean tickPumpInstalled;
 
 	private ForgeClientEvents() {
+	}
+
+	/**
+	 * The client bootstrap — the LexForge stand-in for Fabric's {@code client} entrypoint and
+	 * NeoForge's {@code @Mod(dist = Dist.CLIENT)} constructor. {@code FMLClientSetupEvent} fires
+	 * after the registry phase, so {@code ForgeNet}'s SimpleChannel already exists when the
+	 * receivers attach; {@code enqueueWork} moves the wiring onto the main thread, matching when
+	 * the other six nodes run it. PUBLIC because Forge's {@code EventBus.register(Class)} only
+	 * sees public {@code @SubscribeEvent} methods — package-private compiles and silently never
+	 * fires, which is this bug's shape all over again.
+	 */
+	@SubscribeEvent
+	public static void onClientSetup(final FMLClientSetupEvent event) {
+		event.enqueueWork(() -> new SpecialitiesClient().onInitializeClient());
 	}
 
 	/**
