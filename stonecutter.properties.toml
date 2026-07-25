@@ -130,6 +130,11 @@ mod.mc_range = "[1.20,1.20.2)"
 # Architectury Loom 1.17.491 + this pin trial-compiled on this machine
 # (scratchpad/phase-b-prep/trial-forge, BUILD SUCCESSFUL in 16s).
 deps.forge = "47.4.22"
+# The mods.toml FLOOR is deliberately looser than the compile pin: 47.4.22 was
+# latest-at-scoping, not a functional requirement (no R-finding depends on it), and
+# launcher metas lag the Forge maven — the Modrinth App installs 47.4.20 today, which
+# would have refused a [47.4.22,) mod for no reason. Any Forge 47 (MC 1.20.1) works.
+deps.forge_floor = "47"
 # R-10: LexForge bundles NO MixinExtras — measured, forge-1.20.1-47.4.22-userdev.jar's own
 # config.json lists `org.spongepowered:mixin:0.8.5` and zero llamalad7 entries — so the mod's
 # @WrapMethod/@WrapOperation/@ModifyReturnValue/@Local usage has to be jar-in-jar'd. 0.5.4 is

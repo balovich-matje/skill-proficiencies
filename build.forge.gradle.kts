@@ -173,7 +173,7 @@ val metadataProps: Map<String, String> = mapOf(
 	"name" to sc.properties["mod.name"],
 	"version" to project.version.toString(),
 	"minecraft_range" to sc.properties["mod.mc_range"],
-	"forge_floor" to sc.properties["deps.forge"],
+	"forge_floor" to sc.properties["deps.forge_floor"],
 	"java_floor" to requiredJava.majorVersion,
 )
 
