@@ -73,7 +73,12 @@ public class SpecialitiesClient implements ClientModInitializer {
 						/*? if >=26.2 {*/() -> client.gui.setScreen(new SkillsScreen(screen)));
 						/*?} else *///() -> client.setScreen(new SkillsScreen(screen)));
 				anchorTab((AbstractContainerScreen<?>) screen, tab);
+				// fabric-screen-api-v1 renamed the accessor: getButtons below 26.1.
+				//? if >=26.1 {
 				Screens.getWidgets(screen).add(tab);
+				//?} else {
+				/*Screens.getButtons(screen).add(tab);
+				*///?}
 
 				ScreenEvents.afterTick(screen).register(
 						s -> anchorTab((AbstractContainerScreen<?>) s, tab));
@@ -88,7 +93,11 @@ public class SpecialitiesClient implements ClientModInitializer {
 						.tooltip(Tooltip.create(Component.translatable("screen.specialities.skills")))
 						.build();
 				anchorButton((AbstractContainerScreen<?>) screen, button);
+				//? if >=26.1 {
 				Screens.getWidgets(screen).add(button);
+				//?} else {
+				/*Screens.getButtons(screen).add(button);
+				*///?}
 
 				ScreenEvents.afterTick(screen).register(
 						s -> anchorButton((AbstractContainerScreen<?>) s, button));
@@ -97,10 +106,17 @@ public class SpecialitiesClient implements ClientModInitializer {
 	}
 
 	private static HudElement raised(final HudElement element) {
+		// The lambda's parameter types are inferred from HudElement, so only the
+		// delegating call names the hook: extractRenderState on 26.x, render below.
+		// pose() is org.joml.Matrix3x2fStack on both sides.
 		return (graphics, deltaTracker) -> {
 			graphics.pose().pushMatrix();
 			graphics.pose().translate(0.0F, (float) -HUD_SHIFT);
+			//? if >=26.1 {
 			element.extractRenderState(graphics, deltaTracker);
+			//?} else {
+			/*element.render(graphics, deltaTracker);
+			*///?}
 			graphics.pose().popMatrix();
 		};
 	}
