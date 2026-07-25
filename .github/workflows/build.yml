@@ -21,8 +21,13 @@ jobs:
           distribution: 'microsoft'
       - name: make gradle wrapper executable
         run: chmod +x ./gradlew
+      # Multi-version workspace: an unqualified task name runs in every node.
+      # buildAndCollect additionally gathers each node's jar into build/libs/<version>/.
+      # No stonecutterSwitch loop is needed — building a non-active node pulls
+      # stonecutterPrepare/Generate in automatically (R-18, measured).
+      # JDK 25 is the *Gradle* JVM; the toolchain block provisions 17/21 per node.
       - name: build
-        run: ./gradlew build
+        run: ./gradlew buildAndCollect
       - name: capture build artifacts
         uses: actions/upload-artifact@v7
         with:

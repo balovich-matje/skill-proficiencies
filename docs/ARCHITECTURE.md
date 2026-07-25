@@ -26,11 +26,27 @@ or gate it.
 4. Register the two clientbound payloads (`SkillUpdatePayload`,
    `StealthStatePayload`).
 5. `SkillEvents.register()` — wire the XP-gain and lifecycle event handlers.
+6. `SkillCommands.register()` — the `/skillprof` op subcommands.
 
 `Specialities.MOD_ID` is `"specialities"` and `Specialities.id(path)` builds a
 namespaced `Identifier`. `SpecialitiesClient` is the separate client
 initializer (sources are split: common code in `src/main`, client-only code in
 `src/client`).
+
+### Building for more than one Minecraft version
+
+Since 1.5.0 the repo is a **Stonecutter multi-version workspace**: one shared
+`src/` tree, one node per target under `versions/<mc>-<loader>/`, and version
+differences expressed as `//?` preprocessor comments in the shared source.
+`./gradlew build` at the root does nothing useful — use `./gradlew buildAndCollect`
+(all nodes) or `./gradlew :26.2-fabric:build` (one node), and
+`./gradlew :26.2-fabric:runClient` instead of a bare `runClient`.
+
+**Before you write a `//?` comment or add a node, read
+[`MULTIVERSION-CONVENTIONS.md`](MULTIVERSION-CONVENTIONS.md).** The predicate
+vocabulary is frozen, and the shared `src/` must always compile for whatever node
+`stonecutter.gradle.kts` names as active. [`MULTIVERSION.md`](MULTIVERSION.md) is
+the full design.
 
 ### The skill engine
 
