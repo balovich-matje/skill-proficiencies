@@ -53,6 +53,13 @@ public abstract class LivingEntityMixin {
 	 * this mod or any other. They all name the player as both the causing and
 	 * the direct entity, which is why the damage source alone cannot be asked.
 	 */
+	// design §3.2's worked example, and the ONE injection point in the tree whose host method
+	// is renamed AND loses a parameter below 1.21.2: `hurtServer(ServerLevel,DamageSource,F)Z`
+	// becomes `hurt(DamageSource,F)Z` (1.21.1 mojmap: `1133:1278:boolean hurt(DamageSource,
+	// float) -> a`, and no `hurtServer` on LivingEntity at all). Only the annotation, the
+	// parameter list and the mandatory both-sides guard are inside the block — every line of
+	// balance logic below it is shared, so this stays one implementation (conventions §5a).
+	//? if >=1.21.2 {
 	@ModifyVariable(
 			method = "hurtServer(Lnet/minecraft/server/level/ServerLevel;"
 					+ "Lnet/minecraft/world/damagesource/DamageSource;F)Z",
@@ -60,6 +67,20 @@ public abstract class LivingEntityMixin {
 			argsOnly = true)
 	private float specialities$applyCombatDamage(final float damage, final ServerLevel level, final DamageSource source,
 			final float originalDamage) {
+	//?} else {
+	/*@ModifyVariable(
+			method = "hurt(Lnet/minecraft/world/damagesource/DamageSource;F)Z",
+			at = @At("HEAD"),
+			argsOnly = true)
+	private float specialities$applyCombatDamage(final float damage, final DamageSource source,
+			final float originalDamage) {
+		// `hurt` runs on BOTH logical sides below 1.21.2 and MeleeSwing's flag is
+		// server-thread-only, so this early-out is mandatory, not defensive.
+		if (((LivingEntity) (Object) this).level().isClientSide()) {
+			return damage;
+		}
+
+	*///?}
 		if (!(source.getEntity() instanceof ServerPlayer attacker) || (Object) this == attacker) {
 			return damage;
 		}
@@ -84,6 +105,7 @@ public abstract class LivingEntityMixin {
 	 * damage is scaled so the final result matches an uncapped formula.
 	 * (25+ points never reaches here — ALLOW_DAMAGE cancels the hit entirely.)
 	 */
+	//? if >=1.21.2 {
 	@ModifyVariable(
 			method = "hurtServer(Lnet/minecraft/server/level/ServerLevel;"
 					+ "Lnet/minecraft/world/damagesource/DamageSource;F)Z",
@@ -91,11 +113,30 @@ public abstract class LivingEntityMixin {
 			argsOnly = true)
 	private float specialities$uncapFallProtection(final float damage, final ServerLevel level,
 			final DamageSource source, final float originalDamage) {
+	//?} else {
+	/*@ModifyVariable(
+			method = "hurt(Lnet/minecraft/world/damagesource/DamageSource;F)Z",
+			at = @At("HEAD"),
+			argsOnly = true)
+	private float specialities$uncapFallProtection(final float damage, final DamageSource source,
+			final float originalDamage) {
+		if (((LivingEntity) (Object) this).level().isClientSide()) {
+			return damage;
+		}
+
+	*///?}
 		if (!((Object) this instanceof ServerPlayer player) || !source.is(DamageTypeTags.IS_FALL)) {
 			return damage;
 		}
 
+		// getDamageProtection(ServerLevel, LivingEntity, DamageSource) is AS-IS on 1.21.1
+		// (mojmap 164:166); the only thing missing there is the `level` parameter this
+		// handler no longer receives, and the ServerPlayer just above supplies it.
+		//? if >=1.21.2 {
 		float points = EnchantmentHelper.getDamageProtection(level, player, source);
+		//?} else {
+		/*float points = EnchantmentHelper.getDamageProtection(player.serverLevel(), player, source);
+		*///?}
 		if (points <= 20.0F) {
 			return damage;
 		}
@@ -148,6 +189,7 @@ public abstract class LivingEntityMixin {
 	 * same thing archery trains off, and widening it is a balance call rather
 	 * than something to slip in while fixing combat's scope.
 	 */
+	//? if >=1.21.2 {
 	@ModifyVariable(
 			method = "hurtServer(Lnet/minecraft/server/level/ServerLevel;"
 					+ "Lnet/minecraft/world/damagesource/DamageSource;F)Z",
@@ -155,6 +197,18 @@ public abstract class LivingEntityMixin {
 			argsOnly = true)
 	private float specialities$stealthCrit(final float damage, final ServerLevel level, final DamageSource source,
 			final float originalDamage) {
+	//?} else {
+	/*@ModifyVariable(
+			method = "hurt(Lnet/minecraft/world/damagesource/DamageSource;F)Z",
+			at = @At("HEAD"),
+			argsOnly = true)
+	private float specialities$stealthCrit(final float damage, final DamageSource source,
+			final float originalDamage) {
+		if (((LivingEntity) (Object) this).level().isClientSide()) {
+			return damage;
+		}
+
+	*///?}
 		if (!(source.getEntity() instanceof ServerPlayer attacker) || !attacker.isDiscrete()) {
 			return damage;
 		}
