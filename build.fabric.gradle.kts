@@ -66,10 +66,8 @@ dependencies {
 	// `mod*` configurations exist on both loom pipelines — loom-back-compat aliases them.
 	modImplementation("net.fabricmc:fabric-loader:${property("deps.fabric_loader")}")
 
-	// The nine modules `src/` actually imports. Verified present in both
-	// 0.154.2+26.1.2 and 0.155.2+26.2 — including fabric-creative-tab-api-v1, which
-	// design §1.10 wrongly gates at >=26.2 (26.1 uses `creativetab.v1` too; there is
-	// no ModItems delta between main and the 26.1 branch).
+	// Eight of the nine modules `src/` imports, spelled the same on every node so far.
+	// Verified present in 0.141.5+1.21.11, 0.154.2+26.1.2 and 0.155.2+26.2 (bundle POMs).
 	fapi(
 		"fabric-data-attachment-api-v1", // attachment.v1
 		"fabric-networking-api-v1", // networking.v1 + client.networking.v1
@@ -79,8 +77,20 @@ dependencies {
 		"fabric-command-api-v2", // command.v2
 		"fabric-screen-api-v1", // client.screen.v1
 		"fabric-rendering-v1", // client.rendering.v1.hud (absent < 1.21.11)
-		"fabric-creative-tab-api-v1", // creativetab.v1 (fabric-item-group-api-v1 below 26.1)
 	)
+
+	// The ninth is the ONE module that is renamed across the range, so it is a swap and
+	// not an addition: no fabric-api version ships both names. `fabric-item-group-api-v1`
+	// (4.2.36 in 0.141.5+1.21.11, `api.itemgroup.v1.ItemGroupEvents`) becomes
+	// `fabric-creative-tab-api-v1` (`api.creativetab.v1.CreativeModeTabEvents`) from 26.1
+	// — design §1.10 puts that boundary at >=26.2, which is wrong: 26.1 already uses
+	// creativetab.v1 (checked in 0.154.2+26.1.2's POM, hence no ModItems delta between
+	// main and the old 26.1 branch).
+	if (sc.current.parsed >= "26.1") {
+		fapi("fabric-creative-tab-api-v1") // creativetab.v1
+	} else {
+		fapi("fabric-item-group-api-v1") // itemgroup.v1
+	}
 
 	// Optional config UI. Compiled against, present in the dev client, soft deps at
 	// runtime ("suggests" in fabric.mod.json + isModLoaded guards).

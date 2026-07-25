@@ -34,8 +34,12 @@ stonecutter parameters {
 	// Replacements are DIRECTIONAL, not one-way: `string(cond) { replace(a, b) }`
 	// rewrites a->b when `cond` holds and b->a when it does not (verified in
 	// StringSpecImpl, stonecutter 0.9.7 sources). So the shared tree may be authored
-	// in either spelling — today it is authored in the 26.x spelling, matching the
-	// active node. Both entries below are inert while every node is >= 26.1.
+	// in either spelling — it is authored in the 26.x spelling, matching the active node.
+	//
+	// Registering 1.21.11-fabric makes the SECOND entry live for the first time: that
+	// node gets `net.minecraft.util.Util` rewritten back down to `net.minecraft.Util`,
+	// so no `//?` block is needed for the Util import. The first entry stays inert until
+	// 1.21.1 lands — 1.21.11 is the OLDEST version that already spells it `Identifier`.
 	replacements {
 		string(current.parsed >= "1.21.11") {
 			replace("ResourceLocation", "Identifier")

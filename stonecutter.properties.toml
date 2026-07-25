@@ -35,6 +35,18 @@ deps.fabric_api = "0.154.2+26.1.2"
 deps.modmenu = "18.0.0"
 deps.cloth_config = "26.1.154+fabric"
 
+["1.21.11"]
+mod.mc_releases = ["1.21.11"]
+
+[fabric."1.21.11"]
+mod.mc_compat = "1.21.11"
+# NOT `>=0.19.3` — see the note below. fabric-api 0.141.5 already demands 0.17.3,
+# which bundles MixinExtras 0.5.0, so this floor costs the legacy audience nothing.
+mod.loader_floor = ">=0.17.3"
+deps.fabric_api = "0.141.5+1.21.11"
+# No modmenu/cloth_config keys: the optional config UI is gated to >=26.1 in
+# build.fabric.gradle.kts, so this node must not declare them.
+
 # ---------------------------------------------------------------------------
 # Pins for the not-yet-registered nodes are kept here so nobody re-derives them.
 # `mod.loader_floor` is a REAL finding, not boilerplate: the mod uses one
@@ -43,13 +55,6 @@ deps.cloth_config = "26.1.154+fabric"
 # 0.16.10 -> 0.4.1, 0.17.3 -> 0.5.0, 0.19.3 -> 0.5.4). fabric-api's own floors
 # cover 1.20.1 and 1.21.11 but NOT 1.21.1, whose fabric-api 0.116.14 declares
 # only 0.15.11. Do not copy `>=0.19.3` downward — it locks out the legacy audience.
-#
-# ["1.21.11"]
-# mod.mc_releases = ["1.21.11"]
-# [fabric."1.21.11"]
-# mod.mc_compat = "1.21.11"
-# mod.loader_floor = ">=0.17.3"
-# deps.fabric_api = "0.141.5+1.21.11"
 #
 # ["1.21.1"]
 # mod.mc_releases = ["1.21", "1.21.1"]

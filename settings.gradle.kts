@@ -32,11 +32,18 @@ stonecutter {
 			for (loader in loaders) version("$project-$loader", version).buildscript("build.$loader.gradle.kts")
 		}
 
-		// ---- Phase A, stage 1: the two shipping versions only. ----
-		// Later stages add: match("1.21.11", "fabric"), match("1.21.1", "fabric", "neoforge"),
+		// ---- Phase A, stages 1-2: both shipping versions + the legacy beachhead. ----
+		// Later stages add: match("1.21.1", "fabric", "neoforge"),
 		// match("1.20.1", "fabric", "forge").  See docs/MULTIVERSION.md §1.3.
 		match("26.2", "fabric")
 		match("26.1", "fabric", version = "26.1.2")
+		// First OBFUSCATED node. Nothing extra is needed to get the remap pipeline:
+		// loom-back-compat asks Stonecutter to compare the node version against "26"
+		// and applies `net.fabricmc.fabric-loom-remap` when it sorts below
+		// (LoomCompatProjectExtension.isUnobfuscated, read out of the 0.4.1 bytecode —
+		// both plugin ids ship in the same fabric-loom 1.17.17 jar, so `fabricApi.module`
+		// and `officialMojangMappings` exist on either pipeline).
+		match("1.21.11", "fabric")
 
 		// The node whose state the shared `src/` is committed in.
 		vcsVersion = "26.2-fabric"
