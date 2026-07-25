@@ -15,6 +15,11 @@ public final class Tuning {
 	public static final int SWEEP_BREAKPOINT = 25;
 	/** How far a ricochet arrow searches for its next hostile target, in blocks. */
 	public static final double RICOCHET_RANGE = 8.0;
+	/**
+	 * Protection points at which fall damage reaches 100% reduction. Vanilla's own
+	 * pool formula is points/25 with a 20-point clamp; acrobatics uncaps that band.
+	 */
+	public static final float FALL_IMMUNITY_POINTS = 25.0F;
 
 	private Tuning() {
 	}

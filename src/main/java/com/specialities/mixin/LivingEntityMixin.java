@@ -10,7 +10,6 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
 import com.specialities.ModAttachments;
 import com.specialities.ModTags;
-import com.specialities.skills.SkillEvents;
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 
 import net.fabricmc.fabric.api.attachment.v1.AttachmentTarget;
@@ -95,8 +94,8 @@ public abstract class LivingEntityMixin {
 		}
 
 		// Vanilla will apply (1 - 20/25); correct it to (1 - points/25).
-		float capped = Math.min(points, SkillEvents.FALL_IMMUNITY_POINTS);
-		return damage * (SkillEvents.FALL_IMMUNITY_POINTS - capped) / 5.0F;
+		float capped = Math.min(points, Tuning.FALL_IMMUNITY_POINTS);
+		return damage * (Tuning.FALL_IMMUNITY_POINTS - capped) / 5.0F;
 	}
 
 	/**

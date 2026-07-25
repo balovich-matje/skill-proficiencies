@@ -18,9 +18,6 @@ import net.minecraft.world.item.enchantment.EnchantmentHelper;
  * (athletics), and attribute passive re-application on join/respawn.
  */
 public final class SkillEvents {
-	/** Protection points at which fall damage reaches 100% reduction. */
-	public static final float FALL_IMMUNITY_POINTS = 25.0F;
-
 	private SkillEvents() {
 	}
 
@@ -61,7 +58,7 @@ public final class SkillEvents {
 				return true;
 			}
 
-			return EnchantmentHelper.getDamageProtection(serverLevel, player, source) < FALL_IMMUNITY_POINTS;
+			return EnchantmentHelper.getDamageProtection(serverLevel, player, source) < Tuning.FALL_IMMUNITY_POINTS;
 		});
 
 		ServerPlayerEvents.JOIN.register(DefencePassives::apply);
