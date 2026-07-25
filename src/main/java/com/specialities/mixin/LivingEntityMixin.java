@@ -21,7 +21,15 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
+// jspecify is one of the game's OWN libraries only from 1.21.11 up (conventions
+// §5e-bis); below that it is absent and org.jetbrains:annotations 26.0.2 (on the
+// compile classpath via fabric-loader) supplies a @Nullable that is @Target(TYPE_USE)
+// as well, so nothing but the import forks.
+//? if >=1.21.11 {
 import org.jspecify.annotations.Nullable;
+//?} else {
+/*import org.jetbrains.annotations.Nullable;
+*///?}
 
 /**
  * Combat skill damage multiplier — real weapon attacks only — and the

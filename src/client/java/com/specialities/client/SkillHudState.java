@@ -6,7 +6,15 @@ import com.specialities.skills.SkillTypes;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.Util;
+// jspecify is one of the game's OWN libraries only from 1.21.11 up (conventions
+// §5e-bis); below that it is absent and org.jetbrains:annotations 26.0.2 (on the
+// compile classpath via fabric-loader) supplies a @Nullable that is @Target(TYPE_USE)
+// as well, so nothing but the import forks.
+//? if >=1.21.11 {
 import org.jspecify.annotations.Nullable;
+//?} else {
+/*import org.jetbrains.annotations.Nullable;
+*///?}
 
 /**
  * Client-side state for the skill XP HUD bar. The bar stays visible for the
