@@ -1,10 +1,26 @@
-# Automatically build the project and run any configured tests for every push
-# and submitted pull request. This can help catch issues that only occur on
-# certain platforms or Java versions, and provides a first line of defence
-# against bad commits.
+# Builds every registered node on push and pull request. This is the drift detector for the
+# multi-version workspace: with `injectors.defaultRequire: 1` in both mixin configs, a `//?`
+# fork that stops resolving on ANY node fails the build here (design §7 tier 1).
+#
+# This workflow NEVER publishes. It runs `buildAndCollect` and nothing else; `publishModrinth`
+# is in the `publishing` group and no lifecycle task depends on it, the repository holds no
+# Modrinth token, and `MODRINTH_TOKEN` is not exposed to any step — so even an accidental
+# `publishMods` here would be the checked-in dry run. Releases are run by hand from a local
+# clone (docs/MULTIVERSION.md §4).
 
 name: build
-on: [pull_request, push]
+on:
+  pull_request:
+  push:
+    # Long-lived branches only. Slice/worktree branches (`s4a-…`, `s4b-…`) are pushed and
+    # rebased constantly during a port stage; building each one buys nothing and just paints
+    # the checks red while a node is mid-port.
+    branches: [main, workspace]
+
+# One run per ref: a new push cancels the build of the commit it superseded.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -14,22 +30,29 @@ jobs:
         uses: actions/checkout@v6
       - name: validate gradle wrapper
         uses: gradle/actions/wrapper-validation@v6
+      # JDK 25 is the *Gradle* JVM (Gradle 9.6.1 runs on it, measured in trialD). It is NOT
+      # the compiler for every node: `build.fabric.gradle.kts` sets a Java toolchain of 25/21/17
+      # per node, and the `foojay-resolver-convention` plugin in settings.gradle.kts provisions
+      # whichever of those the runner is missing. Microsoft ships a 25 build (25.0.4 as of
+      # 2026-07-25, checked against aka.ms/download-jdk), so this distribution stays as-is.
       - name: setup jdk
         uses: actions/setup-java@v5
         with:
           java-version: '25'
           distribution: 'microsoft'
+          cache: gradle
       - name: make gradle wrapper executable
         run: chmod +x ./gradlew
       # Multi-version workspace: an unqualified task name runs in every node.
-      # buildAndCollect additionally gathers each node's jar into build/libs/<version>/.
+      # buildAndCollect additionally gathers each node's jar into build/libs/<mod.version>/.
       # No stonecutterSwitch loop is needed — building a non-active node pulls
       # stonecutterPrepare/Generate in automatically (R-18, measured).
-      # JDK 25 is the *Gradle* JVM; the toolchain block provisions 17/21 per node.
       - name: build
         run: ./gradlew buildAndCollect
       - name: capture build artifacts
         uses: actions/upload-artifact@v7
         with:
           name: Artifacts
-          path: build/libs/
+          path: build/libs/**
+          # An empty upload means buildAndCollect silently collected nothing. Fail instead.
+          if-no-files-found: error
