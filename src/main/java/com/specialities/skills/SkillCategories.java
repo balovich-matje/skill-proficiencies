@@ -2,6 +2,11 @@ package com.specialities.skills;
 
 import com.specialities.MeleeSwing;
 import com.specialities.ModTags;
+//? if >=1.21 {
+//?} else {
+/*import com.specialities.mixin.AbstractArrowAccessor;
+import com.specialities.platform.SkillStore;
+*///?}
 
 import net.minecraft.server.level.ServerPlayer;
 // 26.2 moved the ore/log tags to BlockItemTags (paired block+item views);
@@ -273,7 +278,11 @@ public final class SkillCategories {
 	 */
 	public static @Nullable Skill specializationSkill(final ServerPlayer attacker, final DamageSource source) {
 		if (source.getDirectEntity() instanceof AbstractArrow arrow) {
+			//? if >=1.21 {
 			ItemStack weapon = arrow.getWeaponItem();
+			//?} else {
+			/*ItemStack weapon = weaponItem(arrow);
+			*///?}
 
 			if (weapon != null && weapon.is(ModTags.RANGED_WEAPONS)) {
 				return Skill.ARCHERY;
@@ -314,7 +323,11 @@ public final class SkillCategories {
 			return false;
 		}
 
+		//? if >=1.21 {
 		ItemStack weapon = arrow.getWeaponItem();
+		//?} else {
+		/*ItemStack weapon = weaponItem(arrow);
+		*///?}
 		return weapon != null && weapon.is(ModTags.RANGED_WEAPONS);
 	}
 
@@ -336,7 +349,41 @@ public final class SkillCategories {
 			return false;
 		}
 
+		//? if >=1.21 {
 		ItemStack weapon = projectile.getWeaponItem();
+		//?} else {
+		/*ItemStack weapon = weaponItem(projectile);
+		*///?}
 		return weapon != null && weapon.is(ModTags.MELEE_WEAPONS);
 	}
+
+	// The `getWeaponItem()` substitute below 1.21 (design R-04), and the ONLY place the
+	// three tests above differ on that node — each of them reads this instead, so all three
+	// keep identical semantics rather than being individually approximated.
+	//
+	// Two sources, in order: the weapon BowItemMixin/CrossbowItemMixin stamped onto the
+	// projectile as it was spawned, else the projectile's own pickup item, which is the
+	// trident for a thrown trident and the arrow for an arrow. Case by case against what
+	// `getWeaponItem()` returns above:
+	//   bow/crossbow arrow  -> the bow/crossbow          (stamped)
+	//   thrown trident      -> the trident               (pickup item; getWeaponItem agrees)
+	//   dispenser/skeleton  -> the arrow item, vs null   — unreachable: all three callers
+	//                          require the attacker to be the projectile's owner
+	//   an unstamped player shot -> the arrow item, vs null — same answer from all three
+	//                          tests either way, since an arrow is in neither weapon tag
+	//
+	// The stamp is transient, so an in-flight arrow that survives a save/load round trip
+	// loses it and falls back to its pickup item. Modern versions persist `firedFromWeapon`
+	// in the projectile's NBT, so that one case diverges; it needs the arrow to be saved
+	// mid-flight and then hit a mob, and the cost of closing it is a persistent attachment
+	// (and a new NBT key) on every arrow ever fired.
+	// Public rather than private because AbstractArrowMixin's ricochet chain reads it too,
+	// and that is the point: ONE definition of "what fired this projectile" on this node.
+	//? if >=1.21 {
+	//?} else {
+	/*public static @Nullable ItemStack weaponItem(final AbstractArrow projectile) {
+		ItemStack stamped = SkillStore.INSTANCE.getFiringWeapon(projectile);
+		return stamped != null ? stamped : ((AbstractArrowAccessor) projectile).specialities$getPickupItem();
+	}
+	*///?}
 }

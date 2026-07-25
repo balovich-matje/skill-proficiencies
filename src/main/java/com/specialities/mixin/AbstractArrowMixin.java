@@ -6,6 +6,10 @@ import java.util.List;
 import com.specialities.ModTags;
 import com.specialities.platform.SkillStore;
 import com.specialities.skills.Skill;
+//? if >=1.21 {
+//?} else {
+/*import com.specialities.skills.SkillCategories;
+*///?}
 import com.specialities.skills.SkillManager;
 import com.specialities.skills.Tuning;
 import org.spongepowered.asm.mixin.Mixin;
@@ -95,7 +99,13 @@ public abstract class AbstractArrowMixin {
 			return;
 		}
 
+		// Design R-04: no `getWeaponItem()` below 1.21. SkillCategories owns the substitute
+		// so that every read of "what fired this projectile" goes through one definition.
+		//? if >=1.21 {
 		ItemStack weapon = self.getWeaponItem();
+		//?} else {
+		/*ItemStack weapon = SkillCategories.weaponItem(self);
+		*///?}
 		Integer remaining = SkillStore.INSTANCE.getRicochetBounces(self);
 		int bounces;
 
@@ -123,7 +133,20 @@ public abstract class AbstractArrowMixin {
 		Vec3 to = target.position().add(0.0, target.getBbHeight() * 0.5, 0.0);
 		Vec3 direction = to.subtract(from).normalize();
 
+		// The pickup-item and fired-from-weapon constructor arguments are 1.21 additions; on
+		// 1.20.1 `Arrow(Level, double, double, double)` is the whole constructor and the
+		// pickup item is implicitly `Items.ARROW`. The bounce arrow inherits the firing
+		// weapon by being stamped with it, which is what keeps `weapon` meaningful for the
+		// NEXT bounce — the chain reads its own weapon on every hop.
+		//? if >=1.21 {
 		Arrow next = new Arrow(serverLevel, from.x, from.y, from.z, new ItemStack(Items.ARROW), weapon);
+		//?} else {
+		/*Arrow next = new Arrow(serverLevel, from.x, from.y, from.z);
+
+		if (weapon != null) {
+			SkillStore.INSTANCE.setFiringWeapon(next, weapon);
+		}
+		*///?}
 		next.setOwner(player);
 		next.pickup = AbstractArrow.Pickup.DISALLOWED;
 		next.setBaseDamage(((AbstractArrowAccessor) self).specialities$getBaseDamage());
