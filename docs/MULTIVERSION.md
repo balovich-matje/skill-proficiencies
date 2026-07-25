@@ -722,10 +722,19 @@ cd /Users/german-mac-mini/repos/mc-modding/specialities
 
 # 4. Sanity-check each jar boots a dedicated server (see §7).
 
-# 5. Publish all nodes in one ordered pass.
-MODRINTH_TOKEN=$(cat ~/.config/modrinth/token) ./gradlew publishMods
+# 5. Write the release notes for the new version. ONE file, shared by every node's upload.
+#    changelogs/1.6.0.md   -> `# <release title>`, blank line, then terse bullets.
 
-# 6. Tag and push.
+# 6. Pre-flight: print what every node WOULD upload. Builds nothing, uploads nothing.
+./gradlew printPublishMetadata
+
+# 7. Dry run the real thing (this is the checked-in default — no token, no network writes).
+./gradlew publishMods
+
+# 8. Publish for real: ordered, one Modrinth version per node, opted in per invocation.
+MODRINTH_TOKEN=$(cat ~/.config/modrinth/token) ./gradlew --no-daemon -PpublishLive=true publishMods
+
+# 9. Tag and push.
 git commit -am "Balance: <terse summary>" && git tag Release-1.6.0 && git push --follow-tags
 ```
 
@@ -734,10 +743,81 @@ git commit -am "Balance: <terse summary>" && git tag Release-1.6.0 && git push -
 - There is **no chiseled task.** `chiseledBuild` was removed; anything describing it is 0.4-era. Aggregation is the unqualified task name plus `stonecutter.tasks.order(...)` for endpoint sequencing (verified against `StonecutterControllerTasks.kt` and a zero-hit `grep -ci chisel` over the 0.9.7 jar).
 - `stonecutter active "…"` only chooses which node the **IDE** edits. Building a non-active node needs no switching — each node generates into its own build dir. (Confirm once, 5 min: `./gradlew :1.21.11-fabric:build` while active is `26.2-fabric`.)
 - To work on one node in the IDE: `./gradlew stonecutterSwitchTo1.21.11-fabric` (or edit `stonecutter active`).
-- `publishMods` must be `mod-publish-plugin` 2.1.1 in each node script, taking the jar as `file = loomx.modJar.flatMap { it.archiveFile }` (works for both loom pipelines) and `modrinth { minecraftVersions.addAll(compatibleVersions) }` from `mod.mc_releases`. Ordering the two child tasks (not `publishMods`) is required — the 0.9.7 KDoc says so explicitly.
-- Publish **one Modrinth version per node**, not one version listing five game versions: the loader differs and the jars are genuinely different artifacts. Modrinth tag validation is pre-checked — `/v2/tag/loader` has fabric/forge/neoforge; `/v2/tag/game_version` has all five target strings as `release`.
+- Publish **one Modrinth version per node**, not one version listing five game versions: the loader differs and the jars are genuinely different artifacts. Modrinth tag validation is pre-checked — `/v2/tag/loader` has fabric/forge/neoforge; `/v2/tag/game_version` has `26.2`, `26.1`, `26.1.1`, `26.1.2`, `1.21.11`, `1.21` and `1.21.1` all as `release` (re-checked 2026-07-25).
 - Token discipline unchanged: PAT at `~/.config/modrinth/token`, never created or pasted by Claude.
 - **Archetypes handshake:** `./gradlew :26.2-fabric:publishToMavenLocal` still yields `com.specialities:specialities:1.5.0` because the publication pins the coordinate to `mod.version` (§1.10). No change needed in the other repo.
+
+### 4.1 As built in Stage 4b — the publishing wiring
+
+`me.modmuss50.mod-publish-plugin` **2.1.1**, applied in `build.fabric.gradle.kts` (so every
+Fabric node gets it) with the version pinned in that file rather than in `settings.gradle.kts`,
+which this stage does not own. Both the id and the version were read off the artifact: 2.1.1 is
+`<release>` in the plugin portal's `maven-metadata.xml`, and the id comes from the jar's
+`META-INF/gradle-plugins/me.modmuss50.mod-publish-plugin.properties`.
+
+| Task | Where | What it does |
+|---|---|---|
+| `printPublishMetadata` | each node | prints node, version number, game versions, loaders, display name, changelog and whether a token is present. **Builds nothing, touches no network** — the only check that works on a node whose jar cannot be built yet |
+| `publishModrinth` | each node | the plugin's `PublishModTask`. Dry run by default; the real upload with `-PpublishLive=true` |
+| `publishMods` | each node | the plugin's aggregate — it only `dependsOn` `publishModrinth` |
+
+**Nothing publishes during a build.** Both tasks are in the `publishing` group and no lifecycle
+task depends on them (verified: `:26.2-fabric:build --dry-run` lists neither). On top of that the
+checked-in configuration is a **dry run** — `dryRun = !publishLive`, where `publishLive` is the
+Gradle property `-PpublishLive=true` — so an accidental `./gradlew publishMods` prints the
+metadata, copies each jar into `versions/<node>/build/publishMods/publishModrinth/`, and exits.
+A live upload needs the flag **and** `MODRINTH_TOKEN` in the environment
+(`accessToken = providers.environmentVariable("MODRINTH_TOKEN")`); the token is never read from
+disk by the build, never stored in the repo, and never printed.
+
+**Version naming follows the published history, which is not what the jar is called.** Read back
+off `GET /v2/project/d4TtjlpN/version` rather than reconstructed: the newest node uploads the
+**bare** `mod.version` and every older node appends its **node key** — the `<version>` half of
+the node directory name, *not* `sc.current.version`:
+
+| Node | Modrinth `version_number` | `game_versions` (from `mod.mc_releases`) | jar in the upload |
+|---|---|---|---|
+| `26.2-fabric` | `1.5.0` | `26.2` | `specialities-1.5.0+26.2.jar` |
+| `26.1-fabric` | `1.5.0+26.1` | `26.1`, `26.1.1`, `26.1.2` | `specialities-1.5.0+26.1.2.jar` |
+| `1.21.11-fabric` | `1.5.0+1.21.11` | `1.21.11` | `specialities-1.5.0+1.21.11.jar` |
+| `1.21.1-fabric` | `1.5.0+1.21.1` | `1.21`, `1.21.1` | `specialities-1.5.0+1.21.1.jar` |
+
+"Newest node" is computed, not hardcoded: `sc.versions.none { it.parsed > sc.current.parsed }`.
+Note the 26.1 row — the node's Minecraft version is 26.1.2 but every published 26.1 version
+number has been `+26.1`, and the jar file name keeps the full `+26.1.2`. Modrinth does not care
+what the file is called. **Phase B hazard:** two nodes at the same Minecraft version on different
+loaders would produce the same version number; the non-Fabric node scripts must add a loader
+suffix of their own.
+
+**Release notes: `changelogs/<mod.version>.md`, one file for all nodes**, so the notes cannot
+drift between the uploads of one release. If the first line is an `# H1` it becomes the Modrinth
+version name (`1.5.0 — <title>`, plus ` (<node key>)` on the older nodes, matching the 1.4.0/1.5.0
+naming) and is stripped from the uploaded body; everything else is uploaded verbatim. The file is
+read as bytes and decoded UTF-8 explicitly — the notes contain `—` and `→`. A missing file fails
+the publish with `No release notes at changelogs/<version>.md`, at task time, not at build time.
+
+**Ordering** is `stonecutter tasks { order("publishModrinth") }` in `stonecutter.gradle.kts`.
+`publishMods` is not an endpoint task, so ordering it would do nothing; the child gets ordered.
+`StonecutterControllerTasksImpl.orderImpl` sorts nodes by `StonecutterProject.parsed` **ascending**
+and chains `mustRunAfter` behind one shared mutex service, so the uploads never race Modrinth's
+rate limiter and the newest node uploads **last** — which puts it on top of the Modrinth version
+list. Measured order in the dry run: `1.21.11-fabric` → `26.1-fabric` → `26.2-fabric`.
+
+`--no-daemon` on the live command is deliberate: the upload is a one-shot, credential-carrying
+invocation, and no daemon should outlive it holding `MODRINTH_TOKEN` in its environment.
+
+**Deliberately not configured** (no published version of this project declares either, and a
+publishing stage must not silently change release metadata): Modrinth `environment`, and
+dependency declarations (`requires("fabric-api")`, `optional("modmenu", "cloth-config")`). Both
+are one-liners in the `modrinth { }` block when the user wants them. `featured = true` matches
+every release so far; `additionalFiles` is left empty on purpose so the `-sources` jar is never
+uploaded.
+
+**CI** (`.github/workflows/build.yml`) runs `buildAndCollect` on pull requests and on pushes to
+`main`/`workspace` only, with JDK 25 as the *Gradle* JVM (per-node toolchains 25/21/17 come from
+the foojay resolver), and uploads `build/libs/**` with `if-no-files-found: error`. It never
+publishes: the repo holds no token and no step exposes `MODRINTH_TOKEN`, so even an accidental
+`publishMods` there would be a dry run.
 
 ---
 
