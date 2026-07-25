@@ -3,7 +3,18 @@ package com.specialities;
 import com.specialities.items.SkillBookItem;
 import com.specialities.skills.Skill;
 
+// fabric-api's creative-tab module is 26.1+: `fabric-creative-tab-api-v1`
+// (5.0.11 on the 26.1 pin, 5.0.14 on 26.2) ships
+// `creativetab.v1.CreativeModeTabEvents`, and 0.141.5 (the 1.21.11 pin) has no
+// `creativetab` package at all — there it is `itemgroup.v1.ItemGroupEvents`.
+// Both hand the callback a `CreativeModeTab.Output`, so the 30 accepts below are
+// shared: `FabricItemGroupEntries` implements that interface and inherits its
+// `accept(ItemLike)` default.
+//? if >=26.1 {
 import net.fabricmc.fabric.api.creativetab.v1.CreativeModeTabEvents;
+//?} else {
+/*import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
+*///?}
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
@@ -54,7 +65,8 @@ public final class ModItems {
 	}
 
 	public static void initialize() {
-		CreativeModeTabEvents.modifyOutputEvent(CreativeModeTabs.TOOLS_AND_UTILITIES).register(output -> {
+		/*? if >=26.1 {*/CreativeModeTabEvents.modifyOutputEvent(CreativeModeTabs.TOOLS_AND_UTILITIES).register(output -> {
+		/*?} else *///ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.TOOLS_AND_UTILITIES).register(output -> {
 			output.accept(MINING_KNOWLEDGE_25);
 			output.accept(MINING_KNOWLEDGE_100);
 			output.accept(WOODCUTTING_KNOWLEDGE_25);
