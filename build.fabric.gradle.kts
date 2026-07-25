@@ -11,6 +11,11 @@ plugins {
 	// Only the 26.2 node actually creates a publication (see the bottom of this file);
 	// applied unconditionally so the Kotlin DSL accessors exist.
 	id("maven-publish")
+	// Modrinth uploads, one version per node (see the block at the bottom of this file).
+	// The version is pinned HERE and not in `settings.gradle.kts` on purpose: that file is a
+	// single-writer bottleneck (conventions §1) and this stage does not own it. Every Fabric
+	// node requests the same plugin at the same version, which is what the plugins DSL wants.
+	id("me.modmuss50.mod-publish-plugin") version "2.1.1"
 }
 
 // DO NOT set `group = …` here — the publication pins its own coordinate.
@@ -210,5 +215,139 @@ publishing {
 			artifactId = sc.properties["mod.id"]
 			version = sc.properties["mod.version"]
 		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// MODRINTH RELEASE UPLOAD — one Modrinth version per node.
+//
+// Plugin: `me.modmuss50.mod-publish-plugin` 2.1.1. Both facts were read off the artifact,
+// not from memory: 2.1.1 is `<release>` in the plugin portal's
+// me/modmuss50/mod-publish-plugin/…/maven-metadata.xml (checked 2026-07-25), and the id plus
+// the `publishMods` extension/task names come from the jar's
+// META-INF/gradle-plugins/me.modmuss50.mod-publish-plugin.properties and `MppPlugin`.
+// The plugin registers one `PublishModTask` per platform — ours is `publishModrinth` — and an
+// aggregate `publishMods` that depends on it. `stonecutter.gradle.kts` orders `publishModrinth`
+// across nodes (the aggregate is not an endpoint task, so ordering it would do nothing).
+//
+// NOTHING here can run during a normal build: both tasks are in the `publishing` group and no
+// lifecycle task depends on them. Beyond that, the CHECKED-IN configuration is a DRY RUN —
+// a real upload needs BOTH `-PpublishLive=true` and a `MODRINTH_TOKEN` in the environment.
+// The token is never checked in and never printed; see docs/MULTIVERSION.md §4 for the exact
+// release command sequence.
+
+/** The `<version>` half of the node name: `26.1-fabric` -> `26.1`. */
+val nodeKey: String = sc.current.project.substringBeforeLast('-')
+
+/** True when no registered node targets a newer Minecraft version than this one. */
+val isNewestNode: Boolean = sc.versions.none { it.parsed > sc.current.parsed }
+
+val modVersion: String = sc.properties["mod.version"]
+
+// The version number must keep the scheme the published releases already use — read back off
+// `GET /v2/project/d4TtjlpN/version` rather than reconstructed: the newest node uploads the
+// BARE mod version (`1.5.0`, game version 26.2) and every older node appends its node key
+// (`1.5.0+26.1`, game versions 26.1/26.1.1/26.1.2). Note that is the NODE KEY, not
+// `sc.current.version`: the 26.1 node's Minecraft version is 26.1.2, but every published 26.1
+// version number has been `+26.1`. The jar file name keeps `project.version` (with the full
+// `+26.1.2`) and is deliberately unaffected — Modrinth does not care what the file is called.
+// PHASE B: two nodes at the same Minecraft version on different loaders would collide here.
+// The non-Fabric node scripts must add their own loader suffix.
+val modrinthVersion: String = if (isNewestNode) modVersion else "$modVersion+$nodeKey"
+
+// Release notes live in `changelogs/<mod.version>.md` — ONE file for every node, so the notes
+// cannot drift between the four uploads of a release. If the first line is an `# H1` it becomes
+// the Modrinth version name and is stripped from the body; everything else is uploaded verbatim
+// (the user's changelog style is terse bullets and nothing else). Read as bytes and decoded as
+// UTF-8 explicitly: the notes contain `—` and `→`, and `asText` would use the platform default.
+val changelogPath = "changelogs/$modVersion.md"
+val changelogText: Provider<String> = providers
+	.fileContents(rootProject.layout.projectDirectory.file(changelogPath))
+	.asBytes.map { String(it, Charsets.UTF_8) }
+	.orElse(providers.provider<String> { error("No release notes at $changelogPath — write them before publishing") })
+
+/** The `# H1` title of the release notes, or `""` when there is none. */
+val releaseTitle: Provider<String> = changelogText.map {
+	it.trim().lineSequence().firstOrNull()?.takeIf { line -> line.startsWith("# ") }?.removePrefix("# ")?.trim().orEmpty()
+}
+
+/** The release notes with the title line removed. */
+val releaseNotes: Provider<String> = changelogText.map {
+	val lines = it.trim().lines()
+	(if (lines.firstOrNull()?.startsWith("# ") == true) lines.drop(1) else lines).joinToString("\n").trim()
+}
+
+/** Matches the published naming: `1.5.0 — <title>`, plus ` (<node>)` on the older nodes. */
+val modrinthDisplayName: Provider<String> = releaseTitle.map { title ->
+	buildString {
+		append(modVersion)
+		if (title.isNotEmpty()) append(" — ").append(title)
+		if (!isNewestNode) append(" (").append(nodeKey).append(')')
+	}
+}
+
+// A live upload is opt-in, per invocation. `PublishModTask` copies the extension's `dryRun` into
+// itself and finalises it as the task is created, so this has to be set on the extension.
+val publishLive: Boolean = providers.gradleProperty("publishLive").map(String::toBoolean).getOrElse(false)
+
+publishMods {
+	dryRun = !publishLive
+	// The mod jar for this node — `loomx.modJar` resolves to `jar` (26.x) or `remapJar`
+	// (obfuscated nodes), and carries the task dependency with it. NEVER the `-sources` jar:
+	// `additionalFiles` is deliberately left empty.
+	file = loomx.modJar.flatMap { it.archiveFile }
+	version = modrinthVersion
+	displayName = modrinthDisplayName
+	changelog = releaseNotes
+	type = STABLE
+	// Literal: this script is `build.fabric.gradle.kts`, so every node it configures is Fabric.
+	modLoaders.add("fabric")
+
+	modrinth {
+		projectId = "d4TtjlpN" // slug `skill-proficiencies`; the id is frozen, the slug is not
+		// Read from the environment at publish time. The PAT lives at ~/.config/modrinth/token
+		// and is never checked in, never printed, and never created by tooling.
+		accessToken = providers.environmentVariable("MODRINTH_TOKEN")
+		// `mod.mc_releases` from stonecutter.properties.toml — the 26.1 node's jar covers
+		// 26.1/26.1.1/26.1.2, the 1.21.1 node's covers 1.21/1.21.1. Lazy so a node that forgot
+		// the key fails when publishing rather than when building.
+		minecraftVersions.addAll(
+			providers.provider {
+				compatibleVersions.ifEmpty { error("`mod.mc_releases` is not declared for node ${sc.current.project}") }
+			},
+		)
+		// Matches every release so far. Modrinth keeps older featured versions featured, so if
+		// the project page gets crowded once four nodes ship, this is the knob to turn off.
+		featured = true
+		// `environment` and `requires(...)` are deliberately unset: no published version of this
+		// project declares either, and a publishing stage must not change release metadata.
+	}
+}
+
+// Pre-flight check for the release: prints exactly what each node would upload, without
+// building a jar or touching the network. This is the only way to inspect a node whose jar
+// cannot be produced yet, which is why it exists alongside the plugin's own dry run.
+tasks.register("printPublishMetadata") {
+	group = "publishing"
+	description = "Prints the Modrinth metadata this node would upload. Builds nothing, uploads nothing."
+	// Everything the action needs is captured here, at configuration time — the action itself
+	// touches no project state, and the token is reported as present/absent, never printed.
+	val rows = listOf(
+		"node" to sc.current.project,
+		"minecraft (jar)" to sc.current.version,
+		"version_number" to modrinthVersion,
+		"game_versions" to compatibleVersions.toString(),
+		"loaders" to "[fabric]",
+		"changelog file" to changelogPath,
+		"mode" to if (publishLive) "LIVE UPLOAD" else "dry run",
+		"MODRINTH_TOKEN" to if (providers.environmentVariable("MODRINTH_TOKEN").isPresent) "present" else "absent",
+	)
+	val name = modrinthDisplayName
+	val notes = releaseNotes
+	doLast {
+		rows.forEach { (k, v) -> logger.lifecycle("%-16s %s".format(k, v)) }
+		logger.lifecycle("%-16s %s".format("name", name.get()))
+		logger.lifecycle("--- changelog ---")
+		logger.lifecycle(notes.get())
 	}
 }
