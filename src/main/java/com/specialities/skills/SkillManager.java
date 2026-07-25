@@ -1,11 +1,10 @@
 package com.specialities.skills;
 
-import com.specialities.ModAttachments;
 import com.specialities.api.SkillType;
 import com.specialities.SkillUpdatePayload;
 import com.specialities.config.ConfigManager;
+import com.specialities.platform.SkillStore;
 
-import net.fabricmc.fabric.api.attachment.v1.AttachmentTarget;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
@@ -19,7 +18,7 @@ public final class SkillManager {
 	}
 
 	public static PlayerSkills get(final Player player) {
-		return ((AttachmentTarget) player).getAttachedOrElse(ModAttachments.SKILLS, PlayerSkills.EMPTY);
+		return SkillStore.INSTANCE.getSkills(player);
 	}
 
 	public static void addXp(final ServerPlayer player, final SkillType skill, final int amount) {
@@ -78,7 +77,7 @@ public final class SkillManager {
 
 	private static void apply(final ServerPlayer player, final SkillType skill, final PlayerSkills old, final int newTotal) {
 		PlayerSkills updated = old.withTotalXp(skill, newTotal);
-		((AttachmentTarget) player).setAttached(ModAttachments.SKILLS, updated);
+		SkillStore.INSTANCE.setSkills(player, updated);
 
 		if (skill == Skill.DEFENCE) {
 			DefencePassives.apply(player);

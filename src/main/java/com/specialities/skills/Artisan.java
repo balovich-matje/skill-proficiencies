@@ -5,10 +5,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import com.specialities.ModAttachments;
 import com.specialities.ModTags;
+import com.specialities.platform.SkillStore;
 
-import net.fabricmc.fabric.api.attachment.v1.AttachmentTarget;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderSet;
 import net.minecraft.core.component.DataComponentType;
@@ -85,7 +84,7 @@ public final class Artisan {
 			return null;
 		}
 
-		String uuid = ((AttachmentTarget) stand).getAttached(ModAttachments.BREWING_OWNER);
+		String uuid = SkillStore.INSTANCE.getBrewingOwner(stand);
 		if (uuid == null) {
 			return null;
 		}

@@ -1,5 +1,7 @@
 package com.specialities.skills;
 
+import com.specialities.platform.SkillStore;
+
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
@@ -61,7 +63,14 @@ public final class SkillEvents {
 			return EnchantmentHelper.getDamageProtection(serverLevel, player, source) < Tuning.FALL_IMMUNITY_POINTS;
 		});
 
-		ServerPlayerEvents.JOIN.register(DefencePassives::apply);
+		ServerPlayerEvents.JOIN.register(player -> {
+			DefencePassives.apply(player);
+			// No-op on every node registered today — fabric-api syncs the skills
+			// attachment itself. Mandatory on the nodes that cannot (design R-03),
+			// and this is the join hook it needs, so the call site lands with the
+			// seam rather than with the node.
+			SkillStore.INSTANCE.resyncSkills(player);
+		});
 		ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> DefencePassives.apply(newPlayer));
 		ServerPlayerEvents.LEAVE.register(player -> {
 			AthleticsTicker.onLeave(player);

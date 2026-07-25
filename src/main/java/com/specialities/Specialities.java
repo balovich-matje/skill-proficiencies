@@ -2,6 +2,7 @@ package com.specialities;
 
 import com.specialities.command.SkillCommands;
 import com.specialities.config.ConfigManager;
+import com.specialities.platform.SkillStore;
 import com.specialities.skills.SkillEvents;
 import com.specialities.skills.SkillTypes;
 
@@ -26,7 +27,7 @@ public class Specialities implements ModInitializer {
 		ConfigManager.load();
 		// Other mods' skills come in before anything can touch player state.
 		SkillTypes.pullEntrypoints();
-		ModAttachments.initialize();
+		SkillStore.INSTANCE.initialize();
 		ModItems.initialize();
 
 		// fabric-api renamed the play-phase payload registries: `clientboundPlay()`

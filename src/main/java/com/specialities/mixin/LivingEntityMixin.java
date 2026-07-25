@@ -8,11 +8,10 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
-import com.specialities.ModAttachments;
 import com.specialities.ModTags;
+import com.specialities.platform.SkillStore;
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 
-import net.fabricmc.fabric.api.attachment.v1.AttachmentTarget;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.DamageTypeTags;
@@ -167,11 +166,11 @@ public abstract class LivingEntityMixin {
 			return damage;
 		}
 
-		if (Boolean.TRUE.equals(((AttachmentTarget) mob).getAttached(ModAttachments.STEALTH_CRIT_DONE))) {
+		if (SkillStore.INSTANCE.isStealthCritDone(mob)) {
 			return damage;
 		}
 
-		((AttachmentTarget) mob).setAttached(ModAttachments.STEALTH_CRIT_DONE, true);
+		SkillStore.INSTANCE.markStealthCritDone(mob);
 		return damage * multiplier;
 	}
 }

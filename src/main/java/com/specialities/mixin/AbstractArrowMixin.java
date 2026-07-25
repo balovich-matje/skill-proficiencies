@@ -3,8 +3,8 @@ package com.specialities.mixin;
 import java.util.Comparator;
 import java.util.List;
 
-import com.specialities.ModAttachments;
 import com.specialities.ModTags;
+import com.specialities.platform.SkillStore;
 import com.specialities.skills.Skill;
 import com.specialities.skills.SkillManager;
 import com.specialities.skills.Tuning;
@@ -14,7 +14,6 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import net.fabricmc.fabric.api.attachment.v1.AttachmentTarget;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -48,12 +47,12 @@ public abstract class AbstractArrowMixin {
 			return;
 		}
 
-		if (((AttachmentTarget) self).getAttached(ModAttachments.RICOCHET_BOUNCES) == null) {
+		if (SkillStore.INSTANCE.getRicochetBounces(self) == null) {
 			return;
 		}
 
 		Entity victim = hitResult.getEntity();
-		Integer ignoredId = ((AttachmentTarget) self).getAttached(ModAttachments.RICOCHET_IGNORE);
+		Integer ignoredId = SkillStore.INSTANCE.getRicochetIgnore(self);
 
 		if (ignoredId != null && victim.getId() == ignoredId) {
 			// Still overlapping the previous victim: fly through it.
@@ -87,7 +86,7 @@ public abstract class AbstractArrowMixin {
 		}
 
 		ItemStack weapon = self.getWeaponItem();
-		Integer remaining = ((AttachmentTarget) self).getAttached(ModAttachments.RICOCHET_BOUNCES);
+		Integer remaining = SkillStore.INSTANCE.getRicochetBounces(self);
 		int bounces;
 
 		if (remaining != null) {
@@ -118,8 +117,8 @@ public abstract class AbstractArrowMixin {
 		next.setOwner(player);
 		next.pickup = AbstractArrow.Pickup.DISALLOWED;
 		next.setBaseDamage(((AbstractArrowAccessor) self).specialities$getBaseDamage());
-		((AttachmentTarget) next).setAttached(ModAttachments.RICOCHET_BOUNCES, bounces - 1);
-		((AttachmentTarget) next).setAttached(ModAttachments.RICOCHET_IGNORE, victim.getId());
+		SkillStore.INSTANCE.setRicochetBounces(next, bounces - 1);
+		SkillStore.INSTANCE.setRicochetIgnore(next, victim.getId());
 
 		float speed = (float) Math.max(this.specialities$impactSpeed, 1.5);
 		next.shoot(direction.x, direction.y, direction.z, speed, 0.0F);

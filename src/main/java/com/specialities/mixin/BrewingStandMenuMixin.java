@@ -1,12 +1,11 @@
 package com.specialities.mixin;
 
-import com.specialities.ModAttachments;
+import com.specialities.platform.SkillStore;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import net.fabricmc.fabric.api.attachment.v1.AttachmentTarget;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Inventory;
@@ -27,7 +26,7 @@ public abstract class BrewingStandMenuMixin {
 	private void specialities$rememberOwner(final int containerId, final Inventory inventory,
 			final Container brewingStand, final ContainerData data, final CallbackInfo ci) {
 		if (brewingStand instanceof BrewingStandBlockEntity stand && inventory.player instanceof ServerPlayer player) {
-			((AttachmentTarget) stand).setAttached(ModAttachments.BREWING_OWNER, player.getStringUUID());
+			SkillStore.INSTANCE.setBrewingOwner(stand, player.getStringUUID());
 		}
 	}
 }
