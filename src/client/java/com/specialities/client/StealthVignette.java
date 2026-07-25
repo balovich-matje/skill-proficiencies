@@ -5,7 +5,12 @@ import com.specialities.StealthStatePayload;
 
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
+// 26.x GUI rendering is extract-based; 1.21.11 and below draw immediately.
+//? if >=26.1 {
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+//?} else {
+/*import net.minecraft.client.gui.GuiGraphics;
+*///?}
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.ARGB;
@@ -47,7 +52,12 @@ public final class StealthVignette {
 		state = payload.state();
 	}
 
+	// Matches HudElement's functional method: extractRenderState on 26.x, render below.
+	//? if >=26.1 {
 	public static void render(final GuiGraphicsExtractor graphics, final DeltaTracker deltaTracker) {
+	//?} else {
+	/*public static void render(final GuiGraphics graphics, final DeltaTracker deltaTracker) {
+	*///?}
 		long now = Util.getMillis();
 		float dt = Math.min((now - lastFrameMs) / 1000.0F, 0.1F);
 		lastFrameMs = now;
@@ -74,7 +84,11 @@ public final class StealthVignette {
 		}
 	}
 
+	//? if >=26.1 {
 	private static void draw(final GuiGraphicsExtractor graphics, final int color) {
+	//?} else {
+	/*private static void draw(final GuiGraphics graphics, final int color) {
+	*///?}
 		graphics.blit(RenderPipelines.GUI_TEXTURED, TEXTURE, 0, 0, 0.0F, 0.0F,
 				graphics.guiWidth(), graphics.guiHeight(), graphics.guiWidth(), graphics.guiHeight(), color);
 	}

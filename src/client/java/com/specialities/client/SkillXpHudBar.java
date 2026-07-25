@@ -8,7 +8,14 @@ import com.specialities.skills.Tuning;
 
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
+// 26.x GUI rendering is extract-based; 1.21.11 and below draw immediately. Every
+// draw call this file makes exists verbatim on GuiGraphics — including the
+// TextureAtlasSprite blitSprite overload that takes an ARGB int (R-17).
+//? if >=26.1 {
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+//?} else {
+/*import net.minecraft.client.gui.GuiGraphics;
+*///?}
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.resources.Identifier;
@@ -43,7 +50,12 @@ public final class SkillXpHudBar {
 	private SkillXpHudBar() {
 	}
 
+	// Matches HudElement's functional method: extractRenderState on 26.x, render below.
+	//? if >=26.1 {
 	public static void render(final GuiGraphicsExtractor graphics, final DeltaTracker deltaTracker) {
+	//?} else {
+	/*public static void render(final GuiGraphics graphics, final DeltaTracker deltaTracker) {
+	*///?}
 		Minecraft minecraft = Minecraft.getInstance();
 
 		if (minecraft.player == null) {
@@ -98,11 +110,20 @@ public final class SkillXpHudBar {
 		int textX = left + BAR_WIDTH + 4;
 		int textY = top - 2;
 		int outline = ARGB.color(0xFF, 0x000000);
+		// 26.x names the text draw `text`; below it is `drawString`. Same overload set.
+		//? if >=26.1 {
 		graphics.text(minecraft.font, label, textX + 1, textY, outline, false);
 		graphics.text(minecraft.font, label, textX - 1, textY, outline, false);
 		graphics.text(minecraft.font, label, textX, textY + 1, outline, false);
 		graphics.text(minecraft.font, label, textX, textY - 1, outline, false);
 		graphics.text(minecraft.font, label, textX, textY, ARGB.color(0xFF, skill.color()), false);
+		//?} else {
+		/*graphics.drawString(minecraft.font, label, textX + 1, textY, outline, false);
+		graphics.drawString(minecraft.font, label, textX - 1, textY, outline, false);
+		graphics.drawString(minecraft.font, label, textX, textY + 1, outline, false);
+		graphics.drawString(minecraft.font, label, textX, textY - 1, outline, false);
+		graphics.drawString(minecraft.font, label, textX, textY, ARGB.color(0xFF, skill.color()), false);
+		*///?}
 
 		// Converging tool icons while the animation runs.
 		if (age < ICON_ANIM_MS) {
