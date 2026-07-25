@@ -39,6 +39,13 @@ import net.minecraft.world.entity.projectile.Arrow;
 *///?}
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+// Only the bounce arrow's Punch copy names these, and only below 1.21, where the arrow
+// carries its knockback in a field instead of re-deriving it from `firedFromWeapon`.
+//? if >=1.21 {
+//?} else {
+/*import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.Enchantments;
+*///?}
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
 
@@ -138,6 +145,31 @@ public abstract class AbstractArrowMixin {
 		// pickup item is implicitly `Items.ARROW`. The bounce arrow inherits the firing
 		// weapon by being stamped with it, which is what keeps `weapon` meaningful for the
 		// NEXT bounce — the chain reads its own weapon on every hop.
+		//
+		// What `firedFromWeapon` buys the bounce arrow on the newer nodes, and what has to be
+		// reproduced here, is exactly ONE thing: PUNCH. Measured rather than assumed, both
+		// halves:
+		//
+		//   - `AbstractArrow.doKnockback` on 1.21.1 reads `firedFromWeapon` (offset 1/31) and
+		//     calls `EnchantmentHelper.modifyKnockback(level, that stack, target, source, 0F)`
+		//     at offset 37, then scales `value * 0.6 * max(0, 1 - KNOCKBACK_RESISTANCE)` and
+		//     `push(x, 0.1, z)`. 1.20.1 does the same arithmetic from the arrow's own
+		//     `knockback` field (offsets 346-387 of `onHitEntity`), which vanilla's BowItem
+		//     sets at SHOT time — so the bounce arrow, which no bow ever shot, had none.
+		//     `punch.json` in the 1.21.1 jar is `minecraft:knockback` / `add` / `linear base
+		//     1.0 per_level_above_first 1.0`, i.e. the value is the level, so copying the
+		//     level into `setKnockback` is the same number, not an approximation.
+		//   - FIRE IS DELIBERATELY NOT COPIED, though the review asked whether it should be.
+		//     `flame.json` in the same jar is `minecraft:projectile_spawned` / `ignite`, and
+		//     that effect is applied by the weapon's own shoot path
+		//     (`EnchantmentHelper.onProjectileSpawned`) — which a ricochet bypasses on EVERY
+		//     node, `firedFromWeapon` or not. A modern bounce arrow is not on fire either, so
+		//     copying the original arrow's fire state here would not close a gap, it would
+		//     open a 1.20.1-only one. Same reasoning retires Piercing and tipped-arrow
+		//     effects: shot-time on 1.20.1, spawn-time effects on 1.21+, absent from the
+		//     bounce arrow everywhere. Power needs nothing — `setBaseDamage` below copies it
+		//     on this node because BowItem bakes it into `baseDamage`, and the newer nodes
+		//     re-derive it from the weapon at hit time.
 		//? if >=1.21 {
 		Arrow next = new Arrow(serverLevel, from.x, from.y, from.z, new ItemStack(Items.ARROW), weapon);
 		//?} else {
@@ -145,6 +177,7 @@ public abstract class AbstractArrowMixin {
 
 		if (weapon != null) {
 			SkillStore.INSTANCE.setFiringWeapon(next, weapon);
+			next.setKnockback(EnchantmentHelper.getItemEnchantmentLevel(Enchantments.PUNCH_ARROWS, weapon));
 		}
 		*///?}
 		next.setOwner(player);
