@@ -33,11 +33,10 @@ stonecutter {
 		}
 
 		// ---- Phase A, stage 1: the two shipping versions only. ----
-		// The 26.1 node lands in the next commit, together with the four //? deltas that
-		// make the shared tree compile for it. Later stages add:
-		// match("1.21.11", "fabric"), match("1.21.1", "fabric", "neoforge"),
+		// Later stages add: match("1.21.11", "fabric"), match("1.21.1", "fabric", "neoforge"),
 		// match("1.20.1", "fabric", "forge").  See docs/MULTIVERSION.md §1.3.
 		match("26.2", "fabric")
+		match("26.1", "fabric", version = "26.1.2")
 
 		// The node whose state the shared `src/` is committed in.
 		vcsVersion = "26.2-fabric"

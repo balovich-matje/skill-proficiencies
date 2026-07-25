@@ -9,7 +9,13 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+// 26.2 renamed the package `advancements.criterion` -> `advancements.triggers`.
+// Below 1.21.11 it is `advancements.critereon` (sic) — a third branch lands with that node.
+//? if >=26.2 {
 import net.minecraft.advancements.triggers.EnchantedItemTrigger;
+//?} else {
+/*import net.minecraft.advancements.criterion.EnchantedItemTrigger;
+*///?}
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 

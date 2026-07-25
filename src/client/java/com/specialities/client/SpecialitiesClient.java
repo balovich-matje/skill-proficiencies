@@ -68,8 +68,10 @@ public class SpecialitiesClient implements ClientModInitializer {
 				// the effect list vanilla draws to the panel's right. The
 				// recipe book shifts leftPos without re-running init, so it
 				// re-anchors every tick.
+				// 26.2 moved screen management off Minecraft onto the Gui object.
 				BookmarkTab tab = new BookmarkTab(Component.translatable("screen.specialities.skills"),
-						() -> client.gui.setScreen(new SkillsScreen(screen)));
+						/*? if >=26.2 {*/() -> client.gui.setScreen(new SkillsScreen(screen)));
+						/*?} else *///() -> client.setScreen(new SkillsScreen(screen)));
 				anchorTab((AbstractContainerScreen<?>) screen, tab);
 				Screens.getWidgets(screen).add(tab);
 
@@ -80,7 +82,8 @@ public class SpecialitiesClient implements ClientModInitializer {
 				// the top edge belongs to the real creative tabs, and
 				// creative shows no effect list to collide with.
 				Button button = Button.builder(Component.literal("S"),
-								b -> client.gui.setScreen(new SkillsScreen(screen)))
+								/*? if >=26.2 {*/b -> client.gui.setScreen(new SkillsScreen(screen)))
+								/*?} else *///b -> client.setScreen(new SkillsScreen(screen)))
 						.bounds(0, 0, 20, 20)
 						.tooltip(Tooltip.create(Component.translatable("screen.specialities.skills")))
 						.build();

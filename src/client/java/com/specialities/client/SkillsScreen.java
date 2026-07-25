@@ -76,7 +76,12 @@ public class SkillsScreen extends Screen {
 
 	@Override
 	public void onClose() {
+		// 26.2 moved screen management off Minecraft onto the Gui object.
+		//? if >=26.2 {
 		this.minecraft.gui.setScreen(this.parent);
+		//?} else {
+		/*this.minecraft.setScreen(this.parent);
+		*///?}
 	}
 
 	private int listBottom() {

@@ -4,7 +4,11 @@ import com.specialities.MeleeSwing;
 import com.specialities.ModTags;
 
 import net.minecraft.server.level.ServerPlayer;
+// 26.2 moved the ore/log tags to BlockItemTags (paired block+item views);
+// BlockTags kept only GOLD/IRON/COPPER_ORES, LOGS, CROPS and MINEABLE_WITH_*.
+//? if >=26.2 {
 import net.minecraft.tags.BlockItemTags;
+//?}
 import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.world.damagesource.DamageSource;
@@ -201,7 +205,11 @@ public final class SkillCategories {
 			return 75;
 		}
 
+		//? if >=26.2 {
 		if (state.is(BlockItemTags.DIAMOND_ORES.block()) || state.is(BlockItemTags.EMERALD_ORES.block())) {
+		//?} else {
+		/*if (state.is(BlockTags.DIAMOND_ORES) || state.is(BlockTags.EMERALD_ORES)) {
+		*///?}
 			return 50;
 		}
 
@@ -209,15 +217,27 @@ public final class SkillCategories {
 			return 20;
 		}
 
+		//? if >=26.2 {
 		if (state.is(BlockTags.IRON_ORES) || state.is(BlockItemTags.LAPIS_ORES.block())) {
+		//?} else {
+		/*if (state.is(BlockTags.IRON_ORES) || state.is(BlockTags.LAPIS_ORES)) {
+		*///?}
 			return 15;
 		}
 
+		//? if >=26.2 {
 		if (state.is(BlockItemTags.REDSTONE_ORES.block())) {
+		//?} else {
+		/*if (state.is(BlockTags.REDSTONE_ORES)) {
+		*///?}
 			return 12;
 		}
 
+		//? if >=26.2 {
 		if (state.is(BlockItemTags.COAL_ORES.block()) || state.is(Blocks.NETHER_QUARTZ_ORE)) {
+		//?} else {
+		/*if (state.is(BlockTags.COAL_ORES) || state.is(Blocks.NETHER_QUARTZ_ORE)) {
+		*///?}
 			return 10;
 		}
 
