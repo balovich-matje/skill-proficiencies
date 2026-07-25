@@ -60,9 +60,9 @@ boundary (`>=26` vs `>=26.1`) is the most likely silent-divergence bug in this p
 
 | Predicate | True for | Boundary it encodes |
 |---|---|---|
-| `>=26.2` | 26.2 | `BlockItemTags`; `advancements.triggers`; `Minecraft.gui.setScreen`/`toastManager()`; `CreativeModeTabEvents` |
-| `>=26.1` | 26.2, 26.1 | Java 25; `net.minecraft.util.Util`; `PermissionCheck.Require`; Cloth/ModMenu artifacts; `Items.IRON_SPEAR` |
-| `>=1.21.11` | 26.x, 1.21.11 | `Identifier`; `HudElementRegistry`; `.projectile.arrow` package; `ItemTags.SPEARS`; `getAtlasManager`; `getFieldOfViewModifier(ZF)F`; copper armor; `advancements.criterion` (vs `critereon` below) |
+| `>=26.2` | 26.2 | `BlockItemTags`; `advancements.triggers`; `Minecraft.gui.setScreen`/`toastManager()` |
+| `>=26.1` | 26.2, 26.1 | Java 25; Cloth/ModMenu artifacts; `ItemInstance` (the `Block.getDrops` tool param and the matching `EnchantmentHelper.getItemEnchantmentLevel` overload); the extract-vs-immediate render hooks (`GuiGraphicsExtractor`, `Screen`/`AbstractWidget`/`Toast`/`HudElement` `extract*` vs `render*`, `text()` vs `drawString()`, `fakeItem()` vs `renderFakeItem()`); **fabric-api:** `PayloadTypeRegistry.clientboundPlay()/serverboundPlay()` (vs `playS2C()/playC2S()`), `creativetab.v1.CreativeModeTabEvents` (vs `itemgroup.v1.ItemGroupEvents`), `Screens.getWidgets` (vs `getButtons`) |
+| `>=1.21.11` | 26.x, 1.21.11 | `Identifier`; **`net.minecraft.util.Util`**; `HudElementRegistry`; `.projectile.arrow` package; `ItemTags.SPEARS`; **`Items.IRON_SPEAR`**; `getAtlasManager`; `AtlasIds`; `getFieldOfViewModifier(ZF)F`; `MouseButtonEvent`; `pose()` returning `Matrix3x2fStack`; **`PermissionCheck.Require`** / the `net.minecraft.server.permissions` stack; copper armor; `advancements.criterion` (vs `critereon` below) |
 | `>=1.21.2` | 26.x, 1.21.11 | `LivingEntity.hurtServer`; `InteractionResult` returns; `Equippable`; `MobEffects.SPEED` |
 | `>=1.21` | 26.x, 1.21.11, 1.21.1 | `Holder<Attribute>`; `ResourceKey` enchantments; data components; **singular `tags/item/` datapack directory** |
 | `>=1.20.5` | everything but 1.20.1 | `StreamCodec`/`RegistryFriendlyByteBuf`; the whole payload stack; Java 21 |
@@ -74,6 +74,26 @@ Dependency predicate: **`fapi`** (`//? if fapi: >=0.100 {`), bound to `deps.fabr
 
 Do **not** invent `>=1.20.2`, `>=1.20.5` synonyms, `>=26`, or `<1.21.4`. If a genuinely
 new boundary is needed, add it to this table **in the same commit**.
+
+**Five rows moved in Stage 2** (1.21.11), each because the shipped code proved the
+boundary was one step off. Recorded so nobody "restores" them:
+
+- `net.minecraft.util.Util`, `Items.IRON_SPEAR` and `PermissionCheck.Require` were on
+  `>=26.1`. All three already exist on 1.21.11, so they are `>=1.21.11` facts. Mojmap:
+  `net.minecraft.util.Util -> bhs` with **no** `net.minecraft.Util` on 1.21.11 (1.21.1 has
+  `net.minecraft.Util -> ad`, 1.20.1 `-> ac`); the whole spear family `WOODEN_SPEAR -> xI`
+  … `IRON_SPEAR -> xL` plus `assets/minecraft/textures/item/iron_spear.png`;
+  `PermissionCheck -> bbj` / `PermissionCheck$Require -> bbj$b` / `Permissions -> bbr` with
+  `Commands.hasPermission(PermissionCheck)`, proven end to end by `javap` of vanilla
+  `GameModeCommand` and then by `help skillprof` printing the full command tree on a real
+  1.21.11 dedicated server. The `Util` row being one step high was a **live build break**,
+  not a cosmetic error — replacements are directional, so a false `>=26.1` rewrote the
+  shared tree's `net.minecraft.util.Util` DOWN to a class 1.21.11 does not have.
+- `CreativeModeTabEvents` was on `>=26.2`. `fabric-creative-tab-api-v1` 5.0.11 (the 26.1
+  pin) already ships `creativetab.v1.CreativeModeTabEvents`, so the boundary is `>=26.1` —
+  the same one `build.fabric.gradle.kts` already used for the module swap.
+- `ItemInstance` and the extract-vs-immediate render surface were never listed at all; they
+  are the two largest `>=26.1` deltas in the tree and now say so.
 
 ## 4. `//?` comment syntax (the authoritative forms)
 
@@ -115,7 +135,22 @@ comment marker `*` → `^`:
 ```
 
 `//?` works in JSON too (both scanners exist), but see §6 for why the tag JSONs do not
-need it.
+need it — **and it is not safe in every JSON file the mod ships.** An enabled branch leaves
+its own directive line behind as a `//` comment, and a disabled branch is wrapped in
+`/* … */`, so the output is only valid input for a *lenient* JSON reader. Measured in
+Stage 2 (javap, fabric-loader 0.19.3 / sponge-mixin 0.17.3):
+
+| File | Parser | `//?` safe? |
+|---|---|---|
+| `specialities.mixins.json`, `specialities.client.mixins.json` | Mixin: `new Gson().fromJson(Reader, Class)`; Gson's read path saves `isLenient()` and forces `setLenient(true)` | **yes** |
+| `fabric.mod.json` | Fabric's own bundled `JsonReader`: `lenient = false` in the ctor (`iconst_0`), never set true anywhere in `ModMetadataParser`, and `checkLenient()` throws on a leading `/` | **NO — unloadable mod** |
+| `data/**` tag JSONs, `assets/**` | vanilla `JsonParser`, lenient | yes (but unnecessary — see §6 R-16) |
+
+For `fabric.mod.json`, condition the content in `processResources` instead. An `expand`
+placeholder is also wrong: it makes the *raw* template invalid JSON, and Loom parses that
+file at configuration time for mod-id detection ("Failed to parse fabric.mod.json").
+Stage 2 gates the `modmenu` entrypoint by blanking its class line below 26.1, which leaves
+an inert `"modmenu": []` and touches the 26.x nodes not at all.
 
 ## 5. Shared-implementation rules
 
@@ -163,6 +198,22 @@ regression signal in the project.
 
 **5e. Java 17 is the shared-code ceiling** once `1.20.1` lands (R-15). Records are fine;
 pattern-matching `switch`, sealed types and unnamed patterns are not.
+
+**5e-bis. `org.jspecify.annotations.Nullable` needs no fork down to 1.21.11.**
+`org.jspecify:jspecify:1.0.0` is one of 1.21.11's *own* vanilla libraries (its version
+manifest lists it), so the import resolves on that node's compile classpath with no block —
+confirmed by `:1.21.11-fabric:build` compiling `LivingEntityMixin` and `SkillCategories`
+untouched. It looks 26.x-only and is not. (Still unverified for 1.21.1/1.20.1.)
+
+**5e-ter. A whole file that must vanish on a node leaves via the source set, not via `//?`.**
+`client/config/ClothConfigScreen.java` and `ModMenuIntegration.java` have no classpath below
+26.1 (Mod Menu / Cloth Config are gated there and the legacy nodes declare no pins), so
+Stage 2 excludes them in `build.fabric.gradle.kts`:
+`if (sc.current.parsed < "26.1") sourceSets["client"].java.exclude("com/specialities/client/config/**")`.
+Wrapping each file in a `//?` block was rejected: both carry `/** … */` javadoc, so a
+hand-written disabled branch contains a `*/` that closes the branch comment early, which
+needs the `*` → `^` escalation of §4 and fails silently when got wrong. Any entrypoint or
+mixin-config entry naming an excluded class must be gated in the same commit.
 
 **5f. Build scripts are NOT preprocessed.** Stonecutter only walks the source sets
 (`StonecutterBuildImpl`: `project.sourceSets.all { … }`). Version conditionals in
@@ -214,8 +265,19 @@ Verified against five SHA1-checked vanilla client jars (1.20.1, 1.20.6, 1.21, 1.
   was verified in `TagEntry` bytecode (`RecordCodecBuilder` over `fieldOf("id")` +
   `optionalFieldOf("required")`), not from memory — vanilla itself never uses it.
 
-**Not done in Stage 1** (the 26.x nodes are unaffected): the six `required:false` edits
-and the `processResources` rename land with the node that needs them.
+**Not done in Stage 1 or Stage 2** (no registered node is affected): the six
+`required:false` edits and the `processResources` rename land with the node that needs
+them, i.e. `1.21.1-fabric`. Stage 2 re-proved both halves of this rather than taking them
+on trust — `TagEntry`'s codec is `ExtraCodecs.TAG_OR_ELEMENT_ID.fieldOf("id")` +
+`Codec.BOOL.optionalFieldOf("required", TRUE)`, bytecode-identical in all five target jars
+(so `required:false` is valid syntax everywhere, including 1.20.1, and `#`-prefixed tag
+references accept it too), and a real 1.21.11 dedicated server logged **no**
+`missing following references`, confirming all six files load clean on this node.
+The edits were written, measured, and then **parked on branch
+`stage4a-tags-required-false`** rather than landed: they are a no-op until 1.21.1 exists,
+and landing them early is the one change in the whole stage that would have moved the 26.x
+jars' resource bytes and so blunted the reproduction gate. Cherry-pick that branch's tag
+commit when the 1.21.1 node lands.
 
 ### R-17 — HUD sprite tinting on legacy (CLOSED GREEN, cost ~0)
 
@@ -249,6 +311,17 @@ Bytecode-proven to be r,g,b,a and to manage its own `enableBlend`/`disableBlend`
   verbatim — only `GuiGraphicsExtractor` → `GuiGraphics` and `text(…)` → `drawString(…)`.
   **This corrects design §3.4's client row**, which implies `AtlasIds` must become
   `TextureAtlas.LOCATION_ITEMS` on 1.21.11; it must not.
+- **Stage 2 closed this for 1.21.11 and confirmed the branch shape.** The ARGB-int sprite
+  overload `blitSprite(RenderPipeline, TextureAtlasSprite, int,int,int,int, int)` is present
+  **and public** on 1.21.11 (`javap -p gir` → `public void a(RenderPipeline, ilp, int, int,
+  int, int, int)`, unlike 1.21.1 where the sprite-taking overloads are private), and its
+  trailing `int` really is a colour there, not the `blitOffset`/z of the 1.21.1 trap:
+  `javap -c` shows it forwarding to `innerBlit(pipeline, Identifier, x1,x2,y1,y2,
+  u0,u1,v0,v1, colour)` with `iload 7` landing in the colour slot, and the 6-arg overload
+  passing `iconst_m1` (0xFFFFFFFF, opaque white). So the icon tint keeps the 26.x ARGB path
+  on this node and the float-RGBA blit is needed **strictly below 1.21.11** — the
+  `//? if <1.21.11` shape above is right as written, and no new predicate is required.
+  `SkillIcons` needed no block at all.
 - **Blend-state hazard**: the legacy 14-arg `innerBlit` ends with an unconditional
   `RenderSystem.disableBlend()`. Since the HUD is drawn from a `Gui` mixin on those
   nodes, inject at/after the experience bar or at `TAIL` of `Gui.render`; anywhere else,

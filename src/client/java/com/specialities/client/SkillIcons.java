@@ -7,8 +7,8 @@ import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.data.AtlasIds;
 
 /**
- * Item-atlas sprites for each skill. Sprites (rather than
- * {@code GuiGraphicsExtractor.item}) so icons can be drawn translucent — item
+ * Item-atlas sprites for each skill. Sprites (rather than the graphics object's
+ * own item-draw call) so icons can be drawn translucent — item
  * rendering ignores tint/alpha. Each skill names its own flat item texture
  * via {@link SkillType#iconTexture()}.
  */
