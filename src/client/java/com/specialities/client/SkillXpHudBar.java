@@ -16,10 +16,22 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 //?} else {
 /*import net.minecraft.client.gui.GuiGraphics;
 *///?}
+// `RenderPipelines` and `net.minecraft.util.ARGB` are 1.21.11-and-up. Below that the colour
+// helpers are `FastColor.ARGB32` (same names, same shapes) and the tinted sprite draw is
+// the public float-RGBA `blit(x, y, z, w, h, sprite, r, g, b, a)` — R-17. Do NOT reach for
+// `blitSprite(sprite, ...)` there: both sprite-taking blitSprite overloads are PRIVATE on
+// 1.21.1 (`private void a(gql, int, int, int, int, int)`) and that trailing int is
+// blitOffset/z, not a colour.
+//? if >=1.21.11 {
 import net.minecraft.client.renderer.RenderPipelines;
+//?}
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.resources.Identifier;
+//? if >=1.21.11 {
 import net.minecraft.util.ARGB;
+//?} else {
+/*import net.minecraft.util.FastColor;
+*///?}
 import net.minecraft.util.Mth;
 
 /**
@@ -96,7 +108,18 @@ public final class SkillXpHudBar {
 		int top = graphics.guiHeight() - BOTTOM_OFFSET;
 
 		// Bar background + fill.
+		//? if >=1.21.11 {
 		graphics.blitSprite(RenderPipelines.GUI_TEXTURED, BAR_BACKGROUND_SPRITE, left, top, BAR_WIDTH, BAR_HEIGHT, BASE_ALPHA);
+		//?} else {
+		/*// Same float-alpha path as the icons: resolve the GUI sprite by hand
+		// (`Minecraft.getGuiSprites().getSprite(...)`) and use the public float-RGBA blit,
+		// so BASE_ALPHA keeps meaning something here instead of being silently dropped.
+		// `hud/experience_bar_background` ships no `.mcmeta`, i.e. plain STRETCH scaling, so
+		// this is geometrically identical to vanilla's own blitSprite of it.
+		graphics.blit(left, top, 0, BAR_WIDTH, BAR_HEIGHT,
+				Minecraft.getInstance().getGuiSprites().getSprite(BAR_BACKGROUND_SPRITE),
+				1.0F, 1.0F, 1.0F, BASE_ALPHA);
+		*///?}
 
 		int fillWidth = (int) (progress * (BAR_WIDTH - 2));
 		if (fillWidth > 0) {
@@ -109,20 +132,32 @@ public final class SkillXpHudBar {
 		String label = Integer.toString(shownLevel);
 		int textX = left + BAR_WIDTH + 4;
 		int textY = top - 2;
+		//? if >=1.21.11 {
 		int outline = ARGB.color(0xFF, 0x000000);
-		// 26.x names the text draw `text`; below it is `drawString`. Same overload set.
+		//?} else {
+		/*int outline = FastColor.ARGB32.color(0xFF, 0x000000);
+		*///?}
+		// 26.x names the text draw `text`; below it is `drawString`. Same overload set. The
+		// third branch exists only because ARGB moves to FastColor.ARGB32 below 1.21.11 —
+		// an elif chain rather than a nested block, so every branch stays flat.
 		//? if >=26.1 {
 		graphics.text(minecraft.font, label, textX + 1, textY, outline, false);
 		graphics.text(minecraft.font, label, textX - 1, textY, outline, false);
 		graphics.text(minecraft.font, label, textX, textY + 1, outline, false);
 		graphics.text(minecraft.font, label, textX, textY - 1, outline, false);
 		graphics.text(minecraft.font, label, textX, textY, ARGB.color(0xFF, skill.color()), false);
-		//?} else {
+		//?} elif >=1.21.11 {
 		/*graphics.drawString(minecraft.font, label, textX + 1, textY, outline, false);
 		graphics.drawString(minecraft.font, label, textX - 1, textY, outline, false);
 		graphics.drawString(minecraft.font, label, textX, textY + 1, outline, false);
 		graphics.drawString(minecraft.font, label, textX, textY - 1, outline, false);
 		graphics.drawString(minecraft.font, label, textX, textY, ARGB.color(0xFF, skill.color()), false);
+		*///?} else {
+		/*graphics.drawString(minecraft.font, label, textX + 1, textY, outline, false);
+		graphics.drawString(minecraft.font, label, textX - 1, textY, outline, false);
+		graphics.drawString(minecraft.font, label, textX, textY + 1, outline, false);
+		graphics.drawString(minecraft.font, label, textX, textY - 1, outline, false);
+		graphics.drawString(minecraft.font, label, textX, textY, FastColor.ARGB32.color(0xFF, skill.color()), false);
 		*///?}
 
 		// Converging tool icons while the animation runs.
@@ -137,10 +172,20 @@ public final class SkillXpHudBar {
 				int centerX = left + BAR_WIDTH / 2 - ICON_SIZE / 2;
 				int leftX = Math.round(Mth.lerp(eased, left - ICON_SIZE - 8, centerX));
 				int rightX = Math.round(Mth.lerp(eased, left + BAR_WIDTH + 8, centerX));
+				//? if >=1.21.11 {
 				int color = ARGB.color(iconAlpha, 0xFFFFFF);
 
 				graphics.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, leftX, iconY, ICON_SIZE, ICON_SIZE, color);
 				graphics.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, rightX, iconY, ICON_SIZE, ICON_SIZE, color);
+				//?} else {
+				/*// R-17's legacy path, verbatim: the public float-RGBA blit. `iconAlpha` stays
+				// the int 0..255 the animation computes and is converted here at the call
+				// site (conventions §5b) — the easing is never forked.
+				float iconAlphaF = iconAlpha / 255.0F;
+
+				graphics.blit(leftX, iconY, 0, ICON_SIZE, ICON_SIZE, sprite, 1.0F, 1.0F, 1.0F, iconAlphaF);
+				graphics.blit(rightX, iconY, 0, ICON_SIZE, ICON_SIZE, sprite, 1.0F, 1.0F, 1.0F, iconAlphaF);
+				*///?}
 			}
 		}
 	}

@@ -23,14 +23,27 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 *///?}
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
+// Three separate 1.21.11 boundaries in this file: `client.input.MouseButtonEvent` (below it
+// the hook is `mouseClicked(double, double, int)`), `RenderPipelines` + the ARGB-int sprite
+// blit (below it the public float-RGBA `blit(x, y, z, w, h, sprite, r, g, b, a)` — R-17),
+// and `pose()` returning a Matrix3x2fStack (below it a PoseStack, so the quarter turn is
+// `rotateAround(Axis.ZP.rotation(rad), px, py, 0)` between pushPose/popPose).
+//? if >=1.21.11 {
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.renderer.RenderPipelines;
+//?} else {
+/*import com.mojang.math.Axis;
+*///?}
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundEvents;
+//? if >=1.21.11 {
 import net.minecraft.util.ARGB;
+//?} else {
+/*import net.minecraft.util.FastColor;
+*///?}
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 // jspecify is one of the game's OWN libraries only from 1.21.11 up (conventions
@@ -146,6 +159,7 @@ public class SkillsScreen extends Screen {
 	}
 
 	@Override
+	//? if >=1.21.11 {
 	public boolean mouseClicked(final MouseButtonEvent event, final boolean doubleClick) {
 		if (super.mouseClicked(event, doubleClick)) {
 			return true;
@@ -154,21 +168,42 @@ public class SkillsScreen extends Screen {
 		if (event.button() != 0) {
 			return false;
 		}
+	//?} else {
+	/*public boolean mouseClicked(final double clickX, final double clickY, final int button) {
+		if (super.mouseClicked(clickX, clickY, button)) {
+			return true;
+		}
+
+		if (button != 0) {
+			return false;
+		}
+	*///?}
 
 		int left = (this.width - TOTAL_WIDTH) / 2;
 
 		// Only the arrow button toggles; the skill row itself is not clickable.
+		//? if >=1.21.11 {
 		if (event.x() < left || event.x() >= left + ARROW_SIZE
 				|| event.y() < LIST_TOP || event.y() >= this.listBottom()) {
 			return false;
 		}
+		//?} else {
+		/*if (clickX < left || clickX >= left + ARROW_SIZE
+				|| clickY < LIST_TOP || clickY >= this.listBottom()) {
+			return false;
+		}
+		*///?}
 
 		int y = LIST_TOP - (int) this.scroll;
 
 		for (SkillType skill : SkillTypes.all()) {
 			int arrowTop = y + (ROW_HEIGHT - 2 - ARROW_SIZE) / 2;
 
+			//? if >=1.21.11 {
 			if (event.y() >= arrowTop && event.y() < arrowTop + ARROW_SIZE) {
+			//?} else {
+			/*if (clickY >= arrowTop && clickY < arrowTop + ARROW_SIZE) {
+			*///?}
 				if (!this.expanded.remove(skill)) {
 					this.expanded.add(skill);
 				}
@@ -250,7 +285,14 @@ public class SkillsScreen extends Screen {
 
 		// Outside the scissor: the deferred tooltip must not be clipped.
 		if (tooltip != null) {
+			// 1.21.11 and up defer the tooltip to the end of the frame; on 1.21.1 the
+			// equivalent is GuiGraphics.renderTooltip, which draws immediately — still
+			// outside the scissor, so it is not clipped either way.
+			//? if >=1.21.11 {
 			graphics.setTooltipForNextFrame(this.font, tooltip, Optional.empty(), mouseX, mouseY);
+			//?} else {
+			/*graphics.renderTooltip(this.font, tooltip, Optional.empty(), mouseX, mouseY);
+			*///?}
 		}
 	}
 
@@ -267,24 +309,38 @@ public class SkillsScreen extends Screen {
 
 		graphics.fill(left, top, left + ROW_WIDTH, top + ROW_HEIGHT - 2, hovered ? 0x66FFFFFF : 0x44000000);
 
+		//? if >=1.21.11 {
 		graphics.blitSprite(RenderPipelines.GUI_TEXTURED, SkillIcons.sprite(skill),
 				left + 4, top + 3, ICON_SIZE, ICON_SIZE, ARGB.color(alpha, 0xFFFFFF));
+		//?} else {
+		/*graphics.blit(left + 4, top + 3, 0, ICON_SIZE, ICON_SIZE, SkillIcons.sprite(skill),
+				1.0F, 1.0F, 1.0F, alpha / 255.0F);
+		*///?}
 
 		//? if >=26.1 {
 		graphics.text(this.font, skill.displayName(), left + 25, top + 3, ARGB.color(alpha, skill.color()), true);
 		graphics.text(this.font, Component.translatable("screen.specialities.skills.level", level),
 				left + 25, top + 13, ARGB.color(alpha, 0xDDDDDD), false);
-		//?} else {
+		//?} elif >=1.21.11 {
 		/*graphics.drawString(this.font, skill.displayName(), left + 25, top + 3, ARGB.color(alpha, skill.color()), true);
 		graphics.drawString(this.font, Component.translatable("screen.specialities.skills.level", level),
 				left + 25, top + 13, ARGB.color(alpha, 0xDDDDDD), false);
+		*///?} else {
+		/*graphics.drawString(this.font, skill.displayName(), left + 25, top + 3,
+				FastColor.ARGB32.color(alpha, skill.color()), true);
+		graphics.drawString(this.font, Component.translatable("screen.specialities.skills.level", level),
+				left + 25, top + 13, FastColor.ARGB32.color(alpha, 0xDDDDDD), false);
 		*///?}
 
 		// Progress bar on the right.
 		int barLeft = left + 150;
 		int barRight = left + ROW_WIDTH - 6;
 		int barTop = top + 9;
+		//? if >=1.21.11 {
 		graphics.fill(barLeft, barTop, barRight, barTop + 5, ARGB.color(alpha, 0x222222));
+		//?} else {
+		/*graphics.fill(barLeft, barTop, barRight, barTop + 5, FastColor.ARGB32.color(alpha, 0x222222));
+		*///?}
 
 		int intoLevel = skills.totalXp(skill) - Tuning.totalXpForLevel(level);
 		int needed = Tuning.xpToNext(level);
@@ -292,7 +348,12 @@ public class SkillsScreen extends Screen {
 		int fill = (int) ((barRight - barLeft - 2) * progress);
 
 		if (fill > 0) {
+			//? if >=1.21.11 {
 			graphics.fill(barLeft + 1, barTop + 1, barLeft + 1 + fill, barTop + 4, ARGB.color(alpha, skill.color()));
+			//?} else {
+			/*graphics.fill(barLeft + 1, barTop + 1, barLeft + 1 + fill, barTop + 4,
+					FastColor.ARGB32.color(alpha, skill.color()));
+			*///?}
 		}
 	}
 
@@ -312,13 +373,27 @@ public class SkillsScreen extends Screen {
 
 		if (this.expanded.contains(skill)) {
 			// Quarter turn clockwise: the arrow points down while open.
+			//? if >=1.21.11 {
 			graphics.pose().pushMatrix();
 			graphics.pose().rotateAbout((float) (Math.PI / 2.0),
 					left + ARROW_SIZE / 2.0F, arrowTop + ARROW_SIZE / 2.0F);
 			graphics.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, left, arrowTop, ARROW_SIZE, ARROW_SIZE);
 			graphics.pose().popMatrix();
+			//?} else {
+			/*// PoseStack, not Matrix3x2fStack: the 2D `rotateAbout(radians, px, py)` becomes
+			// a Z-axis quaternion rotation about (px, py, 0).
+			graphics.pose().pushPose();
+			graphics.pose().rotateAround(Axis.ZP.rotation((float) (Math.PI / 2.0)),
+					left + ARROW_SIZE / 2.0F, arrowTop + ARROW_SIZE / 2.0F, 0.0F);
+			graphics.blitSprite(sprite, left, arrowTop, ARROW_SIZE, ARROW_SIZE);
+			graphics.pose().popPose();
+			*///?}
 		} else {
+			//? if >=1.21.11 {
 			graphics.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, left, arrowTop, ARROW_SIZE, ARROW_SIZE);
+			//?} else {
+			/*graphics.blitSprite(sprite, left, arrowTop, ARROW_SIZE, ARROW_SIZE);
+			*///?}
 		}
 	}
 

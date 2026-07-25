@@ -9,7 +9,12 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 *///?}
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
+// `net.minecraft.client.input.MouseButtonEvent` lands at 1.21.11; below that the click hook
+// is the two-double `onClick(double, double)` (1.21.1 mojmap: `124:124:void onClick(double,
+// double) -> a` on AbstractWidget).
+//? if >=1.21.11 {
 import net.minecraft.client.input.MouseButtonEvent;
+//?}
 import net.minecraft.network.chat.Component;
 
 /**
@@ -42,7 +47,11 @@ final class BookmarkTab extends AbstractWidget {
 	}
 
 	@Override
+	//? if >=1.21.11 {
 	public void onClick(final MouseButtonEvent event, final boolean doubleClick) {
+	//?} else {
+	/*public void onClick(final double mouseX, final double mouseY) {
+	*///?}
 		this.playDownSound(Minecraft.getInstance().getSoundManager());
 		this.onPress.run();
 	}

@@ -10,8 +10,21 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 /*import net.minecraft.client.gui.GuiGraphics;
 *///?}
 import net.minecraft.client.gui.components.toasts.Toast;
+// The Toast interface is a different shape below 1.21.11. From 1.21.11 up it is four
+// members (getWantedVisibility / update(ToastManager,long) / getSoundEvent / a void draw);
+// on 1.21.1 it is ONE method — `Toast.Visibility render(GuiGraphics, ToastComponent, long)`
+// — which both draws and returns the next visibility, `ToastManager` is called
+// `ToastComponent`, and there is no per-toast sound hook at all (Visibility.SHOW/HIDE carry
+// the vanilla whoosh and the manager plays those), so the milestone jingle has to be played
+// by the toast itself, once. `RenderPipelines` is likewise 1.21.11-and-up.
+//? if >=1.21.11 {
 import net.minecraft.client.gui.components.toasts.ToastManager;
 import net.minecraft.client.renderer.RenderPipelines;
+//?} else {
+/*import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.toasts.ToastComponent;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+*///?}
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundEvent;
@@ -46,7 +59,11 @@ public class SkillLevelUpToast implements Toast {
 	private final int fromLevel;
 	private final int newLevel;
 	private final ItemStack icon;
+	//? if >=1.21.11 {
 	private Toast.Visibility wantedVisibility = Toast.Visibility.HIDE;
+	//?} else {
+	/*private boolean soundPlayed;
+	*///?}
 
 	public SkillLevelUpToast(final SkillType skill, final int fromLevel, final int newLevel) {
 		this.skill = skill;
@@ -55,6 +72,7 @@ public class SkillLevelUpToast implements Toast {
 		this.icon = new ItemStack(skill.icon());
 	}
 
+	//? if >=1.21.11 {
 	@Override
 	public Toast.Visibility getWantedVisibility() {
 		return this.wantedVisibility;
@@ -71,20 +89,53 @@ public class SkillLevelUpToast implements Toast {
 	public @Nullable SoundEvent getSoundEvent() {
 		return this.crossesMilestone() ? SoundEvents.UI_TOAST_CHALLENGE_COMPLETE : null;
 	}
+	//?} else {
+	/*// The single 1.21.1 hook: draw, decide the next visibility, and — since the version has
+	// no getSoundEvent equivalent — play the milestone jingle on the first frame. The timeout
+	// arithmetic and the milestone rule are the same expressions as above, so behaviour does
+	// not fork, only the plumbing does.
+	@Override
+	public Toast.Visibility render(final GuiGraphics graphics, final ToastComponent manager,
+			final long fullyVisibleForMs) {
+		if (!this.soundPlayed) {
+			this.soundPlayed = true;
+
+			if (this.crossesMilestone()) {
+				Minecraft.getInstance().getSoundManager()
+						.play(SimpleSoundInstance.forUI(SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, 1.0F));
+			}
+		}
+
+		this.draw(graphics, Minecraft.getInstance().font);
+
+		return fullyVisibleForMs >= DISPLAY_TIME_MS * manager.getNotificationDisplayTimeMultiplier()
+				? Toast.Visibility.HIDE
+				: Toast.Visibility.SHOW;
+	}
+	*///?}
 
 	private boolean crossesMilestone() {
 		return (this.fromLevel < 50 && this.newLevel >= 50) || (this.fromLevel < 100 && this.newLevel >= 100);
 	}
 
-	@Override
-	// Toast's draw hook is extractRenderState on 26.x and render below; `text` is
-	// `drawString` and `fakeItem` is `renderFakeItem` there.
+	// Toast's draw hook is extractRenderState on 26.x and render on 1.21.11; `text` is
+	// `drawString` and `fakeItem` is `renderFakeItem` there. On 1.21.1 the interface has no
+	// draw hook of its own, so this becomes a plain private method called from render(...)
+	// above — which is also why the @Override moved inside the chain.
 	//? if >=26.1 {
+	@Override
 	public void extractRenderState(final GuiGraphicsExtractor graphics, final Font font, final long fullyVisibleForMs) {
-	//?} else {
-	/*public void render(final GuiGraphics graphics, final Font font, final long fullyVisibleForMs) {
+	//?} elif >=1.21.11 {
+	/*@Override
+	public void render(final GuiGraphics graphics, final Font font, final long fullyVisibleForMs) {
+	*///?} else {
+	/*private void draw(final GuiGraphics graphics, final Font font) {
 	*///?}
+		//? if >=1.21.11 {
 		graphics.blitSprite(RenderPipelines.GUI_TEXTURED, BACKGROUND_SPRITE, 0, 0, this.width(), this.height());
+		//?} else {
+		/*graphics.blitSprite(BACKGROUND_SPRITE, 0, 0, this.width(), this.height());
+		*///?}
 		//? if >=26.1 {
 		graphics.text(font, this.skill.displayName(), 30, 7, this.skill.color(), false);
 		graphics.text(font, Component.translatable("toast.specialities.levelup.desc", this.fromLevel, this.newLevel),

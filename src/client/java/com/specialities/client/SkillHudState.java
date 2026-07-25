@@ -48,11 +48,16 @@ public final class SkillHudState {
 		animStartMs = Util.getMillis();
 
 		if (payload.levelUp()) {
-			// 26.2 moved toast management off Minecraft onto the Gui object.
+			// Three spellings of the toast manager accessor: 26.2 moved toast management off
+			// Minecraft onto the Gui object; 26.1 and 1.21.11 have Minecraft.getToastManager();
+			// 1.21.1 calls the class ToastComponent and the accessor getToasts() (mojmap
+			// `2777:2777:ToastComponent getToasts() -> aw`, field `toast -> aF`).
 			//? if >=26.2 {
 			client.gui.toastManager().addToast(new SkillLevelUpToast(updated, payload.fromLevel(), payload.level()));
-			//?} else {
+			//?} elif >=1.21.11 {
 			/*client.getToastManager().addToast(new SkillLevelUpToast(updated, payload.fromLevel(), payload.level()));
+			*///?} else {
+			/*client.getToasts().addToast(new SkillLevelUpToast(updated, payload.fromLevel(), payload.level()));
 			*///?}
 		}
 	}

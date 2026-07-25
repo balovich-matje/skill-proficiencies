@@ -11,9 +11,20 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 //?} else {
 /*import net.minecraft.client.gui.GuiGraphics;
 *///?}
+// `RenderPipelines` and `net.minecraft.util.ARGB` are both 1.21.11-and-up; below that the
+// packing helpers live on `FastColor.ARGB32` (same method names and shapes) and a textured
+// blit takes no colour argument at all, so the tint goes through `GuiGraphics.setColor`.
+//? if >=1.21.11 {
 import net.minecraft.client.renderer.RenderPipelines;
+//?} else {
+/*import com.mojang.blaze3d.systems.RenderSystem;
+*///?}
 import net.minecraft.resources.Identifier;
+//? if >=1.21.11 {
 import net.minecraft.util.ARGB;
+//?} else {
+/*import net.minecraft.util.FastColor;
+*///?}
 import net.minecraft.util.Mth;
 import net.minecraft.util.Util;
 
@@ -72,7 +83,11 @@ public final class StealthVignette {
 		darkAlpha += (target - darkAlpha) * Math.min(1.0F, DARK_FADE_RATE * dt);
 
 		if (darkAlpha > 0.01F) {
+			//? if >=1.21.11 {
 			draw(graphics, ARGB.colorFromFloat(darkAlpha, DARK_RED, DARK_GREEN, DARK_BLUE));
+			//?} else {
+			/*draw(graphics, FastColor.ARGB32.colorFromFloat(darkAlpha, DARK_RED, DARK_GREEN, DARK_BLUE));
+			*///?}
 		}
 
 		// Detection flash: light vignette fading out.
@@ -80,7 +95,11 @@ public final class StealthVignette {
 		if (flashAge >= 0 && flashAge < FLASH_DURATION_MS) {
 			float fade = 1.0F - flashAge / (float) FLASH_DURATION_MS;
 			float alpha = LIGHT_MAX_ALPHA * Mth.square(fade);
+			//? if >=1.21.11 {
 			draw(graphics, ARGB.colorFromFloat(alpha, 1.0F, 1.0F, 1.0F));
+			//?} else {
+			/*draw(graphics, FastColor.ARGB32.colorFromFloat(alpha, 1.0F, 1.0F, 1.0F));
+			*///?}
 		}
 	}
 
@@ -89,7 +108,21 @@ public final class StealthVignette {
 	//?} else {
 	/*private static void draw(final GuiGraphics graphics, final int color) {
 	*///?}
+		//? if >=1.21.11 {
 		graphics.blit(RenderPipelines.GUI_TEXTURED, TEXTURE, 0, 0, 0.0F, 0.0F,
 				graphics.guiWidth(), graphics.guiHeight(), graphics.guiWidth(), graphics.guiHeight(), color);
+		//?} else {
+		/*// No blit overload below 1.21.11 takes a colour, so the tint is set on the graphics
+		// object first — which is exactly how vanilla's own Gui.renderTextureOverlay tints
+		// on this version. Blend has to be armed by hand (the legacy 14-arg innerBlit ends
+		// with an unconditional RenderSystem.disableBlend(), R-17's blend-state hazard).
+		RenderSystem.enableBlend();
+		RenderSystem.defaultBlendFunc();
+		graphics.setColor(FastColor.ARGB32.red(color) / 255.0F, FastColor.ARGB32.green(color) / 255.0F,
+				FastColor.ARGB32.blue(color) / 255.0F, FastColor.ARGB32.alpha(color) / 255.0F);
+		graphics.blit(TEXTURE, 0, 0, 0.0F, 0.0F,
+				graphics.guiWidth(), graphics.guiHeight(), graphics.guiWidth(), graphics.guiHeight());
+		graphics.setColor(1.0F, 1.0F, 1.0F, 1.0F);
+		*///?}
 	}
 }
