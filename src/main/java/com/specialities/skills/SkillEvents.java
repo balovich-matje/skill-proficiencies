@@ -98,9 +98,22 @@ public final class SkillEvents {
 		// Below 1.20.5 there is no AFTER_DAMAGE to register at all: LivingEntityMixin's
 		// TAIL hook on `hurt` — the same site fabric-api's own implementation injects at —
 		// calls `afterDamage` below instead, applying the same two filters this lambda does.
-		// Neither loader has the event either, so both hand their own substitute the same
-		// shared `afterDamage`; the filters and the three R-20 semantics are the helper's job
-		// there, exactly as they are the mixin's job on 1.20.1-fabric.
+		// NeoForge, which is above that line, hands its own substitute the same shared
+		// `afterDamage`; the filters and the three R-20 semantics are its helper's job there.
+		//
+		// THE `forge` ARM IS EMPTY ON PURPOSE, and it was NOT empty when Stage 6 started.
+		// `1.20.1-forge` is below 1.20.5, so the LivingEntityMixin hook above is live on that
+		// node as well — the gate is `>=1.20.5 / else`, i.e. the VERSION alone, which is
+		// correct, since the mixin's target resolves on every loader at that version. Adding a
+		// `LivingHurtEvent` registration on top of it awarded every combat, defence and
+		// acrobatics XP gain TWICE, which is R-20's failure class exactly. Conventions decide
+		// which survives — a mixin whose target resolves on the platform stays the
+		// implementation there, even where the platform offers a tidier event — so the mixin
+		// keeps it and `ForgeEvents` has no `afterDamage` method at all.
+		//
+		// The note lives above the directive and the arm is EMPTY because a LIVE branch whose
+		// every line starts with `//` is indistinguishable from the disabled single-line form
+		// and Stonecutter strips one `//` layer off it (conventions §4).
 		//? if fabric && >=1.20.5 {
 		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, baseDamage, damageTaken, blocked) -> {
 			if (blocked || damageTaken <= 0.0F) {
@@ -113,8 +126,7 @@ public final class SkillEvents {
 		//?} elif neoforge {
 		/*NeoForgeEvents.afterDamage(SkillEvents::afterDamage);
 		*///?} elif forge {
-		/*ForgeEvents.afterDamage(SkillEvents::afterDamage);
-		*///?}
+		//?}
 
 		// Acrobatics: with enough combined protection (Feather Falling + skill),
 		// fall damage is negated entirely — no hurt flash, no knockback.
