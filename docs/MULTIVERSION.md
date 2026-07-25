@@ -533,6 +533,52 @@ surface is the three interfaces.
   control run of the 5ed7997 jar logs zero too — the ERROR only appeared when the smoke
   world was first created. The assertion, not the build, is what is out of date.
 
+### 2.5 As built — Stage 6, the seams on two more loaders
+
+The three seams needed **no interface change** to carry NeoForge and LexForge. What changed:
+
+- **Deviation 1 above is now closed the other way.** Each `INSTANCE` is a `fabric` /
+  `neoforge` / `forge` chain — but a **block-form** chain that repeats the whole field
+  declaration, not the maintained template's one-liner. Measured in Stage 6: the INLINE `elif`
+  form **cannot chain**, because the single-line `/*?} elif … *///` closes the block and can only
+  be the last arm; a second one fails with `Unmatched scope closer`. Conventions §4 has the
+  error text. Anyone porting the template's `ModLoaderAccess` shape to three loaders hits this.
+- **A fourth seam appeared, and it is per-loader by design**: an EVENTS helper
+  (`platform/NeoForgeEvents`, `platform/ForgeEvents`, and their client counterparts
+  `client/NeoForgeClientEvents`, `client/ForgeClientEvents`). Only the registration LINE forks in
+  `skills/SkillEvents`, `ModItems` and `command/SkillCommands`; every lambda body stays shared,
+  which is the one thing that keeps the balance logic single-implementation across seven nodes.
+  Inlining each loader's event API at each call site was rejected for exactly that reason. These
+  helpers are `public` (their callers are in three different packages) and leave the other nodes'
+  source sets by the `NeoForge*` / `Forge*` globs of §5e-ter.
+- **Deviation 6 held, and it dictated the NeoForge entrypoint shape.** `src/main` still cannot see
+  `src/client`, so `SpecialitiesNeoForge` cannot install the client payload sinks. That node
+  therefore has **two** `@Mod` entrypoints — the common one and `client/NeoForgeClientEvents`
+  annotated `@Mod(dist = Dist.CLIENT)` — and `Mod`'s own javadoc pins the ordering that makes it
+  safe ("entrypoints for all dists are always run before entrypoints for a single dist"), with
+  both finishing before `RegisterPayloadHandlersEvent`.
+- **Deviation 8 shipped, and it is now a decision waiting on the user.**
+  `Platform.skillProviders()` is implemented on both loaders — NeoForge over a
+  `[modproperties.<modid>] specialities_skills = "com.their.Entry"` key read through
+  `IModInfo.getModProperties()` over the sorted `ModList` (so provider order is deterministic like
+  Fabric's entrypoint order). `InterModComms` was rejected on timing (readable only at
+  `InterModProcessEvent`, long after `SkillTypes.pullEntrypoints`) and `ServiceLoader` because it
+  cannot name the owning mod, which the two exception messages and the `Registered skill '{}' from
+  {}` line need. **This is a second published third-party contract**, so `README.md` was
+  deliberately not edited: documenting it is the user's call. No contributing mod means an empty
+  list, exactly as an unused Fabric entrypoint does.
+- **World compatibility across loaders: same NBT VALUE, different container, and the container
+  half is not fixable by a mod.** `fabric-data-attachment-api-v1` writes attachments into a
+  compound named `fabric:attachments` keyed by the attachment id; Forge's
+  `CapabilityDispatcher.serializeNBT` writes each provider under `ForgeCaps`. `ForgeSkillStore`
+  makes the VALUE bytes match exactly — `SkillsProvider.serializeNBT` returns
+  `PlayerSkills.CODEC.encodeStart(NbtOps.INSTANCE, …)` **unwrapped**, so both loaders write
+  `<container>/specialities:skills = TAG_Compound{ <skillId>: TAG_Int }`. Carrying a world from
+  the Fabric jar to the Forge one still will not find its skills without a deliberate one-shot
+  importer; matching the value is what such an importer would need. One residual, harmless:
+  Forge serialises every attached provider, so a player who never gained XP gets an empty
+  `specialities:skills` compound where fabric-api writes nothing.
+
 ---
 
 ## 3. VERSION DELTAS
@@ -789,6 +835,65 @@ what the file is called. **Phase B hazard:** two nodes at the same Minecraft ver
 loaders would produce the same version number; the non-Fabric node scripts must add a loader
 suffix of their own.
 
+#### 4.1.1 As built in Stage 6 — the loader-variant naming, and the 64-char cap
+
+That hazard is closed, and the scheme is the obvious extension of the rule above rather than a
+new one: a loader-variant node appends **the whole node directory name**, i.e. the node key plus
+`-<loader>`. Fabric keeps the bare node key so no published number ever changes, and the two new
+nodes are `ALWAYS` suffixed — `isNewestNode` is deliberately not consulted in either script,
+because the bare `1.5.0` belongs to the newest FABRIC node and is already published.
+
+| Node | `version_number` | `game_versions` | `loaders` | jar in the upload |
+|---|---|---|---|---|
+| `26.2-fabric` | `1.5.0` | `26.2` | `[fabric]` | `specialities-1.5.0+26.2.jar` |
+| `26.1-fabric` | `1.5.0+26.1` | `26.1`, `26.1.1`, `26.1.2` | `[fabric]` | `specialities-1.5.0+26.1.2.jar` |
+| `1.21.11-fabric` | `1.5.0+1.21.11` | `1.21.11` | `[fabric]` | `specialities-1.5.0+1.21.11.jar` |
+| `1.21.1-fabric` | `1.5.0+1.21.1` | `1.21`, `1.21.1` | `[fabric]` | `specialities-1.5.0+1.21.1.jar` |
+| `1.21.1-neoforge` | `1.5.0+1.21.1-neoforge` | `1.21`, `1.21.1` | `[neoforge]` | `specialities-neoforge-1.5.0+1.21.1.jar` |
+| `1.20.1-fabric` | `1.5.0+1.20.1` | `1.20`, `1.20.1` | `[fabric]` | `specialities-1.5.0+1.20.1.jar` |
+| `1.20.1-forge` | `1.5.0+1.20.1-forge` | `1.20`, `1.20.1` | `[forge]` | `specialities-forge-1.5.0+1.20.1.jar` |
+
+Verified in one `printPublishMetadata` run over all seven nodes: seven distinct version numbers,
+each node declaring exactly its own loader. `base.archivesName` also carries the loader on the two
+new nodes (`specialities-neoforge`, `specialities-forge`) — without it both 1.20.1 nodes would
+write `specialities-1.5.0+1.20.1.jar` into the same `build/libs/<version>/` and one would
+overwrite the other. The dry-run order is unchanged in kind (ascending `parsed`, newest last), and
+a loader node simply sorts next to its same-MC Fabric sibling: `1.20.1-fabric` → `1.20.1-forge` →
+`1.21.1-fabric` → `1.21.1-neoforge` → `1.21.11-fabric` → `26.1-fabric` → `26.2-fabric`.
+
+**The version NAME is a different story, and Stage 6 found it is already broken.** Modrinth caps
+a version's `name` at 64 characters. Read off the LIVE records rather than the docs:
+
+- published `1.5.0` (26.2) is named `1.5.0 — Combat & stealth bonuses only on real weapon attacks`
+  — **60** chars, and exactly what today's `changelogs/1.5.0.md` H1 produces for the newest node;
+- published `1.5.0+26.1` (`GET /v2/version/on9OIUum`) is named
+  `1.5.0 — Bonuses only on real weapon attacks (26.1)` — **50** chars, a *different, shorter*
+  title.
+
+Two published versions of one release carrying two different titles, and the short one is exactly
+the node whose ` (26.1)` suffix would have pushed the long title to 67. So the cap is real, it was
+already hit at 1.5.0, and it was worked around by hand at upload time — which the "one changelog
+file for all nodes, so the notes cannot drift" design cannot reproduce. Measured, per node, for
+today's H1: 26.2 **60**, 26.1 **67**, 1.21.11 **70**, 1.21.1 **69**, 1.20.1 **69**,
+1.20.1-forge **75**, 1.21.1-neoforge **78** — six of seven over.
+
+As landed in all three node scripts:
+
+- `printPublishMetadata` prints `name length   <n> / 64` and marks anything over with
+  `*** OVER THE CAP — a live upload will be refused ***`. The dry run stays usable as the
+  pre-flight that shows the numbers.
+- `publishMods` takes `displayName` from a checked provider that fails the **live** upload only,
+  with the per-node budget in the message. **Not auto-truncated** — silently renaming a release is
+  exactly what this section forbids a publishing stage from doing.
+- The budget is arithmetic on plain Strings on purpose: reading `releaseTitle` at that point would
+  move the "no release notes" failure from task time to *configuration* time, i.e. a missing
+  changelog would break `./gradlew build`.
+
+**What the next release has to do**: write a `# ` title of at most **38 characters** (64 − `1.5.0`
+− ` — ` − the longest suffix ` (1.21.1 NeoForge)` at 18), or accept per-node hand-editing on
+Modrinth afterwards. The published 26.1 title, `Bonuses only on real weapon attacks`, is 35 and
+fits every node. This is the user's call, not the build's.
+
 **Release notes: `changelogs/<mod.version>.md`, one file for all nodes**, so the notes cannot
 drift between the uploads of one release. If the first line is an `# H1` it becomes the Modrinth
 version name (`1.5.0 — <title>`, plus ` (<node key>)` on the older nodes, matching the 1.4.0/1.5.0
@@ -895,6 +1000,50 @@ Phase A is complete; the client rendering of both legacy nodes is still unseen b
 - 6a `1.21.1-neoforge`: `SkillStore`/`Net`/`Platform` NeoForge impls, `RegisterGuiLayersEvent` (its `wrapLayer` makes `HUD_SHIFT` *easier* than fabric-1.21.1), `neoforge.mods.toml`, buildSrc mutex.
 - 6b `1.20.1-forge`: capabilities, `SimpleChannel`, JiJ'd `mixinextras-forge:0.5.4`, `RegisterGuiOverlaysEvent` (no wrap → `HUD_SHIFT` needs a decision). **Consider dropping** if 601 packs don't justify it.
 
+**As built in Stage 6 — what the loader axis actually cost, and the three things only a boot
+found.** Both nodes landed; all seven build from one unqualified `buildAndCollect`; both loader
+nodes boot a real headless dedicated server clean. The parallel split held — the two node passes
+touched disjoint file sets and the merge had zero conflicts — but the *interesting* findings were
+all outside either node's ownership:
+
+1. **`Item.<init>` is the portability wall, not the registration API** (conventions §6 R-22). Both
+   loaders crash at mod construction with `Registry is already frozen`, from inside `Item`'s own
+   constructor, so `ModItems`' whole class initialiser has to run inside the registration window.
+   Contained differently per loader, on purpose and for a measured bus reason; the shared fix
+   (lazy item construction) is blocked by the Fabric instruction-identity gate, not by cost.
+2. **A mixin whose target resolves can still be the wrong implementation** (R-11, both nodes).
+   §5c's rule needed the qualifier "…and is still *called*".
+3. **The publishing wiring was already violating Modrinth's 64-char name cap** on four Fabric
+   nodes, invisible because 1.5.0's 26.1 upload was hand-shortened (§4.1.1).
+
+Balance parity was audited as bytecode, not as builds, and this is the shape to reuse. The
+comparable artefacts are the **pre-remap compiled classes**, because the two same-MC nodes build
+from the same generated source against the same mojmap, whereas the two shipped jars differ by
+construction (NeoForge runs mojmap at runtime, Fabric remaps to intermediary, LexForge remaps
+members to SRG) — so a textual diff of two `-Dmixin.debug.export` dumps compares mapping
+namespaces, not behaviour. Measured: `1.21.1-neoforge` vs `1.21.1-fabric` = 49 classes
+byte-identical, **15/15 mixin classes among them**, 8 differing and all 8 loader-forked;
+`1.20.1-forge` vs `1.20.1-fabric` = 47 byte-identical, **14/15 mixin classes**, and the fifteenth
+(`LivingEntityMixin`) instruction-identical with exactly ONE constant-pool string different —
+`ForgeHooks.getLootingLevel` where Fabric has `EnchantmentHelper.getMobLooting`, i.e. §5a's
+"annotation forks, body shared" proven at the byte level. On top of that, the exported transformed
+classes were compared namespace-agnostically by handler set (the mod's own `specialities$` names
+never remap): 33/33 handlers over 13 target classes on the 1.21.1 pair, 42/42 over 13 on the
+1.20.1 pair, the only delta being Mixin 0.8.5 naming a re-homed lambda differently from
+sponge-mixin 0.15.x. R-08's three chained `@ModifyVariable` handlers sit at offsets 4/12/20 of
+`hurt` on **both** loaders, in source order and ahead of every loader hook; R-07's ordinal-1
+sweeping-edge anchor was re-verified inside the transformed `Player` on the NeoForge node (the
+`ATTACK_DAMAGE` read at offset 42 untouched, the `SWEEPING_DAMAGE_RATIO` read at 695 wrapped at
+701).
+
+**Still open after Stage 6**, all reported rather than done: prep Q1 (`PlayerBlockBreakEvents.AFTER`
+should become a `ServerPlayerGameMode.destroyBlock` mixin — it resolves on all seven nodes, would
+delete the Fabric event and both loader helpers' `afterBlockBreak`, and would remove the only
+knowingly-inexact re-rooting on either loader node); prep Q5 (`Platform.skillProviders()` is a
+SECOND published third-party contract and needs the user's call before it is documented); the
+`ModItems` and looting-anchor cleanups that the instruction-identity gate blocks; and **every
+client-side surface on both loader nodes**, which no headless run can exercise.
+
 ---
 
 ## 6. RISK REGISTER
@@ -911,7 +1060,7 @@ Phase A is complete; the client rendering of both legacy nodes is still unseen b
 | R-08 | Three `@ModifyVariable` handlers share one injection point; order undefined, commutes only because all three are multiplications. | In-code invariant comment (§3.2). A non-multiplicative fourth handler is a balance change. | 5 min |
 | R-09 | **NeoForge attachment sync needs ≥21.1.200** (bisected: 0 `sync()` overloads at 21.1.195, 3 at 21.1.200). Docs are stale and say you must send packets yourself. | Pin 21.1.243; assert the floor in the node script. | resolved |
 | R-10 | **Forge 1.20.1 does not bundle MixinExtras** (Mixin 0.8.5 only, zero `llamalad7` hits). Breaks 5 mixin files. | `jarJar(implementation("io.github.llamalad7:mixinextras-forge:0.5.4"))` + `compileOnly`/`annotationProcessor`; self-bootstrapping coremod, no manual init. Match 0.5.4 to what loader bundles. | ~1h |
-| R-11 | Forge `RegisterGuiOverlaysEvent` has no `replaceLayer`/`wrapLayer` → `HUD_SHIFT=7` (a published Archetypes contract) cannot be implemented by wrapping. | Decide explicitly: `ForgeGui` height fields, cancel via `RenderGuiOverlayEvent$Pre` + redraw shifted, or drop `HUD_SHIFT` on that node. Same decision needed for fabric 1.20.1/1.21.1. **Coordinate with `../archetypes/notes/design.md`.** | ~half day + contract note |
+| R-11 | Forge `RegisterGuiOverlaysEvent` has no `replaceLayer`/`wrapLayer` → `HUD_SHIFT=7` (a published Archetypes contract) cannot be implemented by wrapping. | **CLOSED in Stage 6, and on BOTH loader nodes the answer was one this row did not list — full account in conventions §6 R-11.** `HUD_SHIFT = 7` survives everywhere, so `../archetypes/notes/design.md` needed no note. Forge took a fourth option, a per-node `ForgeGuiMixin` wrapping seven `ForgeGui` methods, because `ForgeGui` overrides `Gui.render` and never calls `super` — the shared `GuiMixin` would have half-shifted the HUD with no error anywhere. NeoForge took `RegisterGuiLayersEvent.wrapLayer` over the mixin even though the mixin's targets all resolve, because `renderPlayerHealth` is deprecated-and-callerless there, so a `@WrapMethod` on it resolves and never runs. Both are STATICALLY verified only: a dedicated server never loads `Gui`, so this is design §7 Tier 3 | resolved (statically) |
 | R-12 | **The official Architectury Stonecutter template is abandoned** (last push 2025-04-28, versions 1.20.1/1.20.6/1.21.1, predates the wall). The hypothesis "Stonecutter + Architectury" should be revised. | Build off `stonecutter-template-multiloader` (pushed 2026-07-17) — which is what §1.6-1.10 are edits of. Arch Loom used narrowly for the one LexForge node. | resolved |
 | R-13 | **stonecutter.kikugie.dev serves deliberate nonsense to AI scrapers.** Any summary of those docs from a scraper is untrustworthy. | Read `stonecutter-<ver>-sources.jar` (done) and the template repo (done). Do not WebFetch that site. Record in CLAUDE.md. | resolved |
 | R-14 | First full build is a cliff: foojay provisions Temurin 17 (~2 min) and 21, five MC versions download, NeoForge runs a 10-step neoform pipeline. | Copy the template's `buildSrc/.../neoforge-mutex.gradle.kts` (its own comment: prevents "frying your computer"). Do not run the first full build with `org.gradle.parallel=true` and no mutex. Only the *Gradle* JVM must pre-exist; JDK 25 already does. | ~15 min first run |

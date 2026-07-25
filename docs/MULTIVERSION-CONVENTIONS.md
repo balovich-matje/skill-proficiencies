@@ -9,13 +9,21 @@ Frozen in Stage 1 (branch `workspace`). Registered nodes as of Stage 5: **`26.2-
 (active + VCS), `26.1-fabric`, `1.21.11-fabric`, `1.21.1-fabric`, `1.20.1-fabric`** — all five
 build, and all five boot a real headless dedicated server clean. Phase A is complete.
 
-**Stage 6 registered the loader axis: `1.21.1-neoforge` and `1.20.1-forge`.** Both are
-configured, both preprocess clean, and **neither builds yet** — the seam implementations they
-select are the rest of Stage 6, so the unqualified `build` / `buildAndCollect` tasks fail by
-design until those land (`settings.gradle.kts` says so at each `match`). Every loader fork in
-the shared tree was gated so the five Fabric nodes stayed **instruction-identical and
-resource-byte-identical** through the whole registration; that is the gate to re-run on any
-further shared-tree edit, and §4's new loader-fork rules are what it cost.
+**Stage 6 added the loader axis and CLOSED it: `1.21.1-neoforge` and `1.20.1-forge`.** As of the
+Stage-6 integration all **seven** nodes build from one unqualified `./gradlew buildAndCollect`
+(seven jars, no name collision — the two loader nodes ship as `specialities-neoforge-…` /
+`specialities-forge-…`), and both loader nodes boot a real headless dedicated server clean:
+15/15 common mixins applied under `-Dmixin.checks`, zero mixin errors, all six `#specialities`
+tags proven resolved by the R-16 positive probe with its bogus control, the thirty knowledge
+books proven present in the ITEM registry by the same style of probe, `/skillprof`'s full
+four-subcommand tree, clean stop, exit 0. Every loader fork in the shared tree is gated so the
+five Fabric nodes stay **instruction-identical and resource-byte-identical**; that gate was
+re-run after every Stage-6 commit and is the gate to re-run on any further shared-tree edit.
+§4's loader-fork rules are what it cost.
+
+**Client rendering below 26.2 is still unverified everywhere, and that now includes both loader
+nodes** (NeoForge's `RegisterGuiLayersEvent.wrapLayer` path and Forge's `ForgeGuiMixin`). No
+Minecraft client has been launched on any node. See §6 R-11.
 
 A post-Stage-5 **balance-parity review** of the newest node then found four behavioural
 divergences that every build-shaped gate had passed, all four inside one re-rooted event.
@@ -220,6 +228,35 @@ the field declaration, and not the template's one-liner.
   resource bytes. It lives at `versions/<node>/src/main/resources/pack.mcmeta`. The two copies
   are genuinely different files (`pack_format` 48 + `supported_formats` vs 15 and none), so the
   shared-file-plus-`expand` alternative was rejected rather than merely not chosen.
+- **So is the LOADER METADATA file.** `neoforge.mods.toml` and `mods.toml` live at
+  `versions/<node>/src/main/resources/META-INF/`, not in the shared tree, and the two node
+  passes arrived at that independently. The reason is mechanical: the shared resource root
+  ships into every node's jar, `build.fabric.gradle.kts` excludes the loader-only **Java**
+  files by glob but has no resource exclusion, so a shared copy would land in all five Fabric
+  jars and move their resource bytes. Same for the per-node client mixin config.
+- **A per-node override under `versions/<node>/src/` works for JAVA SOURCES too, not only
+  resources**, and it is the right home for a loader-only MIXIN. `1.20.1-forge`'s
+  `client/mixin/ForgeGuiMixin.java` is a per-node source override: the node scripts' exclusion
+  globs cover `com/specialities/{platform,client}/Forge*` one package up and would not catch
+  `client/mixin/`, and the class is meaningless on any other node.
+- **A per-node client mixin config is MANDATORY, not optional, on a legacy loader node.** Two
+  independent reasons on `1.20.1-forge`: the shared config lists `UseDurationMixin`, whose whole
+  body is `>=1.21.11`-only, so no such class exists in that jar and Mixin would be told to load
+  a missing class with `"required": true`; and `GuiMixin.class` **is** in the jar and must NOT be
+  listed there (see R-11). Check both directions when adding a node.
+- **Anything passed through `processResources`' `expand` has its COMMENTS treated as Groovy
+  template source.** Measured on both loader nodes, and it costs build cycles because nothing
+  before `processResources` catches it: a literal `${…}` anywhere in `mods.toml` — including
+  inside a `#` comment that is quoting the placeholder syntax — fails the COPY with
+  `SimpleTemplateScript1.groovy: Unexpected input: '('`, and a bare `Foo$Inner` fails with
+  `Missing property (Inner) for Groovy template expansion`. Warnings are written into both
+  metadata files and both node scripts.
+- **To add a third arm inside a block that is already disabled, close the OUTER block early and
+  write flat top-level chains** — do not reach for the `*` → `^` marker escalation. `//?`
+  nesting inside a disabled branch is the form that fails silently; `1.20.1-forge` re-bracketed
+  `mixin/LivingEntityMixin`'s `>=1.21`/`else` block so it ends after the acrobatics handler,
+  which turned the looting section into two flat chains. Writing the inner chain with plain `*`
+  markers first gave a loud `Unclosed scope` — that is luck, not a guarantee.
 
 ### `//?` DOES NOT WORK IN ANY `.json` FILE — corrected in Stage 4a
 
@@ -800,6 +837,96 @@ lesson is in the first bullet; the rest is the evidence, so nobody re-derives it
   the four newer nodes stayed byte-identical through the same edit. Any future
   "prior node unchanged" gate that includes 1.20.1 must compare **instructions**, not bytes.
 
+### R-11 — `HUD_SHIFT` on the two loader nodes (CLOSED, and NEITHER answer was one of R-11's three)
+
+`HUD_SHIFT = 7` survives on both loader nodes, so no note was needed in
+`../archetypes/notes/design.md`. Both answers were found by reading the loader's own patched
+`Gui`, and **on both nodes the obvious choice would have built, booted and been silently wrong** —
+which is why §5c's "a mixin whose target resolves stays a mixin" is not the whole rule.
+
+- **`1.21.1-neoforge` uses `RegisterGuiLayersEvent.wrapLayer`, and §5c is OVERRIDDEN here on
+  measured grounds.** All five methods `GuiMixin`'s `>=1.21` arm names still exist, so the mixin
+  would apply and satisfy `injectors.defaultRequire: 1` — but from
+  `patches/net/minecraft/client/gui/Gui.java.patch` in `neoforge-21.1.243-userdev.jar`,
+  `renderPlayerHealth` is `@Deprecated // Neo: Split up into different layers` and merely
+  forwards to `renderHealthLevel`/`renderArmorLevel`/`renderFoodLevel`/`renderAirLevel`, each
+  registered as its own layer, with **no caller left**; `Gui.render` no longer calls
+  `this.layers.render` either. A `@WrapMethod` there resolves and never runs, so the skill bar
+  would draw through unraised hearts. The seven raised `VanillaHudElements` ids map onto **eight**
+  NeoForge layer ids, all reachable from the flat list `wrapLayer` walks
+  (`GuiLayerManager.add(child, BooleanSupplier)` "flatten[s] the layers", so the
+  `playerHealthComponents` sub-manager is spliced in; had it not been, `wrapLayer` throws
+  `IllegalArgumentException` and the client hard-crashes). Consequence: `GuiMixin.class` is
+  compiled into that jar (byte-identical to `1.21.1-fabric`'s) but is deliberately NOT listed in
+  the mixin config — a present-but-unlisted class is silently unused, whereas excluding it turns
+  a future config entry into a boot crash.
+- **`1.20.1-forge` uses a per-node `ForgeGuiMixin`, i.e. a FOURTH option R-11 did not list.**
+  From `forge-1.20.1-47.4.22-sources.jar`: `ForgeGui extends Gui`, is the live `Minecraft.gui`,
+  **overrides `Gui.render(GuiGraphics,float)` and never calls `super`** (the whole class has four
+  `super.` calls, none of them `render`). So the shared `GuiMixin` would have produced a
+  HALF-shifted HUD with no error anywhere — its `TAIL` inject never runs (no mod HUD at all), its
+  `renderPlayerHealth`/`renderVehicleHealth` wraps never run, and only the exp-bar and jump-meter
+  wraps fire. The fix wraps the seven `ForgeGui` methods the seven raised ids map onto —
+  `renderExperience`, `renderJumpMeter`, `renderHealth`, `renderArmor` (**`GuiGraphics` FIRST,
+  unlike its four neighbours** — `javap`-verified), `renderFood`, `renderAir`,
+  `renderHealthMount` — plus a `TAIL` inject on `ForgeGui.render` for the two mod draws. Handler
+  visibility must match each target's, because `@WrapMethod` gives the handler the target's name
+  and descriptor and `VanillaGuiOverlay` calls all seven `invokevirtual` on a public/protected
+  member; a private handler is an `IllegalAccessError`. Rejected with reasons: the
+  `leftHeight`/`rightHeight` fields also shift the held-item name and the record overlay (both
+  read `max(leftHeight, rightHeight)`), which are raised on no other node; cancel-and-redraw via
+  `RenderGuiOverlayEvent$Pre` duplicates five vanilla draw calls.
+- **Both are STATICALLY verified only.** Descriptors checked against `javap` of the loader jars,
+  and the SRG names checked in the shipped jar's annotations (§5h). A dedicated server never
+  loads `Gui`/`ForgeGui`, so no headless run can exercise any of this — it is design §7 Tier 3,
+  the user's first in-game launch.
+
+### R-22 — the item-registry window: `Item.<init>` itself, and it is a BOOT CRASH on both loaders
+
+Found by a boot, by both node passes independently, after every build-shaped gate had passed.
+The prep plan had costed `ModItems.java` at "one import + one inline registration line".
+
+```
+java.lang.IllegalStateException: Registry is already frozen
+  at (Namespaced|Mapped)Registry.createIntrusiveHolder
+  at net.minecraft.world.item.Item.<init>
+  at com.specialities.items.SkillBookItem.<init>
+  at com.specialities.ModItems.registerBook
+  at com.specialities.ModItems.<clinit>
+  at com.specialities.Specialities.onInitialize
+```
+
+- **Note WHERE it throws**: not at `Registry.register` but inside `Item`'s own constructor, which
+  initialises `builtInRegistryHolder`. So the thirty `new SkillBookItem(...)` CONSTRUCTIONS — i.e.
+  `ModItems`' whole class initialiser — must run while the ITEM registry is unfrozen. **Every fix
+  that keeps `ModItems`' static fields and only moves the `register` call is ruled out.** Fabric
+  has no such window, which is why no Fabric node ever saw it.
+- The window is exact on both loaders: for each registry in turn the loader unfreezes it, posts
+  `RegisterEvent` for it, and re-freezes (`GameData.postRegisterEvents`; NeoForge wraps the whole
+  sweep in `GameData.unfreezeData()` / `freezeData()` from `CommonModLoader`).
+- **As landed, the two loaders are deliberately ASYMMETRIC**, and the asymmetry is the finding:
+  - `1.21.1-neoforge` keeps the shared init at CONSTRUCT and defers only
+    `ModItems.initialize()`, via the `neoforge` arm of a three-arm chain in
+    `Specialities.onInitialize()`. It **cannot** defer the whole init, because
+    `NeoForgeSkillStore.initialize()` calls `ATTACHMENTS.register(modEventBus)` — i.e. it ADDS a
+    `RegisterEvent` listener — and adding a listener for the event class currently being
+    dispatched mutates the very `ListenerList` the bus is iterating (`bus-8.0.5`
+    `EventBus.addToListeners` → `getListenerList(eventType)`).
+  - `1.20.1-forge` defers the WHOLE shared init into `RegisterEvent(ITEM)` from
+    `SpecialitiesForge`, which is safe there because that node has no `DeferredRegister`
+    anywhere. Its price is that `RegisterCapabilitiesEvent` is posted at INJECT_CAPABILITIES, one
+    loading state EARLIER, and an unregistered capability fails **silently**
+    (`Capability.orEmpty` returns empty, every skill reads EMPTY forever, no log line) — hence
+    `ForgeSkillStore.registerCapabilities(IEventBus)` being hoisted back to CONSTRUCT.
+  - **The right fix is cross-cutting and is NOT done**: lazy item construction plus a per-loader
+    register, which retires both workarounds. It rewrites a shared file that the five Fabric
+    nodes are required to stay instruction-identical on, so it is blocked by this stage's own
+    gate, not by cost.
+- **Lesson to carry**: a shared init sequence is not portable just because every call in it
+  compiles. Ask, per loader, *which lifecycle window each step needs* — and note that the one
+  step whose window is wrong here is the one that only fails at `<clinit>`, i.e. at the first
+  touch of the class, which can be far from the call you moved.
+
 ## 7. Release / balance workflow after Stage 1
 
 ```bash
@@ -835,6 +962,15 @@ live step is deliberate: a credential-carrying invocation must not leave a daemo
   `./gradlew :26.2-fabric:runClient`.
 - Publish **one Modrinth version per node**, not one version listing several game
   versions: the jars are genuinely different artifacts.
+- **Loader-variant nodes append the whole node directory name**: `1.5.0+1.21.1-neoforge`,
+  `1.5.0+1.20.1-forge` (the Fabric nodes keep the bare node key, matching published history).
+  Landed in Stage 6, written up in `MULTIVERSION.md` §4.1.
+- **Modrinth caps a version NAME at 64 characters, and one changelog H1 now has to fit every
+  node's suffix.** Measured on the live 1.5.0: six of the seven names the build would upload are
+  over the cap. `printPublishMetadata` prints `name length <n> / 64` and marks anything over; the
+  live upload fails with the exact budget rather than taking a 400 from Modrinth. Budget today is
+  **38 characters of title** (longest suffix is ` (1.21.1 NeoForge)`, 18 chars). Details and the
+  evidence: `MULTIVERSION.md` §4.1.
 - **Archetypes handshake**: `./gradlew :26.2-fabric:publishToMavenLocal` publishes
   `com.specialities:specialities:<mod.version>` (bare, no `+mc` suffix). Only the 26.2
   node owns that coordinate. Note the pre-existing mismatch: `archetypes/build.gradle`
