@@ -176,6 +176,14 @@ tasks.withType<ProcessResources>().configureEach {
 
 	inputs.property("strippedEntrypoints", strippedEntrypoints)
 
+	// Copy-spec ACTIONS are not task inputs — `eachFile`/`filter` blocks are invisible to
+	// up-to-date checking, so without these two properties a node that gained or lost either
+	// transform below would keep serving the previous run's output. Measured: the first build
+	// after the transforms were added reported processResources UP-TO-DATE and shipped the
+	// untransformed resources.
+	inputs.property("legacyTagDir", sc.current.parsed < "1.21")
+	inputs.property("legacyItemModels", sc.current.parsed < "1.21.4")
+
 	filesMatching("fabric.mod.json") {
 		expand(metadataProps)
 		if (strippedEntrypoints.isNotEmpty()) {
@@ -183,6 +191,73 @@ tasks.withType<ProcessResources>().configureEach {
 		}
 	}
 	filesMatching("*.mixins.json") { expand("java" to mixinJava) }
+
+	// ---- R-16: the datapack tag directory is PLURAL below 1.21 ----
+	//
+	// The flip is at exactly 1.21 (last plural release 1.20.6, first singular 1.21), and
+	// 1.20.1's tag loader hardcodes the plural literal, so the six shared tag files are read
+	// by NOTHING on that node unless they move. Done here rather than as a per-node override
+	// so there stays exactly ONE copy of the six JSONs: `FileCopyDetails.path` is settable,
+	// the nodes at or above 1.21 get no transform at all (which is what keeps their resource
+	// bytes identical), and `unzip -l` on the produced jar confirms it.
+	//
+	// The six files' own content needs nothing: the entries that do not resolve on 1.20.1 —
+	// the four copper armour pieces, `#minecraft:spears` and `minecraft:mace` — are already
+	// `{"id": …, "required": false}` in the shared tree, landed with the 1.21.1 node.
+	if (sc.current.parsed < "1.21") {
+		eachFile {
+			if (path.contains("/tags/item/")) {
+				path = path.replace("/tags/item/", "/tags/items/")
+			}
+		}
+	}
+
+	// ---- Item MODEL DEFINITIONS are 1.21.4+; below that they are plain item models ----
+	//
+	// `assets/<ns>/items/<id>.json` (the model-definition layer, one per item id) arrived in
+	// 1.21.4. Below it an item is bound to `assets/<ns>/models/item/<id>.json` by id, and the
+	// file is a model, not a definition. All thirty of this mod's definitions do the same
+	// trivial thing — name one vanilla model — so the conversion is mechanical:
+	//
+	//     {"model": {"type": "minecraft:model", "model": "minecraft:item/book"}}
+	//  -> {"parent": "minecraft:item/book"}
+	//
+	// which is a path move plus a two-line-to-one-line rewrite. The dropped lines are blanked
+	// rather than removed (Gradle's line filter cannot delete a line without a nullable
+	// transformer) — JSON does not care, and it keeps the diff obvious in the built jar.
+	//
+	// NOTE the version number: the real boundary is 1.21.4, which is NOT one of the frozen
+	// `//?` predicates because no registered node sits between 1.21.2 and 1.21.11. This is a
+	// build script, where §5f already requires plain Kotlin comparisons, so the true boundary
+	// is written instead of the nearest frozen one — a future 1.21.4-1.21.10 node then
+	// behaves correctly with no edit here.
+	//
+	// This also fixes the 1.21.1 node, where the thirty books have had no model at all since
+	// Stage 4a: `items/` was shipped verbatim, which that version does not read. It has never
+	// been visible because no client on any node below 26.2 has ever been launched.
+	if (sc.current.parsed < "1.21.4") {
+		// Anchored on `assets/`: the tag rename above has already turned `data/…/tags/item/`
+		// into `data/…/tags/items/` by the time this action runs on the same file, and a
+		// loose `/items/` test would then mangle the six tag JSONs into item models.
+		val definitionPath = Regex("""^assets/[^/]+/items/[^/]+\.json$""")
+		val modelLine = Regex("""^\s*"model"\s*:\s*"([^"]+)"\s*$""")
+		eachFile {
+			if (definitionPath.matches(path)) {
+				path = path.replace("/items/", "/models/item/")
+				filter { line ->
+					val match = modelLine.matchEntire(line)
+					when {
+						// the inner `"model": "<id>"` becomes the whole file's body
+						match != null -> "\t\"parent\": \"${match.groupValues[1]}\""
+						// the `"model": {` wrapper, its `"type"`, and its own closing brace
+						line.contains("\"model\"") || line.contains("\"type\"") -> ""
+						line.startsWith("\t") && line.trim() == "}" -> ""
+						else -> line
+					}
+				}
+			}
+		}
+	}
 }
 
 tasks {
