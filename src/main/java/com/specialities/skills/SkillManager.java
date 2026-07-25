@@ -63,7 +63,13 @@ public final class SkillManager {
 	 */
 	public static boolean setLevel(final ServerPlayer player, final SkillType skill, final int level) {
 		PlayerSkills old = get(player);
+		// `Math.clamp` is a Java 21 method and 1.20.1 is the Java 17 node (conventions
+		// §5e). Same value, same clamp order, one `invokestatic` more.
+		//? if >=1.20.5 {
 		int newTotal = Tuning.totalXpForLevel(Math.clamp(level, 0, Tuning.MAX_LEVEL));
+		//?} else {
+		/*int newTotal = Tuning.totalXpForLevel(Math.max(0, Math.min(Tuning.MAX_LEVEL, level)));
+		*///?}
 
 		if (newTotal == old.totalXp(skill)) {
 			return false;

@@ -6,8 +6,12 @@ import java.util.Map;
 import com.mojang.serialization.Codec;
 import com.specialities.api.SkillType;
 
+// StreamCodec/RegistryFriendlyByteBuf are 1.20.5+. The DFU `CODEC` below is portable and
+// is the one that matters — it is the on-disk format of `specialities:skills`.
+//? if >=1.20.5 {
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
+//?}
 
 /**
  * Immutable per-player skill progress, stored as total accumulated XP per skill id.
@@ -19,6 +23,10 @@ public record PlayerSkills(Map<String, Integer> xp) {
 	public static final Codec<PlayerSkills> CODEC = Codec.unboundedMap(Codec.STRING, Codec.INT)
 			.xmap(PlayerSkills::new, PlayerSkills::xp);
 
+	// The attachment's sync codec. Below 1.20.5 there is no attachment sync to give it to
+	// and no StreamCodec to write it with, so it is gone there and `SkillsFullPayload`
+	// carries exactly this encoding by hand instead (design R-03).
+	//? if >=1.20.5 {
 	public static final StreamCodec<RegistryFriendlyByteBuf, PlayerSkills> STREAM_CODEC = StreamCodec.of(
 			(buf, skills) -> {
 				buf.writeVarInt(skills.xp().size());
@@ -35,6 +43,7 @@ public record PlayerSkills(Map<String, Integer> xp) {
 				}
 				return new PlayerSkills(Map.copyOf(map));
 			});
+	//?}
 
 	public int totalXp(final SkillType skill) {
 		return this.xp.getOrDefault(skill.id(), 0);

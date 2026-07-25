@@ -6,6 +6,10 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
+//? if >=1.20.5 {
+//?} else {
+/*import net.minecraft.world.item.ItemStack;
+*///?}
 import net.minecraft.world.level.block.entity.BlockEntity;
 // jspecify is one of the game's OWN libraries only from 1.21.11 up (conventions
 // §5e-bis); below that it is absent and org.jetbrains:annotations 26.0.2 (on the
@@ -91,4 +95,33 @@ public interface SkillStore {
 	@Nullable String getBrewingOwner(BlockEntity stand);
 
 	void setBrewingOwner(BlockEntity stand, String uuid);
+
+	// --- the fifth transient pair: a single-node member, and deliberately so ---
+	//
+	// `AbstractArrow.getWeaponItem()ItemStack` does not exist below 1.21.2 (design R-04:
+	// "ABSENT ANYWHERE in 1.20.1"), and three balance tests in SkillCategories are built
+	// on it — archery-vs-arms-mastery XP routing, the ranged half of the combat damage
+	// multiplier, and the thrown-melee-weapon case. On that node the firing weapon is
+	// stamped onto the projectile at the moment it is spawned (BowItemMixin,
+	// CrossbowItemMixin) and read back here at damage time, which keeps all three tests
+	// semantically identical instead of approximating them.
+	//
+	// Gated rather than declared for every node on purpose: a method no other node can
+	// call is the speculative surface design §2 sets out to avoid (§2.4 deviations 5
+	// and 7), and declaring it unconditionally would add an attachment id to worlds
+	// that never use it. A Phase B loader below 1.21.2 implements this pair; every
+	// other one does not see it.
+	// A disabled branch may not carry `/** … */` javadoc — the `*/` would close the
+	// branch comment early (conventions §5e-ter), so these two are documented with
+	// line comments instead.
+	//? if >=1.20.5 {
+	//?} else {
+	/*// The weapon a projectile was fired from, or null for a projectile nothing stamped
+	// (a dispenser shot, a skeleton's arrow, a thrown trident — SkillCategories answers
+	// that last case from the projectile's own pickup item instead).
+	@Nullable ItemStack getFiringWeapon(Entity projectile);
+
+	// Stamps the firing weapon onto a freshly spawned projectile. Stores a copy.
+	void setFiringWeapon(Entity projectile, ItemStack weapon);
+	*///?}
 }

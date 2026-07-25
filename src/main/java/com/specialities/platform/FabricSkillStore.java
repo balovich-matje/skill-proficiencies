@@ -4,7 +4,15 @@ import com.specialities.Specialities;
 import com.specialities.skills.PlayerSkills;
 
 import net.fabricmc.fabric.api.attachment.v1.AttachmentRegistry;
+// `AttachmentSyncPredicate` does not exist in fabric-api 0.92.11 — the whole
+// attachment *sync* half of the API arrived later, which is design R-03 and the
+// reason this seam exists at all. Verified against the shipped module jar
+// (fabric-data-attachment-api-v1 1.0.2+de0fd6d177): it declares exactly three
+// public types — `AttachmentRegistry`, `AttachmentTarget`, `AttachmentType` — with
+// no `syncWith` on the builder and no `create(Identifier, Consumer)` overload.
+//? if >=1.20.5 {
 import net.fabricmc.fabric.api.attachment.v1.AttachmentSyncPredicate;
+//?}
 import net.fabricmc.fabric.api.attachment.v1.AttachmentTarget;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentType;
 
@@ -12,6 +20,10 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
+//? if >=1.20.5 {
+//?} else {
+/*import net.minecraft.world.item.ItemStack;
+*///?}
 import net.minecraft.world.level.block.entity.BlockEntity;
 // jspecify is one of the game's OWN libraries only from 1.21.11 up (conventions
 // §5e-bis); below that it is absent and org.jetbrains:annotations 26.0.2 (on the
@@ -35,6 +47,15 @@ final class FabricSkillStore implements SkillStore {
 	 * Server-authoritative skill data; persisted with the player and synced to the
 	 * owning client only.
 	 */
+	// 0.92.11 has the same persistence and copy-on-death guarantees through the
+	// builder form (`AttachmentRegistry.builder().…buildAndRegister(id)`) and only
+	// loses `syncWith`. So the on-disk format is unchanged — same id, same
+	// PlayerSkills.CODEC, same copyOnDeath — and the ONLY thing the legacy branch
+	// gives up is the automatic push to the owning client, which `resyncSkills`
+	// below replaces. Neither Cardinal Components nor a hand-rolled NBT store was
+	// needed; both were considered and are strictly worse than the API the target
+	// version already ships.
+	//? if >=1.20.5 {
 	private static final AttachmentType<PlayerSkills> SKILLS = AttachmentRegistry.create(
 			Specialities.id("skills"),
 			builder -> builder
@@ -42,6 +63,13 @@ final class FabricSkillStore implements SkillStore {
 					.persistent(PlayerSkills.CODEC)
 					.syncWith(PlayerSkills.STREAM_CODEC, AttachmentSyncPredicate.targetOnly())
 					.copyOnDeath());
+	//?} else {
+	/*private static final AttachmentType<PlayerSkills> SKILLS = AttachmentRegistry.<PlayerSkills>builder()
+			.initializer(() -> PlayerSkills.EMPTY)
+			.persistent(PlayerSkills.CODEC)
+			.copyOnDeath()
+			.buildAndRegister(Specialities.id("skills"));
+	*///?}
 
 	/** Remaining ricochets on an arrow spawned by the archery passive. Transient. */
 	private static final AttachmentType<Integer> RICOCHET_BOUNCES =
@@ -58,6 +86,17 @@ final class FabricSkillStore implements SkillStore {
 	/** UUID of the player who last opened a brewing stand, for alchemy attribution. Transient. */
 	private static final AttachmentType<String> BREWING_OWNER =
 			AttachmentRegistry.create(Specialities.id("brewing_owner"));
+
+	// The fifth transient pair, and the ONLY one that exists on a single node: below
+	// 1.21.2 there is no `AbstractArrow.getWeaponItem()` (design R-04), so the firing
+	// weapon is stamped onto the projectile by the Bow/Crossbow mixins and read back in
+	// the damage hooks. Registering it above 1.20.5 too would put a sixth attachment id
+	// into worlds that have no use for it.
+	//? if >=1.20.5 {
+	//?} else {
+	/*private static final AttachmentType<ItemStack> FIRING_WEAPON =
+			AttachmentRegistry.create(Specialities.id("firing_weapon"));
+	*///?}
 
 	@Override
 	public void initialize() {
@@ -80,10 +119,21 @@ final class FabricSkillStore implements SkillStore {
 
 	@Override
 	public void resyncSkills(final ServerPlayer player) {
-		// Nothing to do: `syncWith(STREAM_CODEC, targetOnly())` above makes
-		// fabric-api push the attachment to the owning client on join and on every
-		// change. The 1.20.1 node's implementation of this method is where design
-		// R-03's full-state payload goes.
+		// Above 1.20.5 there is nothing to do: `syncWith(STREAM_CODEC, targetOnly())`
+		// makes fabric-api push the attachment to the owning client on join and on every
+		// change. Below it, this full-state push is design R-03 — the ONLY way that
+		// client ever learns the state its HUD bar and skills screen render. Every later
+		// change rides on the SkillUpdatePayload the client already receives, which
+		// carries the new absolute total for the one skill that moved.
+		//
+		// NOTE the shape of this block: the note lives ABOVE the directive and the
+		// `>=1.20.5` branch is EMPTY, because a live branch whose every line starts with
+		// `//` is indistinguishable from the disabled single-line form and Stonecutter
+		// strips one `//` layer off it. Measured, see conventions §4.
+		//? if >=1.20.5 {
+		//?} else {
+		/*Net.INSTANCE.sendSkillsFull(player, getSkills(player));
+		*///?}
 	}
 
 	@Override
@@ -125,4 +175,17 @@ final class FabricSkillStore implements SkillStore {
 	public void setBrewingOwner(final BlockEntity stand, final String uuid) {
 		((AttachmentTarget) stand).setAttached(BREWING_OWNER, uuid);
 	}
+
+	//? if >=1.20.5 {
+	//?} else {
+	/*@Override
+	public @Nullable ItemStack getFiringWeapon(final Entity projectile) {
+		return ((AttachmentTarget) projectile).getAttached(FIRING_WEAPON);
+	}
+
+	@Override
+	public void setFiringWeapon(final Entity projectile, final ItemStack weapon) {
+		((AttachmentTarget) projectile).setAttached(FIRING_WEAPON, weapon.copy());
+	}
+	*///?}
 }

@@ -2,15 +2,23 @@ package com.specialities.mixin;
 
 import com.specialities.skills.Skill;
 import com.specialities.skills.SkillCategories;
+//? if >=1.20.5 {
+//?} else {
+/*import com.specialities.skills.SkillEvents;
+*///?}
 import com.specialities.skills.SkillManager;
 import com.specialities.skills.Tuning;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import com.specialities.ModTags;
 import com.specialities.platform.SkillStore;
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
+import com.llamalad7.mixinextras.sugar.Local;
 
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -132,10 +140,20 @@ public abstract class LivingEntityMixin {
 		// getDamageProtection(ServerLevel, LivingEntity, DamageSource) is AS-IS on 1.21.1
 		// (mojmap 164:166); the only thing missing there is the `level` parameter this
 		// handler no longer receives, and the ServerPlayer just above supplies it.
+		//
+		// Below 1.21 the method is `(Iterable<ItemStack>, DamageSource)I` — no victim, so
+		// EnchantmentHelperMixin cannot add the acrobatics points to it and this call site
+		// adds them, rounded to the int the pool is made of on that version. The SAME
+		// rounding is applied by `specialities$legacyFallProtectionPoints` below and by
+		// SkillEvents' immunity check; all three must agree or the correction on the next
+		// line stops matching the reduction vanilla actually applied.
 		//? if >=1.21.2 {
 		float points = EnchantmentHelper.getDamageProtection(level, player, source);
-		//?} else {
+		//?} elif >=1.21 {
 		/*float points = EnchantmentHelper.getDamageProtection(player.serverLevel(), player, source);
+		*///?} else {
+		/*float points = EnchantmentHelper.getDamageProtection(player.getArmorSlots(), source)
+				+ Math.round(Tuning.acrobaticsProtectionPoints(SkillManager.get(player).level(Skill.ACROBATICS)));
 		*///?}
 		if (points <= 20.0F) {
 			return damage;
@@ -235,4 +253,58 @@ public abstract class LivingEntityMixin {
 		SkillStore.INSTANCE.markStealthCritDone(mob);
 		return damage * multiplier;
 	}
+
+	// ---------------------------------------------------------------------------
+	// Two handlers that exist on the 1.20.1 node only, because the fabric-api event and
+	// the EnchantmentHelper overload they stand in for both arrived later. Neither adds
+	// balance logic: the first calls the same SkillEvents code the real event calls, the
+	// second adds the same Tuning value EnchantmentHelperMixin adds.
+	//? if >=1.20.5 {
+	//?} else {
+	/*// ServerLivingEntityEvents.AFTER_DAMAGE does not exist in fabric-api 0.92.11
+	// (SkillEvents has the evidence), and nothing else there reports the damage actually
+	// taken. This is where fabric-api's own implementation of that event injects.
+	//
+	// The two filters the event's consumer applies are reproduced by the injection point
+	// itself plus one check: `actuallyHurt` returns EARLY (offset 8) when the entity is
+	// invulnerable and EARLY (offset 113) when the post-absorption amount is exactly 0 —
+	// which is where a shield-blocked hit ends up, since `hurt` zeroes the damage before
+	// calling this — so TAIL, the last RETURN, is reached only on the path that really
+	// reduced health. At that point argument slot 2 holds the post-armor,
+	// post-absorption amount, i.e. the event's `damageTaken`. Structure read off
+	// `javap -c` of the 1.20.1 class, not assumed.
+	@Inject(method = "actuallyHurt(Lnet/minecraft/world/damagesource/DamageSource;F)V", at = @At("TAIL"))
+	private void specialities$afterDamageXp(final DamageSource source, final float damageTaken,
+			final CallbackInfo ci) {
+		if (damageTaken <= 0.0F) {
+			return;
+		}
+
+		SkillEvents.afterDamage((LivingEntity) (Object) this, source, damageTaken);
+	}
+
+	// Acrobatics protection points, re-rooted (design R-05). Above 1.21 this is
+	// EnchantmentHelperMixin's @ModifyReturnValue on
+	// `getDamageProtection(ServerLevel, LivingEntity, DamageSource)F`, which cannot work
+	// here because the legacy overload takes no victim. The call site inside
+	// `getDamageAfterMagicAbsorb` does have one — `this` — so the bonus is added there.
+	//
+	// Modifying the value BEFORE vanilla's `if (points > 0)` gate matters: without it a
+	// player with no armor enchantments at all would skip `CombatRules` entirely and get
+	// no acrobatics reduction. The pool is an int on this version, hence Math.round.
+	@ModifyExpressionValue(
+			method = "getDamageAfterMagicAbsorb(Lnet/minecraft/world/damagesource/DamageSource;F)F",
+			at = @At(
+					value = "INVOKE",
+					target = "Lnet/minecraft/world/item/enchantment/EnchantmentHelper;"
+							+ "getDamageProtection(Ljava/lang/Iterable;Lnet/minecraft/world/damagesource/DamageSource;)I"))
+	private int specialities$legacyFallProtectionPoints(final int original,
+			@Local(argsOnly = true) final DamageSource source) {
+		if (!((Object) this instanceof ServerPlayer player) || !source.is(DamageTypeTags.IS_FALL)) {
+			return original;
+		}
+
+		return original + Math.round(Tuning.acrobaticsProtectionPoints(SkillManager.get(player).level(Skill.ACROBATICS)));
+	}
+	*///?}
 }

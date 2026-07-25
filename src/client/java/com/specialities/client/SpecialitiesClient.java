@@ -2,6 +2,11 @@ package com.specialities.client;
 
 import com.specialities.Specialities;
 import com.specialities.SkillUpdatePayload;
+//? if >=1.20.5 {
+//?} else {
+/*import com.specialities.SkillsFullPayload;
+import com.specialities.platform.SkillStore;
+*///?}
 import com.specialities.StealthStatePayload;
 
 import com.specialities.client.mixin.AbstractContainerScreenAccessor;
@@ -25,6 +30,10 @@ import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement;
 //?}
 
+//? if >=1.20.5 {
+//?} else {
+/*import net.minecraft.client.Minecraft;
+*///?}
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -54,10 +63,33 @@ public class SpecialitiesClient implements ClientModInitializer {
 		// ClientModInitializer), which is the same reason §2 gives for the HUD hook
 		// not being a seam. Below 1.20.5 these two lines fork in place, like the
 		// registration in FabricNet.
+		//
+		// And below 1.20.5 they do fork: 0.92.11's typed receiver is
+		// `PlayPacketHandler.receive(T, LocalPlayer, PacketSender)` instead of
+		// `(payload, context)`. It runs on the client thread just like the modern one —
+		// `ClientPlayNetworking$1.receive` checks `Minecraft.isSameThread()` and otherwise
+		// hands the call to `Minecraft.execute` (read off the module's bytecode) — so
+		// touching client state straight out of the handler is as safe there as here.
+		//
+		// The third receiver is design R-03's other half: that node has no attachment
+		// sync, so the client's own copy of the skills attachment is maintained from the
+		// wire. The join payload seeds the whole map here and every later gain patches one
+		// entry in SkillHudState.onUpdate, which keeps `SkillManager.get(minecraft.player)`
+		// — what the HUD bar and the skills screen both read — correct without either of
+		// them knowing the difference.
+		//? if >=1.20.5 {
 		ClientPlayNetworking.registerGlobalReceiver(SkillUpdatePayload.TYPE,
 				(payload, context) -> SkillHudState.onUpdate(payload, context.client()));
 		ClientPlayNetworking.registerGlobalReceiver(StealthStatePayload.TYPE,
 				(payload, context) -> StealthVignette.onUpdate(payload, context.client()));
+		//?} else {
+		/*ClientPlayNetworking.registerGlobalReceiver(SkillUpdatePayload.TYPE,
+				(payload, player, responseSender) -> SkillHudState.onUpdate(payload, Minecraft.getInstance()));
+		ClientPlayNetworking.registerGlobalReceiver(StealthStatePayload.TYPE,
+				(payload, player, responseSender) -> StealthVignette.onUpdate(payload, Minecraft.getInstance()));
+		ClientPlayNetworking.registerGlobalReceiver(SkillsFullPayload.TYPE,
+				(payload, player, responseSender) -> SkillStore.INSTANCE.setSkills(player, payload.skills()));
+		*///?}
 
 		// Nothing of this exists below 1.21.11 — the HUD is entirely GuiMixin's job there,
 		// and the client mixin config gates that class in on exactly those nodes.

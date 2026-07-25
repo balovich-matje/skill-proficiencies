@@ -1,5 +1,7 @@
 package com.specialities.platform;
 
+import com.specialities.skills.PlayerSkills;
+
 import net.minecraft.server.level.ServerPlayer;
 
 /**
@@ -35,4 +37,19 @@ public interface Net {
 			int fromTotalXp, int totalXp, int fromLevel, int level);
 
 	void sendStealthState(ServerPlayer player, int state);
+
+	// The R-03 method design §2.4 deviation 5 deferred to this stage, landing exactly as
+	// that note said it would: additively, together with the payload it needs, and gated
+	// so the nodes that sync attachments themselves neither declare nor register a third
+	// wire id. `SkillStore.resyncSkills` is its only caller.
+	//
+	// This one takes the whole PlayerSkills rather than loose values, unlike the two
+	// sends above. The reason the others take loose values is that the payload *record*
+	// has a different supertype below 1.20.5 and only the implementation may name it —
+	// PlayerSkills is a plain record with no Minecraft supertype at all, so it crosses
+	// the seam unchanged.
+	//? if >=1.20.5 {
+	//?} else {
+	/*void sendSkillsFull(ServerPlayer player, PlayerSkills skills);
+	*///?}
 }

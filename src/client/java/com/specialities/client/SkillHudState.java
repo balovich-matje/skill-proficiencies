@@ -2,6 +2,10 @@ package com.specialities.client;
 
 import com.specialities.SkillUpdatePayload;
 import com.specialities.api.SkillType;
+//? if >=1.20.5 {
+//?} else {
+/*import com.specialities.platform.SkillStore;
+*///?}
 import com.specialities.skills.SkillTypes;
 
 import net.minecraft.client.Minecraft;
@@ -46,6 +50,20 @@ public final class SkillHudState {
 		fromLevel = payload.fromLevel();
 		level = payload.level();
 		animStartMs = Util.getMillis();
+
+		// Design R-03's incremental half. Below 1.20.5 fabric-api cannot sync the skills
+		// attachment, so the client's copy is maintained from the wire: SkillsFullPayload
+		// seeds it on join and this patches the one skill that moved. `totalXp` is
+		// absolute, not a delta, so a dropped or reordered update cannot accumulate error.
+		// Everything that renders skill data — the HUD bar, the skills screen — reads
+		// `SkillManager.get(minecraft.player)` and needs no idea any of this happened.
+		//? if >=1.20.5 {
+		//?} else {
+		/*if (client.player != null) {
+			SkillStore.INSTANCE.setSkills(client.player,
+					SkillStore.INSTANCE.getSkills(client.player).withTotalXp(updated, payload.totalXp()));
+		}
+		*///?}
 
 		if (payload.levelUp()) {
 			// Three spellings of the toast manager accessor: 26.2 moved toast management off
