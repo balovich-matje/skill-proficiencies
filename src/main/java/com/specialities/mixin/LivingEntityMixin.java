@@ -267,10 +267,11 @@ public abstract class LivingEntityMixin {
 	}
 
 	// ---------------------------------------------------------------------------
-	// Two handlers that exist on the 1.20.1 node only, because the fabric-api event and
-	// the EnchantmentHelper overload they stand in for both arrived later. Neither adds
+	// Handlers that exist on the 1.20.1 node only, because the fabric-api event and the
+	// EnchantmentHelper overloads they stand in for all arrived later. None of them adds
 	// balance logic: the first calls the same SkillEvents code the real event calls, the
-	// second adds the same Tuning value EnchantmentHelperMixin adds.
+	// second adds the same Tuning value EnchantmentHelperMixin adds, and the third keeps the
+	// re-rooted looting hook as narrow as the modern one.
 	//? if >=1.20.5 {
 	//?} else {
 	/*// ServerLivingEntityEvents.AFTER_DAMAGE does not exist in fabric-api 0.92.11
@@ -343,6 +344,43 @@ public abstract class LivingEntityMixin {
 		}
 
 		return original + Math.round(Tuning.acrobaticsProtectionPoints(SkillManager.get(player).level(Skill.ACROBATICS)));
+	}
+
+	// Passive looting has to reach the LOOT TABLE and nothing else, and below 1.21 the hook
+	// that delivers it is wider than that. Census of every `getMobLooting(LivingEntity)I`
+	// caller in the 1.20.1 client jar, by constant-pool scan rather than by grep, is exactly
+	// three:
+	//
+	//   LootingEnchantFunction                    loot table  — the modern
+	//                                             EnchantedCountIncreaseFunction
+	//   LootItemRandomChanceWithLootingCondition  loot table  — the modern
+	//                                             LootItemRandomChanceWithEnchantedBonusCondition
+	//   LivingEntity.dropAllDeathLoot             NOT loot    — it passes the value to
+	//                                             dropCustomDeathLoot(DamageSource,I,Z),
+	//                                             where Mob turns each looting level into
+	//                                             +1% mob EQUIPMENT drop chance
+	//                                             (`iload_2` inside its nextFloat test)
+	//
+	// The third has no counterpart on the four newer nodes: `dropCustomDeathLoot` LOST its
+	// looting parameter in 1.21, so the modern hook cannot raise an equipment drop and this
+	// node must not either. Hence: EnchantmentHelperMixin adds the bonus to every
+	// `getMobLooting` return, and this handler takes the same number — one shared definition,
+	// so they cancel exactly — back off at the single call site that feeds equipment drops.
+	// Vanilla's own looting level and any other mod's contribution are untouched, which
+	// subtracting rather than recomputing is what buys.
+	//
+	// ONE `getMobLooting` call in `dropAllDeathLoot` (offset 16, stored to the `i` that
+	// offset 74 hands to `dropCustomDeathLoot`), so no ordinal. `dropFromLootTable` at offset
+	// 66 reads looting again, through the loot function, and that read still gets the bonus.
+	@ModifyExpressionValue(
+			method = "dropAllDeathLoot(Lnet/minecraft/world/damagesource/DamageSource;)V",
+			at = @At(
+					value = "INVOKE",
+					target = "Lnet/minecraft/world/item/enchantment/EnchantmentHelper;"
+							+ "getMobLooting(Lnet/minecraft/world/entity/LivingEntity;)I"))
+	private int specialities$equipmentDropsWithoutPassiveLooting(final int original,
+			@Local(argsOnly = true) final DamageSource source) {
+		return original - SkillCategories.passiveLootingBonus(source.getEntity());
 	}
 	*///?}
 }

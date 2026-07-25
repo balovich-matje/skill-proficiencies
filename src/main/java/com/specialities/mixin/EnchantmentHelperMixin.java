@@ -1,6 +1,10 @@
 package com.specialities.mixin;
 
 import com.specialities.skills.Skill;
+//? if >=1.21 {
+//?} else {
+/*import com.specialities.skills.SkillCategories;
+*///?}
 import com.specialities.skills.SkillManager;
 import com.specialities.skills.Tuning;
 import com.specialities.ModTags;
@@ -34,12 +38,17 @@ import net.minecraft.world.item.enchantment.Enchantments;
 @Mixin(EnchantmentHelper.class)
 public abstract class EnchantmentHelperMixin {
 	// Looting is read through a different method below 1.21 — the loot function there is
-	// `LootingEnchantFunction`, which reads `LootContext.getLootingModifier()`, i.e.
-	// `EnchantmentHelper.getMobLooting(LivingEntity)I`. That one takes no enchantment, so
-	// the `Enchantments.LOOTING` test disappears with the parameter; nothing else moves,
-	// and in particular the `getEnchantmentLevel(Enchantment, LivingEntity)I` overload
-	// that DOES exist on 1.20.1 is deliberately not used — it is not on the loot path
-	// there, so hooking it would silently award nothing.
+	// `LootingEnchantFunction`, which calls `EnchantmentHelper.getMobLooting(LivingEntity)I`
+	// directly (1.20.1's `LootContext` has no `getLootingModifier()`; that indirection is
+	// older). That one takes no enchantment, so the `Enchantments.LOOTING` test disappears
+	// with the parameter, and in particular the `getEnchantmentLevel(Enchantment,
+	// LivingEntity)I` overload that DOES exist on 1.20.1 is deliberately not used — it is
+	// not on the loot path there, so hooking it would silently award nothing.
+	//
+	// `getMobLooting` is WIDER than the modern hook, though, which is why the bonus is a
+	// shared `SkillCategories` call rather than inline arithmetic below: vanilla also feeds
+	// it to `dropCustomDeathLoot`, i.e. mob equipment drops, and LivingEntityMixin takes the
+	// bonus back off there. Full reasoning and the caller census sit at that handler.
 	//? if >=1.21 {
 	@ModifyReturnValue(method = "getEnchantmentLevel", at = @At("RETURN"))
 	private static int specialities$boostLooting(final int original, final Holder<Enchantment> enchantment,
@@ -47,13 +56,6 @@ public abstract class EnchantmentHelperMixin {
 		if (!enchantment.is(Enchantments.LOOTING) || !(entity instanceof ServerPlayer player)) {
 			return original;
 		}
-	//?} else {
-	/*@ModifyReturnValue(method = "getMobLooting", at = @At("RETURN"))
-	private static int specialities$boostLooting(final int original, final LivingEntity entity) {
-		if (!(entity instanceof ServerPlayer player)) {
-			return original;
-		}
-	*///?}
 
 		if (!player.getMainHandItem().is(ModTags.WEAPONS)) {
 			return original;
@@ -62,6 +64,12 @@ public abstract class EnchantmentHelperMixin {
 		int bonus = Tuning.luckBonus(SkillManager.get(player).level(Skill.COMBAT));
 		return bonus > 0 ? original + bonus : original;
 	}
+	//?} else {
+	/*@ModifyReturnValue(method = "getMobLooting", at = @At("RETURN"))
+	private static int specialities$boostLooting(final int original, final LivingEntity entity) {
+		return original + SkillCategories.passiveLootingBonus(entity);
+	}
+	*///?}
 
 	// The three handlers below all take a parameter that does not exist below 1.21:
 	// `getFishingLuckBonus(ItemStack)I` and `getFishingSpeedBonus(ItemStack)I` (renamed,

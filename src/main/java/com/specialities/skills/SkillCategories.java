@@ -17,6 +17,11 @@ import net.minecraft.tags.BlockItemTags;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.world.damagesource.DamageSource;
+// Only `passiveLootingBonus` names Entity, and only below 1.21.
+//? if >=1.21 {
+//?} else {
+/*import net.minecraft.world.entity.Entity;
+*///?}
 // The arrow classes moved into a `.arrow` subpackage at 1.21.11; below that they sit
 // directly in `...entity.projectile` (1.21.1 mojmap: `net.minecraft.world.entity
 // .projectile.AbstractArrow -> cnd`, `...projectile.Arrow -> cnf`). This boundary cuts
@@ -384,6 +389,21 @@ public final class SkillCategories {
 	/*public static @Nullable ItemStack weaponItem(final AbstractArrow projectile) {
 		ItemStack stamped = SkillStore.INSTANCE.getFiringWeapon(projectile);
 		return stamped != null ? stamped : ((AbstractArrowAccessor) projectile).specialities$getPickupItem();
+	}
+
+	// The passive-looting bonus, and the same "ONE definition on this node" reasoning as
+	// weaponItem above: below 1.21 the only looting read is
+	// `EnchantmentHelper.getMobLooting(LivingEntity)I`, which vanilla uses for BOTH the loot
+	// table and the mob equipment-drop chance, so EnchantmentHelperMixin adds this number to
+	// it and LivingEntityMixin takes the same number back off at the one call site that
+	// feeds equipment drops. Two copies of the predicate would be a silent balance drift the
+	// first time either changed; there is exactly one, and the two hooks cancel exactly.
+	public static int passiveLootingBonus(final @Nullable Entity killer) {
+		if (!(killer instanceof ServerPlayer player) || !player.getMainHandItem().is(ModTags.WEAPONS)) {
+			return 0;
+		}
+
+		return Math.max(0, Tuning.luckBonus(SkillManager.get(player).level(Skill.COMBAT)));
 	}
 	*///?}
 }
