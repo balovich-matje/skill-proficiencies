@@ -377,13 +377,17 @@ This directly answers the scout's flagged tension ("platform events let you dele
 
 Replaces the direct `(AttachmentTarget)` casts in **6 files**: `ModAttachments`, `SkillManager`, `Artisan`, `mixin/LivingEntityMixin`, `mixin/AbstractArrowMixin`, `mixin/BrewingStandMenuMixin`. Needed **in Phase A**, because `AttachmentType.syncWith` and `AttachmentSyncPredicate` do not exist in fabric-api 0.92.11 (verified: absent from the module jar; and `AttachmentRegistry.create(Identifier, Consumer<Builder>)` is absent too).
 
+**AS BUILT in Stage 3** (`src/main/java/com/specialities/platform/`). Differences from
+the original sketch are marked; see §2.4 for why each one moved.
+
 ```java
 package com.specialities.platform;
 
 public interface SkillStore {
-    SkillStore INSTANCE = /*? if fabric {*/new FabricSkillStore();
-                          /*?} elif neoforge *///new NeoForgeSkillStore();
-                          /*?} elif forge    *///new ForgeSkillStore();
+    SkillStore INSTANCE = new FabricSkillStore();     // (1) unconditional, see §2.4
+
+    /** (2) Registers attachment types. Replaces ModAttachments.initialize(). */
+    void initialize();
 
     // --- player skills (persistent, owner-synced, survives death) ---
     PlayerSkills   getSkills(Player player);
@@ -392,12 +396,19 @@ public interface SkillStore {
     void           resyncSkills(ServerPlayer player);
 
     // --- transient bookkeeping ---
-    int      getRicochetBounces(Entity arrow);           void setRicochetBounces(Entity arrow, int n);
-    int      getRicochetIgnore(Entity arrow);            void setRicochetIgnore(Entity arrow, int entityId);
+    // (3) the ricochet getters are @Nullable Integer, NOT int: absent and zero mean
+    //     different things to AbstractArrowMixin.
+    @Nullable Integer getRicochetBounces(Entity arrow); void setRicochetBounces(Entity arrow, int n);
+    @Nullable Integer getRicochetIgnore(Entity arrow);  void setRicochetIgnore(Entity arrow, int entityId);
     boolean  isStealthCritDone(Mob mob);                 void markStealthCritDone(Mob mob);
     @Nullable String getBrewingOwner(BlockEntity stand); void setBrewingOwner(BlockEntity stand, String uuid);
 }
 ```
+
+`ModAttachments` is **deleted**; its five `AttachmentRegistry.create` calls are now
+private static fields of `FabricSkillStore`, unchanged. The ids
+(`specialities:skills`, `…:ricochet_bounces`, `…:ricochet_ignore`,
+`…:stealth_crit_done`, `…:brewing_owner`) are on-disk world format and are frozen.
 
 Per-platform sketch:
 
@@ -414,17 +425,24 @@ Note the design payoff: the `resyncSkills` method exists solely because two of t
 
 Replaces registration in `Specialities` (2 lines), sends in `SkillManager` (1) and `SneakingTicker` (1), receivers in `SpecialitiesClient` (2) — **~6 sites in 4 files**. Needed in Phase A: `PayloadTypeRegistry`, `CustomPacketPayload`, `StreamCodec`, `ByteBufCodecs` and `RegistryFriendlyByteBuf` are all absent on 1.20.1 (mojmap class-existence checked).
 
+**AS BUILT in Stage 3** — two of the five methods are not there; §2.4 has the reasons,
+and the second one is measured, not argued.
+
 ```java
 public interface Net {
-    Net INSTANCE = /*? if fabric {*/new FabricNet();/*?} …*/
+    Net INSTANCE = new FabricNet();                               // unconditional, see §2.4
 
     void registerClientbound();                                   // called from common init
     void sendSkillUpdate(ServerPlayer p, String skillId, int fromXp, int xp, int fromLvl, int lvl);
     void sendStealthState(ServerPlayer p, int state);
-    void sendSkillsFull(ServerPlayer p, PlayerSkills skills);      // only used where sync is absent
-    void registerClientReceivers();                               // called from client init
+    // sendSkillsFull(…)      — NOT built: no SkillsFullPayload exists yet (§2.4)
+    // registerClientReceivers() — CANNOT be built here: `src/main` has no client classpath (§2.4)
 }
 ```
+
+The sends take loose values rather than a payload object on purpose: below 1.20.5 the
+payload records get a different supertype (`FabricPacket`), so only the implementation
+may name them.
 
 **Wire ids and field order are frozen** (`specialities:skill_update`, `specialities:stealth_state`) so a client and server on different variants of the same MC version stay compatible.
 
@@ -439,14 +457,18 @@ public interface Net {
 
 Free, three trivial methods, modelled on the template's `ModLoaderAccess`. Replaces `FabricLoader` use in `ConfigManager` (`getConfigDir`), `SkillTypes` (entrypoints), `ModMenuIntegration` (`isModLoaded`).
 
+**AS BUILT in Stage 3** — `isClient()` dropped (no call site anywhere in the tree), and
+`skillProviders()` carries the owning mod id because the log output depends on it.
+
 ```java
 public interface Platform {
-    Platform INSTANCE = /*? if fabric {*/new FabricPlatform();/*?} …*/
+    Platform INSTANCE = new FabricPlatform();                     // unconditional, see §2.4
     Path configDir();
     boolean isModLoaded(String id);
-    boolean isClient();
     /** Externally-registered skills. Fabric: entrypoints. NeoForge/Forge: an IMC/service-loader equivalent. */
-    List<SkillsEntrypoint> skillProviders();
+    List<SkillProvider> skillProviders();
+
+    record SkillProvider(String modId, SkillsEntrypoint entrypoint) { }
 }
 ```
 
@@ -461,6 +483,55 @@ public interface Platform {
 | Command registration | **No seam.** `//?` in `SkillCommands`. | `CommandRegistrationCallback.EVENT` is byte-identical on all four Fabric targets (verified). Only the permission gate differs (26.x `PermissionCheck.Require` vs legacy `src -> src.hasPermission(2)`). |
 | Config | **No seam.** Keep the hand-rolled JSON `ConfigManager` on every platform. | Zero `net.minecraft` imports, Gson is bundled everywhere. Cloth/ModMenu stay behind `//? if fabric` + `>=26.1`. Lowest-risk cross-platform choice by a wide margin. |
 | Creative tab / item registry | **No seam.** `//?` in `ModItems`. | One line each (`CreativeModeTabEvents.modifyOutputEvent` vs `ItemGroupEvents.modifyEntriesEvent`; `Properties().setId(key)` vs `Registry.register(Registries.ITEM, id, item)`). |
+
+The rejected list held up unchanged: Stage 3 added no fourth seam, moved no mixin to an
+event, and left `SkillEvents`, the HUD hook, `SkillCommands`, `ConfigManager` and
+`ModItems` exactly where §2 put them.
+
+### 2.4 As built — Stage 3 deviations and why
+
+Three seams, seven files of new code, **nine deviations from the sketches above**. All
+three seams live in `com.specialities.platform`; each implementation class is
+package-private (`FabricSkillStore`, `FabricNet`, `FabricPlatform`), so the only public
+surface is the three interfaces.
+
+| # | Sketch said | As built | Reason |
+|---|---|---|---|
+| 1 | `INSTANCE = /*? if fabric {*/…` on all three | plain `new Fabric…()` | Every registered node is a Fabric node, so that block is a branch **no build can exercise** — and a disabled branch naming a class that does not exist yet is the silently-wrong case of conventions §4. Each interface's javadoc carries the exact inline form Phase B should paste in, plus the reminder that the unused impl class must leave the source set the way `client/config/**` does below 26.1 (conventions §5e-ter). |
+| 2 | no `initialize()` | `SkillStore.initialize()` | Replaces `ModAttachments.initialize()` one-for-one. The five `AttachmentRegistry.create` calls are `FabricSkillStore`'s static initializer, which `SkillStore.INSTANCE` forces on *first touch*; without an explicit call, registration would happen whenever some unrelated code first reads a skill. Same call site, same position in common init. Phase B's loaders need a registration hook anyway. |
+| 3 | `int getRicochetBounces/Ignore` | `@Nullable Integer` | Absent and zero are different states in `AbstractArrowMixin`: absent = "an original shot, decide from the firing weapon and the archery level", zero = "a bounce arrow that has run out". An `int` collapses them, which is a balance change. |
+| 4 | `resyncSkills` with no caller until 1.20.1 | shipped **with** its call site, on `ServerPlayerEvents.JOIN` beside `DefencePassives.apply` | The Fabric body is empty (`syncWith(…, targetOnly())` already pushes), so it is behaviour-neutral now, and design R-03 becomes an edit to one file the 1.20.1 stage already owns instead of a new call site in `SkillEvents`, which it does not. `AFTER_RESPAWN` deliberately did **not** get the call: whether respawn needs a re-push depends on how that node's store handles copy-on-death, which is a decision to make with evidence. |
+| 5 | `Net.sendSkillsFull` | not built | There is no `SkillsFullPayload` in the tree, and adding one would register a new wire id on all three shipping nodes — a behaviour change, which a pure refactor may not make. The R-03 hook is `SkillStore.resyncSkills`; the payload and whatever `Net` method it wants land together in Stage 5, additively. |
+| 6 | `Net.registerClientReceivers`, called from client init | **structurally impossible**; the two receivers stay in `client/SpecialitiesClient` | Measured, not argued: `Net`/`FabricNet` are in `src/main`, and `net.minecraft.client` is not on that source set's compile classpath. A probe calling `ClientPlayNetworking.registerGlobalReceiver(SkillUpdatePayload.TYPE, (p, ctx) -> … ctx.client())` from `src/main` fails with `error: cannot access Minecraft / class file for net.minecraft.client.Minecraft not found`. Keeping the split source sets is §1.4, so the common seam cannot reach the receivers. `SpecialitiesClient` is Fabric-only regardless — it *implements* `ClientModInitializer` — which is the same argument §2 uses for the HUD hook not being a seam. Those two lines fork in place below 1.20.5. A note at the call site says all of this so nobody "fixes" it. |
+| 7 | `Platform.isClient()` | not built | Zero call sites in the tree. A method no node exercises is the speculative surface §2 sets out to avoid; adding it later is additive. |
+| 8 | `skillProviders()` returns `List<SkillsEntrypoint>` | returns `List<Platform.SkillProvider>` = `(modId, entrypoint)` | `SkillTypes.pullEntrypoints` names the contributing mod in two `IllegalArgumentException` messages **and** in the `Registered skill '{}' from {}` INFO line. Returning bare entrypoints changes observable output. NeoForge/Forge can supply a mod id from `ServiceLoader`/IMC just as well. |
+| 9 | seam count "three" implied three new types | seven files: 3 interfaces + 3 impls + 1 nested record | Bookkeeping only. |
+
+**Regression evidence for the stage** (design §7 tiers 1-2, plus the Stage-1 comparator):
+
+- all three nodes build; `:1.21.11-fabric`'s generated `FabricNet` confirmed to flip the
+  moved `//?` block to `playS2C()`
+- **all 44 non-class jar entries byte-identical** to the 5ed7997 jars on all three nodes,
+  including `fabric.mod.json` and `META-INF/MANIFEST.MF` (no client classes were added,
+  so `Fabric-Loom-Client-Only-Entries` is unchanged)
+- the full pool-normalised `javap -c` diff of every changed class was read: the only
+  instruction changes in the whole stage are `getstatic INSTANCE` +
+  `invokeinterface <seam method>` replacing the old
+  `FabricLoader`/`AttachmentTarget`/`ServerPlayNetworking` calls, plus the `checkcast`
+  that disappears because the seam methods return the concrete type
+- headless dedicated servers on all three nodes: boot to `Done`, `Skills mod
+  initialized`, `/skillprof` tree registered, config round-trip, clean `stop` exit 0,
+  zero mixin errors, zero tag `missing following references`. 1.21.11: **15/15** common
+  mixins applied (`EnchantmentHelper` force-loaded via `/loot spawn`, as in Stage 2)
+- 26.x runs were also compared against a **control run of the 5ed7997 jar in the same
+  world**: the console logs are identical as message multisets modulo timestamps,
+  timings and one non-deterministic `Preparing spawn area: 100%` line
+- Archetypes recompiles (`compileJava --rerun-tasks`) against
+  `:26.2-fabric:publishToMavenLocal`; its integration entrypoint does not notice the seam
+- **stale checklist item**: `assert_smoke.sh` asserts *exactly one* `/ERROR]` line (the
+  flat-world preset warning Stage 1 saw). Both 26.x nodes now log **zero**, and the
+  control run of the 5ed7997 jar logs zero too — the ERROR only appeared when the smoke
+  world was first created. The assertion, not the build, is what is out of date.
 
 ---
 
@@ -711,6 +782,11 @@ Disjoint file sets → four concurrent worktrees. Cross-set coupling to watch: `
 **Stage 3 — Seams (`SkillStore`, `Net`, `Platform`). Sequential, one agent. (~1-2 days)**
 Deliberately **after** the beachhead: 1.21.11 needs none of them, so introducing them earlier would be speculative. Now they are introduced with two proven nodes as regression oracles. Touches `ModAttachments`, `SkillManager`, `Artisan`, 3 main mixins, `Specialities`, `SneakingTicker`, `SpecialitiesClient`, `ConfigManager`, both payloads.
 *Why alone:* it edits files owned by 2b, 2c and 2d.
+**Outcome:** landed as three commits, one per seam, `//?`-free except for the
+`PayloadTypeRegistry` block that moved verbatim from `Specialities` into `FabricNet`.
+Neither payload record was touched, `ModAttachments` was deleted rather than edited, and
+`SpecialitiesClient` got a comment only. Nine deviations from the §2 sketches — read §2.4
+before writing a Phase B implementation against them.
 
 **Stage 4 — Parallel. (~2-3 days)**
 - 4a `1.21.1-fabric`: mostly mechanical except the HUD — `HudElementRegistry` absent, so `HUD_SHIFT` needs a `Gui.render(GuiGraphics,DeltaTracker)V` mixin. Owns `client/*` + a new `client/mixin/GuiMixin`.
@@ -779,7 +855,7 @@ Assert from `run/logs/latest.log`:
 | Check | Signal |
 |---|---|
 | Mixin application | zero `Mixin apply failed` / `InvalidInjectionException`; with `defaultRequire: 1` a bad target is fatal |
-| Common init order | `ConfigManager.load` → `SkillTypes.pullEntrypoints` → `ModAttachments` → `ModItems` → payload registration → `SkillEvents.register` → `SkillCommands.register` (**note: `docs/ARCHITECTURE.md` lists only 5 steps and omits the last — fix the doc**) |
+| Common init order | `ConfigManager.load` → `SkillTypes.pullEntrypoints` → `SkillStore.INSTANCE.initialize` → `ModItems` → `Net.INSTANCE.registerClientbound` → `SkillEvents.register` → `SkillCommands.register` (the first two names are what they became in Stage 3; `docs/ARCHITECTURE.md` was corrected in the same commit) |
 | Skill registry validation | 15 built-ins accepted, no `IllegalArgumentException` from `SkillTypes` |
 | Item registration | 30 knowledge books registered |
 | Datapack tags | **no tag-loading errors** — this is the check that catches R-16 (`#minecraft:spears`, `mace`, copper armor, `#minecraft:pickaxes`) |

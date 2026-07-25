@@ -22,9 +22,10 @@ or gate it.
 1. `ConfigManager.load()` — read `config/specialities.json`.
 2. `SkillTypes.pullEntrypoints()` — collect externally-registered skills
    *before* any player state can exist.
-3. `ModAttachments.initialize()` and `ModItems.initialize()`.
-4. Register the two clientbound payloads (`SkillUpdatePayload`,
-   `StealthStatePayload`).
+3. `SkillStore.INSTANCE.initialize()` (registers the attachment types) and
+   `ModItems.initialize()`.
+4. `Net.INSTANCE.registerClientbound()` — the two clientbound payloads
+   (`SkillUpdatePayload`, `StealthStatePayload`).
 5. `SkillEvents.register()` — wire the XP-gain and lifecycle event handlers.
 6. `SkillCommands.register()` — the `/skillprof` op subcommands.
 
@@ -60,10 +61,10 @@ Everything that awards XP calls one of:
   books; jumps whole levels (progress snaps to the level start).
 
 Both funnel through the private `apply(...)`, which is the single write site: it
-sets `ModAttachments.SKILLS`, re-applies `DefencePassives` if the skill is
-`Skill.DEFENCE`, and sends a `SkillUpdatePayload`.
+calls `SkillStore.INSTANCE.setSkills(...)`, re-applies `DefencePassives` if the
+skill is `Skill.DEFENCE`, and sends a `SkillUpdatePayload`.
 
-### Persistence: `ModAttachments.SKILLS`
+### Persistence: the `specialities:skills` attachment
 
 Player progress lives in the `PlayerSkills` record, an immutable
 `Map<String, Integer>` of **skill-id string → total accumulated XP**. Levels are
@@ -72,12 +73,30 @@ Keying by string (not enum ordinal) is deliberate: externally-contributed skills
 persist through the identical path, and save data stays stable regardless of
 skill order.
 
-`ModAttachments.SKILLS` is a Fabric `AttachmentType<PlayerSkills>` with
+On Fabric it is an `AttachmentType<PlayerSkills>` with
 `.persistent(PlayerSkills.CODEC)`, `.syncWith(..., targetOnly())` (owning client
-only), and `.copyOnDeath()`; `SkillManager.get(player)` reads it, defaulting to
-`PlayerSkills.EMPTY`. The same file declares the transient attachments used by
-individual features: `RICOCHET_BOUNCES` / `RICOCHET_IGNORE` (arrows),
-`STEALTH_CRIT_DONE` (mobs), `BREWING_OWNER` (a brewing-stand block entity).
+only), and `.copyOnDeath()`. Nothing reads it directly: **all attached state goes
+through the `SkillStore` seam** (`platform/SkillStore`, implemented by
+`platform/FabricSkillStore`), which also owns the four transient attachments used
+by individual features — `specialities:ricochet_bounces` /
+`…:ricochet_ignore` (arrows), `…:stealth_crit_done` (mobs), `…:brewing_owner` (a
+brewing-stand block entity). `SkillManager.get(player)` calls
+`SkillStore.INSTANCE.getSkills(...)`, which defaults to `PlayerSkills.EMPTY`.
+
+The attachment **ids are on-disk world format and are frozen** — renaming
+`specialities:skills` orphans every existing world's progress.
+
+### The three platform seams
+
+`com.specialities.platform` holds the whole loader/platform abstraction, added in
+port Stage 3 so the legacy and non-Fabric nodes have somewhere to differ:
+`SkillStore` (attached state, above), `Net` (clientbound payload registration and
+the two server→client sends) and `Platform` (config dir, `isModLoaded`, the
+`specialities:skills` entrypoint scan). Each is an interface with a static
+`INSTANCE` and a package-private Fabric implementation. Mixins and skill logic
+call the interface, never the loader API — see
+[`MULTIVERSION.md`](MULTIVERSION.md) §2 (and §2.4 for what was built versus
+designed).
 
 ### Sync: `SkillUpdatePayload`
 

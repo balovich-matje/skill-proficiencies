@@ -215,6 +215,28 @@ hand-written disabled branch contains a `*/` that closes the branch comment earl
 needs the `*` → `^` escalation of §4 and fails silently when got wrong. Any entrypoint or
 mixin-config entry naming an excluded class must be gated in the same commit.
 
+**5g. The seam layer is `com.specialities.platform`, and it is common-side only.**
+Landed in Stage 3: `SkillStore` (attached state), `Net` (clientbound payloads),
+`Platform` (loader services), each a public interface with a `static INSTANCE` field and
+a **package-private** implementation (`FabricSkillStore`, `FabricNet`, `FabricPlatform`).
+Three rules that fall out of it:
+
+- **Nothing else in the tree may name `FabricLoader`, `AttachmentTarget`/`AttachmentType`,
+  `PayloadTypeRegistry` or `ServerPlayNetworking`.** Those four symbols now appear in
+  exactly one file each; a new call site outside `platform/` is the drift to catch in
+  review (`grep` is enough).
+- **`INSTANCE` stays unconditional until a non-Fabric node exists.** A `//? if fabric`
+  block there cannot be exercised by any registered node, and a disabled branch naming a
+  class that does not exist is the silent-failure case of §4. Phase B adds the block and
+  the source-set exclusion (§5e-ter) together; each interface's javadoc spells out the
+  form.
+- **A seam in `src/main` cannot reach client-only API.** Measured, not assumed:
+  `net.minecraft.client` is not on `src/main`'s compile classpath, so a common
+  implementation calling `ClientPlayNetworking.registerGlobalReceiver` fails with
+  "cannot access Minecraft". Client-side registration therefore stays in
+  `client/SpecialitiesClient` and forks in place — same reasoning design §2 uses to reject
+  a HUD seam. Do not "complete" the `Net` interface with a client method.
+
 **5f. Build scripts are NOT preprocessed.** Stonecutter only walks the source sets
 (`StonecutterBuildImpl`: `project.sourceSets.all { … }`). Version conditionals in
 `build.fabric.gradle.kts` must be plain Kotlin `if (sc.current.parsed >= "…")`. Design
