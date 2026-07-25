@@ -9,6 +9,11 @@ Frozen in Stage 1 (branch `workspace`). Registered nodes as of Stage 5: **`26.2-
 (active + VCS), `26.1-fabric`, `1.21.11-fabric`, `1.21.1-fabric`, `1.20.1-fabric`** — all five
 build, and all five boot a real headless dedicated server clean. Phase A is complete.
 
+A post-Stage-5 **balance-parity review** of the newest node then found four behavioural
+divergences that every build-shaped gate had passed, all four inside one re-rooted event.
+They are fixed; §5k and §6 R-20 are what that cost, and the checks in R-20's first two
+bullets are the ones to run per re-rooting from now on.
+
 ---
 
 ## 1. How the workspace is shaped
@@ -676,6 +681,65 @@ which is what writes back). So:
   enough, and it builds every node in one invocation.
 - Corollary already noted in §2: the *active* node is the one node whose `//?` syntax is
   never exercised by a build.
+
+### R-20 — the 1.20.1 balance-parity review (CLOSED; four regressions, all in ONE re-rooting)
+
+A post-Stage-5 review compared the 1.20.1 node's *behaviour* against the four older nodes
+rather than its build. Everything it found was a **behavioural** divergence that the build,
+the mixin-apply count and the bytecode audit all passed cleanly, and four of the five sat in
+the same substitution: the stand-in for `ServerLivingEntityEvents.AFTER_DAMAGE`. The general
+lesson is in the first bullet; the rest is the evidence, so nobody re-derives it.
+
+- **A re-rooted EVENT must reproduce the event's own contract, not merely fire somewhere
+  plausible.** `AFTER_DAMAGE` has three semantics, all three written down in
+  `ServerLivingEntityEvents`' javadoc and all three visible in fabric-api's own compiled
+  mixin, and the substitute broke all three. Check each explicitly, per event:
+  1. **Does the target class OVERRIDE the method, without calling super?** `Player` overrides
+     `actuallyHurt` on 1.20.1 and its `javap -c` contains zero `invokespecial`, so a TAIL
+     inject on `LivingEntity.actuallyHurt` never ran for a player — defence XP, acrobatics XP
+     and attacker-side PvP XP were dead on that node only. The site that covers every entity
+     is `hurt`: `Player.hurt` ends in `invokespecial LivingEntity.hurt` and
+     `ServerPlayer.hurt` ends in `invokespecial Player.hurt`. **Ask this of every legacy
+     injection point whose class has subclasses that specialise it.**
+  2. **Which value does the event report?** `damageTaken` is post-shield/post-freezing and
+     explicitly PRE-armor. `actuallyHurt` is where armor, magic absorption and absorption
+     hearts are applied, so its argument under-reports every armoured hit. The event's value
+     is `hurt`'s own argument slot 2, mutated in place — the same local vanilla's
+     `EntityHurtPlayerTrigger.trigger(player, entity, source, base, taken, blocked)` reports.
+  3. **What does fabric-api GATE the invocation on?** `!isDeadOrDying()` — "this event is not
+     fired if the entity was killed by the damage". Absent, a killing blow paid XP on 1.20.1
+     alone.
+  The fixed handler is fabric-api's shape line for line, including `blocked` as the first
+  boolean local (`@Local(ordinal = 0)`, vanilla's `flag`, slot 4 — the ordinal 0.116.14
+  captures positionally on the identically-shaped 1.21.1 method).
+- **A re-rooted HOOK must be no WIDER than the modern one.** Establish the caller census
+  before choosing the site: a constant-pool scan of the 1.20.1 client jar for
+  `EnchantmentHelper.getMobLooting(LivingEntity)I` returns exactly three classes —
+  `LootingEnchantFunction` and `LootItemRandomChanceWithLootingCondition` (both loot-table,
+  both wanted) and `LivingEntity.dropAllDeathLoot`, which feeds mob EQUIPMENT drop chance
+  through `dropCustomDeathLoot(DamageSource,I,Z)`. That third path has no modern counterpart —
+  `dropCustomDeathLoot` lost its looting parameter in 1.21 — so the passive was raising gear
+  drops on one node. Narrowed by adding the bonus at `getMobLooting` and subtracting it at the
+  one `dropAllDeathLoot` call site, from a single shared definition
+  (`SkillCategories.passiveLootingBonus`) so the two cancel exactly and vanilla's own looting
+  level survives.
+- **"Copy the missing effect" is not automatically the parity move.** The review asked whether
+  the 1.20.1 ricochet arrow should inherit the firing weapon's shot-time effects. Measured:
+  Flame is `minecraft:projectile_spawned` in 1.21.1's own `flame.json`, applied by the
+  weapon's shoot path, which a ricochet bypasses on EVERY node — copying fire state would have
+  *created* a 1.20.1-only divergence. Punch is the opposite: 1.21+ reads it from
+  `firedFromWeapon` at hit time (`AbstractArrow.doKnockback` →
+  `EnchantmentHelper.modifyKnockback`), so the modern bounce arrow gets it and the legacy one,
+  whose knockback is a shot-time field, did not. Only Punch was copied. Check WHEN each effect
+  is applied on both sides before deciding.
+- **Predicate hygiene**: see §5k, added by the same review.
+- **javac 17 names pattern-match temporaries after the SOURCE POSITION** (`patt<charOffset>$temp`
+  in the LocalVariableTable), so editing a *comment* above an `instanceof` pattern changes the
+  1.20.1 node's class bytes with zero instructions changed — measured: `patt3114$temp` →
+  `patt3175$temp` in `SkillEvents`, and 3175 is exactly the character offset of
+  `instanceof ServerLevel serverLevel` in the generated file. javac 21/25 do not do this, so
+  the four newer nodes stayed byte-identical through the same edit. Any future
+  "prior node unchanged" gate that includes 1.20.1 must compare **instructions**, not bytes.
 
 ## 7. Release / balance workflow after Stage 1
 
