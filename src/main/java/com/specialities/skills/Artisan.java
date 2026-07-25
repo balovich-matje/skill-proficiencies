@@ -24,7 +24,16 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.item.enchantment.ItemEnchantments;
+// The `minecraft:equippable` component (and its `equipment.Equippable` record) is
+// 1.21.2+. On 1.21.1 the same question is asked through the `Equipable` interface:
+// mojmap has `net.minecraft.world.item.Equipable` with a static `get(ItemStack) -> c_`
+// and `getEquipmentSlot() -> m`, and ElytraItem/ArmorItem both implement it, so the
+// legacy branch keeps the elytra in scope exactly like the component form does.
+//? if >=1.21.2 {
 import net.minecraft.world.item.equipment.Equippable;
+//?} else {
+/*import net.minecraft.world.item.Equipable;
+*///?}
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BrewingStandBlockEntity;
 // jspecify is one of the game's OWN libraries only from 1.21.11 up (conventions
@@ -50,10 +59,17 @@ public final class Artisan {
 			return true;
 		}
 
+		//? if >=1.21.2 {
 		Equippable equippable = stack.get(DataComponents.EQUIPPABLE);
 		return equippable != null
 				&& equippable.slot().getType() == EquipmentSlot.Type.HUMANOID_ARMOR
 				&& stack.isDamageableItem();
+		//?} else {
+		/*Equipable equippable = Equipable.get(stack);
+		return equippable != null
+				&& equippable.getEquipmentSlot().getType() == EquipmentSlot.Type.HUMANOID_ARMOR
+				&& stack.isDamageableItem();
+		*///?}
 	}
 
 	/** Number of bonus materials returned by smithing resourcefulness. */
@@ -105,7 +121,17 @@ public final class Artisan {
 	 * add a compatible non-curse table enchantment at level 1.
 	 */
 	public static void applyEnchantLuck(final ServerPlayer player, final ItemStack stack) {
+		// `EnchantmentHelper.getComponentType` is PRIVATE on 1.21.1 (`private static
+		// kp<dai> d(cuq)`), so the legacy branch inlines its exact body, read off the
+		// bytecode: `stack.is(Items.ENCHANTED_BOOK) ? STORED_ENCHANTMENTS : ENCHANTMENTS`
+		// (`cut.uw` = Items.ENCHANTED_BOOK, `kq.y`/`kq.k` = the two DataComponents).
+		//? if >=1.21.11 {
 		DataComponentType<ItemEnchantments> componentType = EnchantmentHelper.getComponentType(stack);
+		//?} else {
+		/*DataComponentType<ItemEnchantments> componentType = stack.is(Items.ENCHANTED_BOOK)
+				? DataComponents.STORED_ENCHANTMENTS
+				: DataComponents.ENCHANTMENTS;
+		*///?}
 		ItemEnchantments current = stack.getOrDefault(componentType, ItemEnchantments.EMPTY);
 		RandomSource random = player.getRandom();
 

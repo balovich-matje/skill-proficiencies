@@ -64,7 +64,11 @@ public final class AthleticsTicker {
 			int tier = Tuning.swiftnessTier(level);
 
 			if (tier > 0) {
-				MobEffectInstance effect = player.getEffect(MobEffects.SPEED);
+				// 1.21.2 shortened MOVEMENT_SPEED to SPEED (1.21.1 mojmap: `Holder
+				// MOVEMENT_SPEED -> a`); the Holder-typed getEffect overload is AS-IS.
+				MobEffectInstance effect = player.getEffect(
+						/*? if >=1.21.2 {*/MobEffects.SPEED);
+						/*?} else *///MobEffects.MOVEMENT_SPEED);
 				double effectBonus = effect == null ? 0.0 : Tuning.SWIFTNESS_PER_TIER * (effect.getAmplifier() + 1);
 				desired = Math.min(Tuning.SWIFTNESS_PER_TIER * tier,
 						Math.max(0.0, Tuning.SPRINT_SPEED_CAP - effectBonus));

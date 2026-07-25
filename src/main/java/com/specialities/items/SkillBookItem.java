@@ -5,7 +5,15 @@ import com.specialities.skills.SkillManager;
 
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
+// `Item.use` returns a bare InteractionResult from 1.21.2 up; below that it is
+// InteractionResultHolder<ItemStack> (1.21.1 mojmap: `InteractionResultHolder
+// success(Object) -> a`).
+//? if >=1.21.2 {
 import net.minecraft.world.InteractionResult;
+//?} else {
+/*import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.item.ItemStack;
+*///?}
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
@@ -24,7 +32,11 @@ public class SkillBookItem extends Item {
 	}
 
 	@Override
+	//? if >=1.21.2 {
 	public InteractionResult use(final Level level, final Player player, final InteractionHand hand) {
+	//?} else {
+	/*public InteractionResultHolder<ItemStack> use(final Level level, final Player player, final InteractionHand hand) {
+	*///?}
 		if (player instanceof ServerPlayer serverPlayer) {
 			SkillManager.addLevels(serverPlayer, this.skill, this.levels);
 
@@ -33,6 +45,10 @@ public class SkillBookItem extends Item {
 			}
 		}
 
+		//? if >=1.21.2 {
 		return InteractionResult.SUCCESS;
+		//?} else {
+		/*return InteractionResultHolder.success(player.getItemInHand(hand));
+		*///?}
 	}
 }
