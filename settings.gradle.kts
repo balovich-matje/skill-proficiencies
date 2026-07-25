@@ -32,8 +32,8 @@ stonecutter {
 			for (loader in loaders) version("$project-$loader", version).buildscript("build.$loader.gradle.kts")
 		}
 
-		// ---- Phase A, stages 1-2: both shipping versions + the legacy beachhead. ----
-		// Later stages add: match("1.21.1", "fabric", "neoforge"),
+		// ---- Phase A: both shipping versions, the legacy beachhead, and 1.21.1. ----
+		// Later stages add: "neoforge" to the 1.21.1 line (Phase B),
 		// match("1.20.1", "fabric", "forge").  See docs/MULTIVERSION.md §1.3.
 		match("26.2", "fabric")
 		match("26.1", "fabric", version = "26.1.2")
@@ -44,6 +44,11 @@ stonecutter {
 		// both plugin ids ship in the same fabric-loom 1.17.17 jar, so `fabricApi.module`
 		// and `officialMojangMappings` exist on either pipeline).
 		match("1.21.11", "fabric")
+		// Registered by Stage 3 so Stage 4a can start; the shared tree does NOT compile
+		// for it yet (the `//?` forks §3.3/§3.4 queue up for this node are 4a's job), so
+		// `./gradlew build` and `buildAndCollect` FAIL until 4a lands. Per-node tasks on
+		// the three older nodes are unaffected. `stonecutterGenerate` is green.
+		match("1.21.1", "fabric")
 
 		// The node whose state the shared `src/` is committed in.
 		vcsVersion = "26.2-fabric"

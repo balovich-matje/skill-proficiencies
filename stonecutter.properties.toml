@@ -47,21 +47,29 @@ deps.fabric_api = "0.141.5+1.21.11"
 # No modmenu/cloth_config keys: the optional config UI is gated to >=26.1 in
 # build.fabric.gradle.kts, so this node must not declare them.
 
+["1.21.1"]
+# The jar covers both patch releases of 1.21 (the mod's own surface is identical).
+mod.mc_releases = ["1.21", "1.21.1"]
+
+[fabric."1.21.1"]
+mod.mc_compat = ">=1.21 <=1.21.1"
+# `mod.loader_floor` is a REAL finding here, not boilerplate, and 1.21.1 is the one
+# node where it is NOT just fabric-api's own floor. The mod uses one @WrapMethod
+# (PlayerMixin's MeleeSwing gate), which needs MixinExtras >= 0.4.0; loader BUNDLES
+# MixinExtras (0.15.11 -> 0.3.5, 0.16.3 -> 0.4.1, 0.16.10 -> 0.4.1, 0.17.3 -> 0.5.0,
+# 0.19.3 -> 0.5.4). Every module of fabric-api 0.116.14+1.21.1 declares only
+# `fabricloader >=0.15.11` (read out of the resolved module jars' own fabric.mod.json,
+# not from the docs), which bundles MixinExtras 0.3.5 and has no @WrapMethod at all —
+# so taking fabric-api's floor would turn "update your loader" into a cryptic
+# mixin-apply crash. Hence >=0.16.3, the lowest loader that bundles >= 0.4.0.
+# Equally: do NOT copy 26.x's `>=0.19.3` downward, it locks out the legacy audience.
+mod.loader_floor = ">=0.16.3"
+deps.fabric_api = "0.116.14+1.21.1"
+# No modmenu/cloth_config keys: the optional config UI is gated to >=26.1 in
+# build.fabric.gradle.kts, so this node must not declare them.
+
 # ---------------------------------------------------------------------------
-# Pins for the not-yet-registered nodes are kept here so nobody re-derives them.
-# `mod.loader_floor` is a REAL finding, not boilerplate: the mod uses one
-# @WrapMethod (PlayerMixin's MeleeSwing gate) which needs MixinExtras >= 0.4.0,
-# and loader bundles MixinExtras (0.15.11 -> 0.3.5, 0.16.3 -> 0.4.1,
-# 0.16.10 -> 0.4.1, 0.17.3 -> 0.5.0, 0.19.3 -> 0.5.4). fabric-api's own floors
-# cover 1.20.1 and 1.21.11 but NOT 1.21.1, whose fabric-api 0.116.14 declares
-# only 0.15.11. Do not copy `>=0.19.3` downward — it locks out the legacy audience.
-#
-# ["1.21.1"]
-# mod.mc_releases = ["1.21", "1.21.1"]
-# [fabric."1.21.1"]
-# mod.mc_compat = ">=1.21 <=1.21.1"
-# mod.loader_floor = ">=0.16.3"
-# deps.fabric_api = "0.116.14+1.21.1"
+# Pins for the not-yet-registered node are kept here so nobody re-derives them.
 #
 # ["1.20.1"]
 # mod.mc_releases = ["1.20", "1.20.1"]
