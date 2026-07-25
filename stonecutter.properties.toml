@@ -68,12 +68,22 @@ deps.fabric_api = "0.116.14+1.21.1"
 # No modmenu/cloth_config keys: the optional config UI is gated to >=26.1 in
 # build.fabric.gradle.kts, so this node must not declare them.
 
-# ---------------------------------------------------------------------------
-# Pins for the not-yet-registered node are kept here so nobody re-derives them.
-#
-# ["1.20.1"]
-# mod.mc_releases = ["1.20", "1.20.1"]
-# [fabric."1.20.1"]
-# mod.mc_compat = ">=1.20 <=1.20.1"
-# mod.loader_floor = ">=0.16.10"
-# deps.fabric_api = "0.92.11+1.20.1"
+["1.20.1"]
+# The jar covers both patch releases of 1.20 (the mod's own surface is identical).
+mod.mc_releases = ["1.20", "1.20.1"]
+
+[fabric."1.20.1"]
+mod.mc_compat = ">=1.20 <=1.20.1"
+# fabric-api's OWN floor here, unlike 1.21.1: every module of 0.92.11+1.20.1 declares
+# `fabricloader >=0.16.10`, which bundles MixinExtras 0.4.1 — enough for the one
+# @WrapMethod (PlayerMixin's MeleeSwing gate, needs >= 0.4.0). So no floor of our own
+# is required and none is invented. Do NOT copy 26.x's `>=0.19.3` downward.
+mod.loader_floor = ">=0.16.10"
+# Tip of the 0.92 line, checked against
+# https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/maven-metadata.xml on
+# 2026-07-25: 0.92.0 … 0.92.11 are the only `+1.20.1` versions and 0.92.11 is the
+# highest. The 0.92 line is fabric-api's long-term 1.20.1 branch; the `<release>` of
+# the whole artifact is 0.155.3+26.3 and is irrelevant here.
+deps.fabric_api = "0.92.11+1.20.1"
+# No modmenu/cloth_config keys: the optional config UI is gated to >=26.1 in
+# build.fabric.gradle.kts, so this node must not declare them.
