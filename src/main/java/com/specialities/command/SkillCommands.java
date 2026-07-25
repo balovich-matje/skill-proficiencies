@@ -25,8 +25,14 @@ import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+// The whole `net.minecraft.server.permissions` package lands at 1.21.11 (mojmap:
+// `PermissionCheck -> bbj`, `PermissionCheck$Require -> bbj$b`, `Permissions -> bbr`);
+// 1.21.1 has no such package and spells the same level-2 gate as the classic
+// `CommandSourceStack.hasPermission(2)` predicate.
+//? if >=1.21.11 {
 import net.minecraft.server.permissions.PermissionCheck;
 import net.minecraft.server.permissions.Permissions;
+//?}
 
 /**
  * Operator commands for setting up a test character without grinding:
@@ -49,7 +55,11 @@ import net.minecraft.server.permissions.Permissions;
  */
 public final class SkillCommands {
 	/** Level 2 ("gamemasters"), the vanilla cheat-command tier. */
+	//? if >=1.21.11 {
 	private static final PermissionCheck PERMISSION_CHECK = new PermissionCheck.Require(Permissions.COMMANDS_GAMEMASTER);
+	//?} else {
+	/*private static final int PERMISSION_LEVEL = 2;
+	*///?}
 
 	private static final SuggestionProvider<CommandSourceStack> SKILL_SUGGESTIONS =
 			(context, builder) -> SharedSuggestionProvider.suggest(SkillTypes.all().stream().map(SkillType::id), builder);
@@ -66,7 +76,8 @@ public final class SkillCommands {
 
 	private static void register(final CommandDispatcher<CommandSourceStack> dispatcher) {
 		dispatcher.register(Commands.literal("skillprof")
-				.requires(Commands.hasPermission(PERMISSION_CHECK))
+				/*? if >=1.21.11 {*/.requires(Commands.hasPermission(PERMISSION_CHECK))
+				/*?} else *///.requires(source -> source.hasPermission(PERMISSION_LEVEL))
 				.then(Commands.literal("set")
 						.then(Commands.argument("skill", StringArgumentType.word())
 								.suggests(SKILL_SUGGESTIONS)

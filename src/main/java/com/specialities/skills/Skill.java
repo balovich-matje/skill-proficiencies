@@ -13,7 +13,12 @@ public enum Skill implements SkillType {
 	MINING("mining", 0xFF55CCFF, () -> Items.IRON_PICKAXE),
 	WOODCUTTING("woodcutting", 0xFFC08040, () -> Items.IRON_AXE),
 	COMBAT("combat", 0xFFFF5555, () -> Items.IRON_SWORD),
-	ARMS_MASTERY("arms_mastery", 0xFFAAB4C4, () -> Items.IRON_SPEAR),
+	// Spears were introduced IN 1.21.11 (mojmap `WOODEN_SPEAR -> xI` … `IRON_SPEAR -> xL`),
+	// so below that node the arms-mastery icon needs a substitute; design §3.4 names
+	// IRON_SWORD. Keep the two halves (item + `iconTexture()` arm) in step.
+	ARMS_MASTERY("arms_mastery", 0xFFAAB4C4,
+			/*? if >=1.21.11 {*/() -> Items.IRON_SPEAR),
+			/*?} else *///() -> Items.IRON_SWORD),
 	ARCHERY("archery", 0xFF7FCF9F, () -> Items.BOW),
 	HARVESTING("harvesting", 0xFF77CC44, () -> Items.IRON_HOE),
 	EXCAVATION("excavation", 0xFFE8C060, () -> Items.IRON_SHOVEL),
@@ -62,7 +67,9 @@ public enum Skill implements SkillType {
 			case MINING -> Identifier.withDefaultNamespace("item/iron_pickaxe");
 			case WOODCUTTING -> Identifier.withDefaultNamespace("item/iron_axe");
 			case COMBAT -> Identifier.withDefaultNamespace("item/iron_sword");
-			case ARMS_MASTERY -> Identifier.withDefaultNamespace("item/iron_spear");
+			case ARMS_MASTERY ->
+					/*? if >=1.21.11 {*/Identifier.withDefaultNamespace("item/iron_spear");
+					/*?} else *///Identifier.withDefaultNamespace("item/iron_sword");
 			case ARCHERY -> Identifier.withDefaultNamespace("item/bow");
 			case HARVESTING -> Identifier.withDefaultNamespace("item/iron_hoe");
 			case EXCAVATION -> Identifier.withDefaultNamespace("item/iron_shovel");

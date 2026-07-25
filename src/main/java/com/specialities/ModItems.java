@@ -60,7 +60,14 @@ public final class ModItems {
 	private static Item registerBook(final Skill skill, final int levels) {
 		ResourceKey<Item> key = ResourceKey.create(Registries.ITEM,
 				Specialities.id(skill.id().replace('_', '-') + "-knowledge-" + levels));
-		Item item = new SkillBookItem(skill, levels, new Item.Properties().setId(key));
+		// `Item.Properties.setId(ResourceKey)` does not exist on 1.21.1 (mojmap shows the
+		// class with a bare `<init>()` and nothing else); the id comes from the
+		// `Registry.register(Registry, ResourceKey, Object)` call below, which IS present
+		// there (mojmap 130:131). The real boundary is above 1.21.1 and at-or-below
+		// 1.21.11; `>=1.21.11` is the frozen predicate that classifies every node right.
+		Item item = new SkillBookItem(skill, levels,
+				/*? if >=1.21.11 {*/new Item.Properties().setId(key));
+				/*?} else *///new Item.Properties());
 		return Registry.register(BuiltInRegistries.ITEM, key, item);
 	}
 
