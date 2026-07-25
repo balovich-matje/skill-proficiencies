@@ -3,7 +3,12 @@ package com.specialities.client;
 import com.specialities.api.SkillType;
 
 import net.minecraft.client.gui.Font;
+// 26.x GUI rendering is extract-based; 1.21.11 and below draw immediately.
+//? if >=26.1 {
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+//?} else {
+/*import net.minecraft.client.gui.GuiGraphics;
+*///?}
 import net.minecraft.client.gui.components.toasts.Toast;
 import net.minecraft.client.gui.components.toasts.ToastManager;
 import net.minecraft.client.renderer.RenderPipelines;
@@ -64,11 +69,24 @@ public class SkillLevelUpToast implements Toast {
 	}
 
 	@Override
+	// Toast's draw hook is extractRenderState on 26.x and render below; `text` is
+	// `drawString` and `fakeItem` is `renderFakeItem` there.
+	//? if >=26.1 {
 	public void extractRenderState(final GuiGraphicsExtractor graphics, final Font font, final long fullyVisibleForMs) {
+	//?} else {
+	/*public void render(final GuiGraphics graphics, final Font font, final long fullyVisibleForMs) {
+	*///?}
 		graphics.blitSprite(RenderPipelines.GUI_TEXTURED, BACKGROUND_SPRITE, 0, 0, this.width(), this.height());
+		//? if >=26.1 {
 		graphics.text(font, this.skill.displayName(), 30, 7, this.skill.color(), false);
 		graphics.text(font, Component.translatable("toast.specialities.levelup.desc", this.fromLevel, this.newLevel),
 				30, 18, 0xFFFFFFFF, false);
 		graphics.fakeItem(this.icon, 8, 8);
+		//?} else {
+		/*graphics.drawString(font, this.skill.displayName(), 30, 7, this.skill.color(), false);
+		graphics.drawString(font, Component.translatable("toast.specialities.levelup.desc", this.fromLevel, this.newLevel),
+				30, 18, 0xFFFFFFFF, false);
+		graphics.renderFakeItem(this.icon, 8, 8);
+		*///?}
 	}
 }

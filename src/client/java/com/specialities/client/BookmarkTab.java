@@ -1,7 +1,12 @@
 package com.specialities.client;
 
 import net.minecraft.client.Minecraft;
+// 26.x GUI rendering is extract-based; 1.21.11 and below draw immediately.
+//? if >=26.1 {
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+//?} else {
+/*import net.minecraft.client.gui.GuiGraphics;
+*///?}
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -48,8 +53,15 @@ final class BookmarkTab extends AbstractWidget {
 	}
 
 	@Override
+	// AbstractWidget's abstract draw hook: extractWidgetRenderState on 26.x,
+	// renderWidget below. Still AbstractWidget on every node — see the class doc.
+	//? if >=26.1 {
 	protected void extractWidgetRenderState(final GuiGraphicsExtractor graphics, final int mouseX,
 			final int mouseY, final float partialTick) {
+	//?} else {
+	/*protected void renderWidget(final GuiGraphics graphics, final int mouseX,
+			final int mouseY, final float partialTick) {
+	*///?}
 		int x = this.getX();
 		int y = this.getY();
 		int w = this.getWidth();
@@ -66,7 +78,12 @@ final class BookmarkTab extends AbstractWidget {
 		graphics.fill(x + w - 1, y + 1, x + w, y + h, 0xFF000000);
 
 		var font = Minecraft.getInstance().font;
+		//? if >=26.1 {
 		graphics.text(font, this.getMessage(), x + (w - font.width(this.getMessage())) / 2,
 				y + (h - font.lineHeight) / 2 + 1, 0xFF404040, false);
+		//?} else {
+		/*graphics.drawString(font, this.getMessage(), x + (w - font.width(this.getMessage())) / 2,
+				y + (h - font.lineHeight) / 2 + 1, 0xFF404040, false);
+		*///?}
 	}
 }

@@ -13,7 +13,14 @@ import com.specialities.skills.SkillManager;
 import com.specialities.skills.SkillTypes;
 import com.specialities.skills.Tuning;
 
+// 26.x GUI rendering is extract-based; 1.21.11 and below draw immediately. The input
+// side needs nothing: mouseClicked(MouseButtonEvent, boolean) and the four-double
+// mouseScrolled are already the 1.21.11 shapes.
+//? if >=26.1 {
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+//?} else {
+/*import net.minecraft.client.gui.GuiGraphics;
+*///?}
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -170,10 +177,21 @@ public class SkillsScreen extends Screen {
 	}
 
 	@Override
+	// Screen's draw hook is extractRenderState on 26.x and render below; both draw the
+	// background and the widgets, so the super call carries over unchanged.
+	//? if >=26.1 {
 	public void extractRenderState(final GuiGraphicsExtractor graphics, final int mouseX, final int mouseY, final float a) {
 		super.extractRenderState(graphics, mouseX, mouseY, a);
+	//?} else {
+	/*public void render(final GuiGraphics graphics, final int mouseX, final int mouseY, final float a) {
+		super.render(graphics, mouseX, mouseY, a);
+	*///?}
 
+		//? if >=26.1 {
 		graphics.text(this.font, this.title, (this.width - this.font.width(this.title)) / 2, TITLE_Y, 0xFFFFFFFF, true);
+		//?} else {
+		/*graphics.drawString(this.font, this.title, (this.width - this.font.width(this.title)) / 2, TITLE_Y, 0xFFFFFFFF, true);
+		*///?}
 
 		if (this.minecraft.player == null) {
 			return;
@@ -228,8 +246,13 @@ public class SkillsScreen extends Screen {
 		}
 	}
 
+	//? if >=26.1 {
 	private void renderRow(final GuiGraphicsExtractor graphics, final PlayerSkills skills, final SkillType skill,
 			final int left, final int top, final boolean hovered) {
+	//?} else {
+	/*private void renderRow(final GuiGraphics graphics, final PlayerSkills skills, final SkillType skill,
+			final int left, final int top, final boolean hovered) {
+	*///?}
 		int level = skills.level(skill);
 		boolean started = skills.discovered(skill);
 		int alpha = started ? FULL_ALPHA : DIM_ALPHA;
@@ -239,9 +262,15 @@ public class SkillsScreen extends Screen {
 		graphics.blitSprite(RenderPipelines.GUI_TEXTURED, SkillIcons.sprite(skill),
 				left + 4, top + 3, ICON_SIZE, ICON_SIZE, ARGB.color(alpha, 0xFFFFFF));
 
+		//? if >=26.1 {
 		graphics.text(this.font, skill.displayName(), left + 25, top + 3, ARGB.color(alpha, skill.color()), true);
 		graphics.text(this.font, Component.translatable("screen.specialities.skills.level", level),
 				left + 25, top + 13, ARGB.color(alpha, 0xDDDDDD), false);
+		//?} else {
+		/*graphics.drawString(this.font, skill.displayName(), left + 25, top + 3, ARGB.color(alpha, skill.color()), true);
+		graphics.drawString(this.font, Component.translatable("screen.specialities.skills.level", level),
+				left + 25, top + 13, ARGB.color(alpha, 0xDDDDDD), false);
+		*///?}
 
 		// Progress bar on the right.
 		int barLeft = left + 150;
@@ -260,8 +289,15 @@ public class SkillsScreen extends Screen {
 	}
 
 	/** The expand/collapse button: the vanilla resource-pack picker arrow. */
+	// pose() is org.joml.Matrix3x2fStack on 1.21.11 too, so the quarter-turn
+	// pushMatrix/rotateAbout/popMatrix below carries over verbatim.
+	//? if >=26.1 {
 	private void renderArrow(final GuiGraphicsExtractor graphics, final SkillType skill, final int left, final int top,
 			final boolean mouseInArrows, final int mouseY) {
+	//?} else {
+	/*private void renderArrow(final GuiGraphics graphics, final SkillType skill, final int left, final int top,
+			final boolean mouseInArrows, final int mouseY) {
+	*///?}
 		int arrowTop = top + (ROW_HEIGHT - 2 - ARROW_SIZE) / 2;
 		boolean hovered = mouseInArrows && mouseY >= arrowTop && mouseY < arrowTop + ARROW_SIZE;
 		Identifier sprite = hovered ? ARROW_HOVER : ARROW;
@@ -278,22 +314,39 @@ public class SkillsScreen extends Screen {
 		}
 	}
 
+	//? if >=26.1 {
 	private void renderSourcePanel(final GuiGraphicsExtractor graphics, final SkillType skill, final int left, final int top) {
+	//?} else {
+	/*private void renderSourcePanel(final GuiGraphics graphics, final SkillType skill, final int left, final int top) {
+	*///?}
 		int height = this.expandedHeight(skill);
 		graphics.fill(left, top - 2, left + ROW_WIDTH, top + height - 4, 0x33000000);
 
+		//? if >=26.1 {
 		graphics.text(this.font, Component.translatable("screen.specialities.skills.source_header"),
 				left + 6, top + 1, 0xFFAAAAAA, false);
+		//?} else {
+		/*graphics.drawString(this.font, Component.translatable("screen.specialities.skills.source_header"),
+				left + 6, top + 1, 0xFFAAAAAA, false);
+		*///?}
 
 		int lineY = top + 1 + LINE_HEIGHT;
 
 		for (FormattedCharSequence line : this.sourceLines(skill)) {
+			//? if >=26.1 {
 			graphics.text(this.font, line, left + 12, lineY, 0xFFEEEEEE, false);
+			//?} else {
+			/*graphics.drawString(this.font, line, left + 12, lineY, 0xFFEEEEEE, false);
+			*///?}
 			lineY += LINE_HEIGHT;
 		}
 	}
 
+	//? if >=26.1 {
 	private void renderScrollbar(final GuiGraphicsExtractor graphics, final int left, final int bottom) {
+	//?} else {
+	/*private void renderScrollbar(final GuiGraphics graphics, final int left, final int bottom) {
+	*///?}
 		double max = this.maxScroll();
 
 		if (max <= 0) {
