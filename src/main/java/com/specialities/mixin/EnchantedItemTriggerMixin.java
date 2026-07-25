@@ -9,15 +9,19 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-// 26.2 renamed the package `advancements.criterion` -> `advancements.triggers`.
-// 26.1 and 1.21.11 both spell it `advancements.criterion`, so the else branch serves both
-// (verified: net.minecraft.advancements.criterion.EnchantedItemTrigger in the 1.21.11 mojmap).
-// Below 1.21.11 it becomes `advancements.critereon` (sic); that third branch lands with the
-// 1.21.1 node, not with 1.21.11.
+// Three spellings of one package, all three now exercised by a registered node:
+//   26.2                -> advancements.triggers
+//   26.1 and 1.21.11    -> advancements.criterion
+//   1.21.1 and below    -> advancements.critereon  (sic — the historical typo)
+// 1.21.1 mojmap: `net.minecraft.advancements.critereon.EnchantedItemTrigger -> bp`, with
+// `EnchantedItemTrigger$TriggerInstance -> bp$a`. `trigger(ServerPlayer,ItemStack,int)` is
+// AS-IS, so only the import forks.
 //? if >=26.2 {
 import net.minecraft.advancements.triggers.EnchantedItemTrigger;
-//?} else {
+//?} elif >=1.21.11 {
 /*import net.minecraft.advancements.criterion.EnchantedItemTrigger;
+*///?} else {
+/*import net.minecraft.advancements.critereon.EnchantedItemTrigger;
 *///?}
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;

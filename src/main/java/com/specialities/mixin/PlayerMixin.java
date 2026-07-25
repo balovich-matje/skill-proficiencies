@@ -107,11 +107,31 @@ public abstract class PlayerMixin {
 	 * enchantment as N/(N+1). We recompute it as if the effective level were
 	 * (enchant + skill bonus), keeping the stacking additive in levels.
 	 */
+	// `doSweepAttack` is a separate method only from 1.21.11 up, and there it holds the
+	// ONE getAttributeValue call, so no ordinal is needed (Stage 2 read the transformed
+	// bytecode: the receiver constant is Attributes.SWEEPING_DAMAGE_RATIO). On 1.21.1 the
+	// sweep is inline in `attack`, which has exactly TWO getAttributeValue(Holder)D calls:
+	// offset 35 with receiver `buw.c` = Attributes.ATTACK_DAMAGE, and offset 627 with
+	// receiver `buw.D` = Attributes.SWEEPING_DAMAGE_RATIO. `ordinal = 1` is therefore
+	// MANDATORY there — ordinal 0 would silently multiply base melee damage (R-07).
+	// The bytecode owner of both calls is Player, not LivingEntity (constant `#761 //
+	// Method g:(Ljm;)D`, no owner prefix = the class itself), so the target descriptor is
+	// unchanged. NOTE for the bytecode audit: `attack` also carries this file's
+	// @WrapMethod (MeleeSwing) on 1.21.1 — the two must coexist in one method there.
+	//? if >=1.21.11 {
 	@ModifyExpressionValue(
 			method = "doSweepAttack",
 			at = @At(
 					value = "INVOKE",
 					target = "Lnet/minecraft/world/entity/player/Player;getAttributeValue(Lnet/minecraft/core/Holder;)D"))
+	//?} else {
+	/*@ModifyExpressionValue(
+			method = "attack",
+			at = @At(
+					value = "INVOKE",
+					target = "Lnet/minecraft/world/entity/player/Player;getAttributeValue(Lnet/minecraft/core/Holder;)D",
+					ordinal = 1))
+	*///?}
 	private double specialities$passiveSweepingEdge(final double original) {
 		Player self = (Player) (Object) this;
 
