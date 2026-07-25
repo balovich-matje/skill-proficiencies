@@ -1,18 +1,38 @@
 # THE single source of version truth for every node.
 # A balance release edits `mod.version` here, once. Nothing else.
 # Gradle-only options live in gradle.properties; everything else lives here.
-#
-# NOTE: `loomx.loom_version` must NOT be moved into the root gradle.properties.
-# Doing so puts fabric-loom on EVERY node's buildscript classpath, which breaks the
-# Phase B Architectury Loom node ("Unresolved reference: platform"). See design R-01.
 
 mod.id = "specialities"
 mod.name = "Skill Proficiencies"
 mod.group = "com.specialities"
 mod.version = "1.5.0"
 
-loomx.loom_version = "1.17.17"
 deps.fabric_loader = "0.19.3"
+
+# R-01, MEASURED — `loomx.loom_version` must be visible to FABRIC nodes ONLY, hence this
+# bare `[fabric]` table. It used to sit in the root of this file, and the note that used to
+# be here claimed only the root `gradle.properties` was dangerous. That was half right: the
+# TOML ROOT is just as bad, and it broke every Architectury Loom node with
+# "Unresolved reference: platform".
+#
+# WHY: `dev.kikugie.loom-back-compat` 0.4.1 is a SETTINGS plugin. It registers
+# `settings.gradle.beforeProject { configureClasspath() }` (LoomCompatPlugin.kt:56), and
+# `configureClasspath` (:72-80, :209-215) adds BOTH `net.fabricmc.fabric-loom` and
+# `net.fabricmc.fabric-loom-remap` to that project's buildscript classpath whenever
+# `extra.has("loomx.loom_version")`. Stonecutter writes structured properties straight into
+# each node project's ExtraPropertiesExtension (StructuredPropertiesProvider.kt:68-69), and
+# a ROOT-level key here needs no tag — so it reaches every node, forge included.
+#
+# The controller tags properties with `(version, loader)`, so under `[fabric]` the key
+# shortens back to `loomx.loom_version` on a fabric node and stays `fabric.loomx.loom_version`
+# everywhere else. Measured, one loom per node:
+#   > Configure project :1.20.1-fabric    Fabric Loom: 1.17.17
+#   > Configure project :1.20.1-forge     Architectury Loom: 1.17.491
+# Evidence: scratchpad/phase-b-prep/probe-r01.log (the break) + probe-r01-fix.log (the fix).
+#
+# Corollary unchanged: do not put it in `gradle.properties` either, root or per-node.
+[fabric]
+loomx.loom_version = "1.17.17"
 
 ["26.2"]
 # Game versions this node's jar is marked compatible with on Modrinth/CurseForge.
