@@ -9,6 +9,14 @@ Frozen in Stage 1 (branch `workspace`). Registered nodes as of Stage 5: **`26.2-
 (active + VCS), `26.1-fabric`, `1.21.11-fabric`, `1.21.1-fabric`, `1.20.1-fabric`** — all five
 build, and all five boot a real headless dedicated server clean. Phase A is complete.
 
+**Stage 6 registered the loader axis: `1.21.1-neoforge` and `1.20.1-forge`.** Both are
+configured, both preprocess clean, and **neither builds yet** — the seam implementations they
+select are the rest of Stage 6, so the unqualified `build` / `buildAndCollect` tasks fail by
+design until those land (`settings.gradle.kts` says so at each `match`). Every loader fork in
+the shared tree was gated so the five Fabric nodes stayed **instruction-identical and
+resource-byte-identical** through the whole registration; that is the gate to re-run on any
+further shared-tree edit, and §4's new loader-fork rules are what it cost.
+
 A post-Stage-5 **balance-parity review** of the newest node then found four behavioural
 divergences that every build-shaped gate had passed, all four inside one re-rooted event.
 They are fixed; §5k and §6 R-20 are what that cost, and the checks in R-20's first two
@@ -161,6 +169,57 @@ comment marker `*` → `^`:
 }
 *///?}
 ```
+
+**The INLINE form cannot CHAIN — measured in Stage 6 (the loader axis).** The maintained
+template's own `ModLoaderAccess.INSTANCE` uses a single inline `elif`:
+
+```java
+    ModLoaderAccess INSTANCE =
+        /*? if fabric{*/new FabricLoaderAccess();
+        /*?} elif neoforge *///new NeoForgeLoaderAccess();
+```
+
+A **second** inline `elif` after it fails preprocessing:
+
+```
+e: platform/Net.java:63:6 Unmatched scope closer
+> The definition must have a corresponding `? ... {` opener.
+- Hint: platform/Net.java:62:23 may need to end with `{`.
+```
+
+The single-line form (`/*?} elif … *///` or `/*?} else *///`) applies to exactly the next line
+and **closes the block**, so it can only ever be the LAST arm. Rule: two arms may be inline;
+**three or more arms are block-form only**, with the whole statement repeated per arm. That is
+why `platform/{SkillStore,Net,Platform}`'s `INSTANCE` is a three-arm block chain that repeats
+the field declaration, and not the template's one-liner.
+
+**Loader forks, as landed in Stage 6:**
+
+- **Only the wiring forks.** Every registration call that names fabric-api has
+  `//? if fabric / elif neoforge / elif forge` arms; the lambda handed to it stays outside every
+  conditional. This is §5a applied to events instead of mixins, and it is what keeps one
+  implementation of the balance logic across all seven nodes. The already-in-tree precedent is
+  `ModItems`, which forks the creative-tab registration line and shares all thirty accepts.
+- **A branch may open a brace the shared code closes.** `//? if fabric {` … `ServerTickEvents.
+  END_SERVER_TICK.register(server -> {` / `//?} elif neoforge {` … `NeoForgeEvents.endServerTick
+  (server -> {` / `//?}` followed by the shared body and one shared `});`. Stonecutter is
+  textual and does not parse Java. Unbalanced arms are the normal shape for callback wiring.
+- **A fabric-api substitute is scoped `fabric && <predicate>`, not `<predicate>` alone.** Once a
+  non-Fabric node exists, `//? if >=1.20.5 { } else { fabric-api thing }` puts the fabric-api
+  thing on the forge node too. `fabric && >=1.20.5` is the SAME frozen boundary scoped to the
+  loader that owns the API — it is not a new predicate and needs no §3 row (§5k's rule, applied
+  along the loader axis).
+- **One-loader files are named after their loader** — `NeoForge*` / `Forge*` under
+  `com/specialities/platform/` and `com/specialities/client/`, plus the two `@Mod` entrypoints.
+  All three node scripts exclude the impls they do not use via those globs (§5e-ter); `Forge*`
+  is anchored, so it does not match `NeoForge*`. The exclusions landed BEFORE the first loader
+  file, or adding one would have broken every Fabric node.
+- **`pack.mcmeta` is a PER-NODE OVERRIDE, not a shared file.** Both loaders need one (neither
+  mounts a mod's `assets/`/`data/` without it — the R-16 failure by another route, and silent);
+  Fabric needs none, and adding one to the shared tree would move all five Fabric jars'
+  resource bytes. It lives at `versions/<node>/src/main/resources/pack.mcmeta`. The two copies
+  are genuinely different files (`pack_format` 48 + `supported_formats` vs 15 and none), so the
+  shared-file-plus-`expand` alternative was rejected rather than merely not chosen.
 
 ### `//?` DOES NOT WORK IN ANY `.json` FILE — corrected in Stage 4a
 
