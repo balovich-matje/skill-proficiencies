@@ -33,8 +33,7 @@ stonecutter {
 		}
 
 		// ---- Phase A: both shipping versions and the three legacy nodes. ----
-		// Later stages add: "neoforge" to the 1.21.1 line and "forge" to the 1.20.1
-		// line (Phase B).  See docs/MULTIVERSION.md §1.3.
+		// ---- Phase B: the loader axis, one node per loader. See docs/MULTIVERSION.md §1.3.
 		match("26.2", "fabric")
 		match("26.1", "fabric", version = "26.1.2")
 		// First OBFUSCATED node. Nothing extra is needed to get the remap pipeline:
@@ -44,7 +43,18 @@ stonecutter {
 		// both plugin ids ship in the same fabric-loom 1.17.17 jar, so `fabricApi.module`
 		// and `officialMojangMappings` exist on either pipeline).
 		match("1.21.11", "fabric")
-		match("1.21.1", "fabric")
+		// FIRST NON-FABRIC NODE (Phase B), registered as its own commit per the
+		// bottleneck-file rule (conventions §1). `build.neoforge.gradle.kts` is a second node
+		// script, not a fork of the Fabric one — ModDevGradle instead of Loom, a plain
+		// `client` source set instead of split environments, `META-INF/neoforge.mods.toml`
+		// instead of `fabric.mod.json`.
+		//
+		// The shared tree does NOT compile for this node yet: `com.specialities.platform`
+		// still wires its `INSTANCE`s to the Fabric impls and there is no `@Mod` entrypoint,
+		// so `:1.21.1-neoforge:build` FAILS by design until the NeoForge half lands.
+		// `:1.21.1-neoforge:stonecutterGenerate` and `:printPublishMetadata` are green, and
+		// every Fabric node is unaffected.
+		match("1.21.1", "fabric", "neoforge")
 		// Registered by Stage 5 as its own commit (the bottleneck-file rule, conventions
 		// §1). The shared tree does NOT compile for this node yet — the `//?` forks
 		// §3.3/§3.4 queue up for it are the rest of Stage 5 — so `./gradlew build` and

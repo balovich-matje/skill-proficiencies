@@ -88,6 +88,20 @@ deps.fabric_api = "0.116.14+1.21.1"
 # No modmenu/cloth_config keys: the optional config UI is gated to >=26.1 in
 # build.fabric.gradle.kts, so this node must not declare them.
 
+[neoforge."1.21.1"]
+# NOT `mod.mc_compat`: that key holds FABRIC range syntax (">=1.21 <=1.21.1"), and
+# neoforge.mods.toml wants a MAVEN range. The loader-axis nodes therefore get their own key,
+# read by build.neoforge.gradle.kts as `${minecraft_range}`.
+mod.mc_range = "[1.21,1.21.2)"
+# ModDevGradle 2.0.142 + this pin trial-compiled on this machine
+# (scratchpad/phase-b-prep/trial-neoforge, BUILD SUCCESSFUL in 1m 44s from cold).
+# The FLOOR is a real finding, not the latest number for its own sake: attachment SYNC —
+# which is what `specialities:skills` needs to reach the owning client — landed in
+# NeoForge >= 21.1.200, so anything below that pin cannot host this mod.
+deps.neoforge = "21.1.243"
+# No `mod.loader_floor`/`deps.fabric_api`/`deps.fabric_loader` here: those are Fabric's, and
+# `deps.fabric_loader` sits in the root only because every Fabric node shares one value.
+
 ["1.20.1"]
 # The jar covers both patch releases of 1.20 (the mod's own surface is identical).
 mod.mc_releases = ["1.20", "1.20.1"]
