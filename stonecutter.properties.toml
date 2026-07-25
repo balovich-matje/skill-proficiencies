@@ -1,0 +1,66 @@
+# THE single source of version truth for every node.
+# A balance release edits `mod.version` here, once. Nothing else.
+# Gradle-only options live in gradle.properties; everything else lives here.
+#
+# NOTE: `loomx.loom_version` must NOT be moved into the root gradle.properties.
+# Doing so puts fabric-loom on EVERY node's buildscript classpath, which breaks the
+# Phase B Architectury Loom node ("Unresolved reference: platform"). See design R-01.
+
+mod.id = "specialities"
+mod.name = "Skill Proficiencies"
+mod.group = "com.specialities"
+mod.version = "1.5.0"
+
+loomx.loom_version = "1.17.17"
+deps.fabric_loader = "0.19.3"
+
+["26.2"]
+# Game versions this node's jar is marked compatible with on Modrinth/CurseForge.
+mod.mc_releases = ["26.2"]
+
+[fabric."26.2"]
+mod.mc_compat = "~26.2"
+mod.loader_floor = ">=0.19.3"
+deps.fabric_api = "0.155.2+26.2"
+deps.modmenu = "20.0.1"
+deps.cloth_config = "26.2.155+fabric"
+
+["26.1"]
+mod.mc_releases = ["26.1", "26.1.1", "26.1.2"]
+
+[fabric."26.1"]
+mod.mc_compat = "~26.1"
+mod.loader_floor = ">=0.19.3"
+deps.fabric_api = "0.154.2+26.1.2"
+deps.modmenu = "18.0.0"
+deps.cloth_config = "26.1.154+fabric"
+
+# ---------------------------------------------------------------------------
+# Pins for the not-yet-registered nodes are kept here so nobody re-derives them.
+# `mod.loader_floor` is a REAL finding, not boilerplate: the mod uses one
+# @WrapMethod (PlayerMixin's MeleeSwing gate) which needs MixinExtras >= 0.4.0,
+# and loader bundles MixinExtras (0.15.11 -> 0.3.5, 0.16.3 -> 0.4.1,
+# 0.16.10 -> 0.4.1, 0.17.3 -> 0.5.0, 0.19.3 -> 0.5.4). fabric-api's own floors
+# cover 1.20.1 and 1.21.11 but NOT 1.21.1, whose fabric-api 0.116.14 declares
+# only 0.15.11. Do not copy `>=0.19.3` downward — it locks out the legacy audience.
+#
+# ["1.21.11"]
+# mod.mc_releases = ["1.21.11"]
+# [fabric."1.21.11"]
+# mod.mc_compat = "1.21.11"
+# mod.loader_floor = ">=0.17.3"
+# deps.fabric_api = "0.141.5+1.21.11"
+#
+# ["1.21.1"]
+# mod.mc_releases = ["1.21", "1.21.1"]
+# [fabric."1.21.1"]
+# mod.mc_compat = ">=1.21 <=1.21.1"
+# mod.loader_floor = ">=0.16.3"
+# deps.fabric_api = "0.116.14+1.21.1"
+#
+# ["1.20.1"]
+# mod.mc_releases = ["1.20", "1.20.1"]
+# [fabric."1.20.1"]
+# mod.mc_compat = ">=1.20 <=1.20.1"
+# mod.loader_floor = ">=0.16.10"
+# deps.fabric_api = "0.92.11+1.20.1"
