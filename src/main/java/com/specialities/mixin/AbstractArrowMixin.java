@@ -21,8 +21,18 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.monster.Enemy;
+// The arrow classes moved into a `.arrow` subpackage at 1.21.11; below that they sit
+// directly in `...entity.projectile` (1.21.1 mojmap: `net.minecraft.world.entity
+// .projectile.AbstractArrow -> cnd`, `...projectile.Arrow -> cnf`). This boundary cuts
+// across three files (SkillCategories + AbstractArrowMixin + AbstractArrowAccessor) —
+// they must always fork together.
+//? if >=1.21.11 {
 import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
 import net.minecraft.world.entity.projectile.arrow.Arrow;
+//?} else {
+/*import net.minecraft.world.entity.projectile.AbstractArrow;
+import net.minecraft.world.entity.projectile.Arrow;
+*///?}
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.EntityHitResult;
