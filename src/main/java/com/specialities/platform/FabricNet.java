@@ -6,7 +6,10 @@ import com.specialities.SkillUpdatePayload;
 /*import com.specialities.SkillsFullPayload;
 *///?}
 import com.specialities.StealthStatePayload;
-import com.specialities.skills.PlayerSkills;
+//? if >=1.20.5 {
+//?} else {
+/*import com.specialities.skills.PlayerSkills;
+*///?}
 
 //? if >=1.20.5 {
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;

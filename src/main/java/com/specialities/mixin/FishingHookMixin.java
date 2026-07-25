@@ -3,7 +3,10 @@ package com.specialities.mixin;
 import com.specialities.skills.Skill;
 import com.specialities.skills.SkillManager;
 import com.specialities.skills.Tuning;
-import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+//? if >=1.21 {
+//?} else {
+/*import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+*///?}
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;

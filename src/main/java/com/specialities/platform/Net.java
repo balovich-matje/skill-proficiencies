@@ -1,6 +1,9 @@
 package com.specialities.platform;
 
-import com.specialities.skills.PlayerSkills;
+//? if >=1.20.5 {
+//?} else {
+/*import com.specialities.skills.PlayerSkills;
+*///?}
 
 import net.minecraft.server.level.ServerPlayer;
 

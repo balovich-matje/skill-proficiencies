@@ -5,9 +5,9 @@ This file is the **normative** half of the port. The full reasoning lives in
 mirrored into the gitignored `CLAUDE.md` so a fresh session sees it; **this file is the
 versioned copy and wins if the two ever disagree.**
 
-Frozen in Stage 1 (branch `workspace`). Registered nodes as of Stage 4: **`26.2-fabric`
-(active + VCS), `26.1-fabric`, `1.21.11-fabric`, `1.21.1-fabric`** — all four build, and all
-four boot a real headless dedicated server clean.
+Frozen in Stage 1 (branch `workspace`). Registered nodes as of Stage 5: **`26.2-fabric`
+(active + VCS), `26.1-fabric`, `1.21.11-fabric`, `1.21.1-fabric`, `1.20.1-fabric`** — all five
+build, and all five boot a real headless dedicated server clean. Phase A is complete.
 
 ---
 
@@ -65,8 +65,8 @@ boundary (`>=26` vs `>=26.1`) is the most likely silent-divergence bug in this p
 | `>=26.1` | 26.2, 26.1 | Java 25; Cloth/ModMenu artifacts; `ItemInstance` (the `Block.getDrops` tool param and the matching `EnchantmentHelper.getItemEnchantmentLevel` overload); the extract-vs-immediate render hooks (`GuiGraphicsExtractor`, `Screen`/`AbstractWidget`/`Toast`/`HudElement` `extract*` vs `render*`, `text()` vs `drawString()`, `fakeItem()` vs `renderFakeItem()`); **fabric-api:** `PayloadTypeRegistry.clientboundPlay()/serverboundPlay()` (vs `playS2C()/playC2S()`), `creativetab.v1.CreativeModeTabEvents` (vs `itemgroup.v1.ItemGroupEvents`), `Screens.getWidgets` (vs `getButtons`) |
 | `>=1.21.11` | 26.x, 1.21.11 | `Identifier`; **`net.minecraft.util.Util`**; `HudElementRegistry`/`VanillaHudElements`/`HudElement` (the whole `client.rendering.v1.hud` package); `.projectile.arrow` package; `ItemTags.SPEARS`; **`Items.IRON_SPEAR`**; `getAtlasManager`; `AtlasIds`; `getFieldOfViewModifier(ZF)F`; `MouseButtonEvent`; `pose()` returning `Matrix3x2fStack`; **`PermissionCheck.Require`** / the `net.minecraft.server.permissions` stack; copper armor; `advancements.criterion` (vs `critereon` below) — **added in Stage 4a:** `net.minecraft.util.ARGB` (vs `FastColor.ARGB32`); `RenderPipelines`; the 3-arg `Toast.render` interface shape and `ToastManager` (vs `ToastComponent` + a `Visibility render(GuiGraphics, ToastComponent, long)` that draws *and* returns visibility, with no `getSoundEvent()`); `Minecraft.getToastManager()` (vs `getToasts()`); `client.input.MouseButtonEvent` in widget/screen click signatures (vs `onClick(double,double)` / `mouseClicked(double,double,int)`); `setTooltipForNextFrame` (vs `renderTooltip(Font,List,Optional,int,int)`); `Item$Properties.setId`; jspecify-vs-jetbrains `@Nullable` (§5e-bis); `ServerPlayer.jumpFromGround` (it is on `Player` below, and runs on both sides there); `EnchantmentHelper.getComponentType` being **public** (private on 1.21.1); `client.renderer.item.properties.numeric.UseDuration` + `net.minecraft.world.entity.ItemOwner` |
 | `>=1.21.2` | 26.x, 1.21.11 | `LivingEntity.hurtServer` (this is §3.2's worked example, and it had **never actually landed** until Stage 4a); `InteractionResult` returns (`Item.use` returns `InteractionResultHolder<ItemStack>` below); `Equippable` / the `minecraft:equippable` component (below: `net.minecraft.world.item.Equipable`, implemented by both `ArmorItem` and `ElytraItem`); `MobEffects.SPEED` (the rename of `MOVEMENT_SPEED`) |
-| `>=1.21` | 26.x, 1.21.11, 1.21.1 | `Holder<Attribute>`; `ResourceKey` enchantments; data components; **singular `tags/item/` datapack directory** |
-| `>=1.20.5` | everything but 1.20.1 | `StreamCodec`/`RegistryFriendlyByteBuf`; the whole payload stack; Java 21 |
+| `>=1.21` | 26.x, 1.21.11, 1.21.1 | `Holder<Attribute>`; `ResourceKey` enchantments; data components; **singular `tags/item/` datapack directory** — **Stage 5 added:** id-keyed `AttributeModifier` (below: `(UUID, String name, double, Operation)`, `getAmount()` not `amount()`, and the three Operation constants are ADDITION/MULTIPLY_BASE/MULTIPLY_TOTAL); `Attributes.*` typed `Holder<Attribute>`; `EnchantmentHelper.getDamageProtection(ServerLevel,LivingEntity,DamageSource)F` (below: `(Iterable,DamageSource)I`, no victim); `getFishingLuckBonus`/`getFishingTimeReduction` carrying a fisher (below: `getFishingLuckBonus(ItemStack)I` / `getFishingSpeedBonus(ItemStack)I`); the looting loot path being `getEnchantmentLevel(Holder,LivingEntity)` (below: `getMobLooting(LivingEntity)I`); `Attributes.SWEEPING_DAMAGE_RATIO` (below: `EnchantmentHelper.getSweepingDamageRatio(LivingEntity)F`); `ItemEnchantments`/`DataComponents.ENCHANTMENTS` (below: `EnchantmentHelper.getEnchantments`/`setEnchantments` over a `Map<Enchantment,Integer>`); `EnchantmentTags` (below: `Enchantment.isDiscoverable`/`isTreasureOnly`/`isCurse`); `Identifier.withDefaultNamespace`/`fromNamespaceAndPath` (below: the two constructors); `AbstractArrow.getWeaponItem()`; the `Arrow(Level,d,d,d,ItemStack,ItemStack)` constructor; `EquipmentSlot.Type.HUMANOID_ARMOR` (below: `ARMOR`); `net.minecraft.client.DeltaTracker`; `FastColor.ARGB32.color(int,int)` and `colorFromFloat` (below: only the four-channel `color(a,r,g,b)`); the GUI **sprite atlas** as a whole — no `Minecraft.getGuiSprites()`, no `blitSprite`, no `hud/`, `toast/` or `transferable_list/` sprite ids |
+| `>=1.20.5` | everything but 1.20.1 | `StreamCodec`/`RegistryFriendlyByteBuf`; the whole payload stack; Java 21 — **Stage 5 added:** `AttachmentType.syncWith` + `AttachmentSyncPredicate` + `AttachmentRegistry.create(Identifier,Consumer)` (0.92.11 has the builder form and no sync at all); `ServerLivingEntityEvents.AFTER_DAMAGE`; `ServerPlayerEvents.JOIN`/`LEAVE`; `Component.translatableEscape`; `Math.clamp` (a Java 21 method, and 1.20.1 is the Java 17 node); the four-double `mouseScrolled` (the horizontal axis arrived in 1.20.2); `Screen.render` drawing the background (below it draws the registered widgets and nothing else) |
 
 Loader constants (from `constants { match(loader, …) }`): **`fabric`**, **`neoforge`**,
 **`forge`**. Used as `//? if fabric {` / `//?} elif neoforge {` / `//?} elif forge {`.
@@ -95,6 +95,13 @@ boundary was one step off. Recorded so nobody "restores" them:
   the same one `build.fabric.gradle.kts` already used for the module swap.
 - `ItemInstance` and the extract-vs-immediate render surface were never listed at all; they
   are the two largest `>=26.1` deltas in the tree and now say so.
+
+**Stage 5 added rows but invented no predicate either.** All 1.20.1 blocks sit on `>=1.21`
+(the vanilla API rework) or `>=1.20.5` (fabric-api, the payload stack, the Java level), and
+several existing two-branch blocks became three- and four-branch `elif` chains. The one
+version number Stage 5 wrote that is NOT in this table is `1.21.4`, in
+`build.fabric.gradle.kts` — see §6 R-16's item-model note for why a build script is allowed
+to name the true boundary.
 
 **Stage 4a added rows but invented no predicate.** All 67 new blocks for `1.21.1-fabric` sit
 on `>=1.21.11` (57) or `>=1.21.2` (10), and six existing two-branch blocks became three-branch
@@ -194,6 +201,28 @@ where the controller's `replacements` also apply — so it can move resource byt
 that are supposed to be byte-inert, and it would need its own regression pass. If it is ever
 done, it must be its own commit with the four-node resource-byte gate re-run.
 
+### A LIVE branch may not consist only of `//` comment lines — measured in Stage 5
+
+Stonecutter cannot tell a branch whose every line starts with `//` from the *disabled*
+single-line-comment form, so when it makes that branch live it strips one `//` layer off every
+line. A "nothing to do on this node" branch written as
+
+```java
+//? if >=1.20.5 {
+// Nothing to do: the platform already syncs this.
+//?} else {
+```
+
+became 27 syntax errors on the 26.1 node. Two rules follow:
+
+- **Explanations go ABOVE the whole block**, and the branch that has no code stays empty
+  (`//? if >=1.20.5 {` immediately followed by `//?} else {`). That empty form is used all
+  over the tree and is safe.
+- **A comment inside a disabled branch belongs INSIDE the `/* … */`**, not between
+  `//?} else {` and the `/*`. A line in that gap is part of the branch but outside the block
+  comment, so enabling the branch eats its marker the same way. Hit twice in Stage 5, in both
+  shapes.
+
 An alternative for a whole file that must vanish on a node is the source-set exclusion of
 §5e-ter, or Stage 4a's variant of it: put the file's **entire body including the type
 declaration** inside the `//?` block, leaving only the `package` line live. A `.java` file
@@ -252,8 +281,15 @@ and NeoForge's `LivingIncomingDamageEvent` are **rejected** as primary implement
 that forces all 31 injectors to resolve per node, and it is the single most valuable
 regression signal in the project.
 
-**5e. Java 17 is the shared-code ceiling** once `1.20.1` lands (R-15). Records are fine;
-pattern-matching `switch`, sealed types and unnamed patterns are not.
+**5e. Java 17 is the shared-code ceiling, and from Stage 5 it is ENFORCED** (R-15). `1.20.1`
+is the Java 17 node — piston-meta's `javaVersion.majorVersion` for it is 17 and
+`build.fabric.gradle.kts`'s existing `else` arm already resolved to VERSION_17 — so a Java 21+
+API in shared code is now a build failure on that node instead of a latent one. Records are
+fine; pattern-matching `switch`, sealed types and unnamed patterns are not. The audit found
+exactly one violation in the tree, `Math.clamp` in `SkillManager.setLevel`, which is a Java 21
+*method* rather than a language feature and therefore invisible to every earlier node. Flow
+scoping of `instanceof` pattern variables, switch expressions over enums, `Stream.toList()` and
+text blocks are all Java 17 and needed nothing.
 
 **5e-bis. `org.jspecify.annotations.Nullable` needs no fork down to 1.21.11 — and forks at
 1.21.1.** `org.jspecify:jspecify:1.0.0` is one of 1.21.11's *own* vanilla libraries (its
@@ -339,6 +375,31 @@ be registered. `client/mixin/GuiMixin.java` replaces them: one `@Inject` at `TAI
   declaration** inside the `//?` block (see §4) — so it compiles to no class on 26.x/1.21.11,
   and `GuiMixin` is listed only in the 1.21.1 per-node mixin config.
 
+**5i. Below `>=1.21` the HUD mixin wraps FOUR methods, not five.** The 1.20.1 arm of
+`client/mixin/GuiMixin.java`, landed in Stage 5. `Gui.render` takes `(GuiGraphics, float)`
+there — `DeltaTracker` is 1.21+ — and it is the whole HUD rather than a LayeredDraw wrapper,
+with exactly ONE `return` (offset 1537, right after `renderSavingIndicator`), so the TAIL
+inject that draws the two mod elements is unambiguous and always reached.
+
+There is **no `renderExperienceLevel`** on 1.20.1. `renderExperienceBar(GuiGraphics,I)V` draws
+the bar AND the level number, the second under its own `expLevel` profiler section with the
+familiar five `drawString` calls — measured with `javap -c` of `eow.a(eox,int)`, not assumed.
+So wrapping the bar raises the number with it and the seven raised `VanillaHudElements` ids
+still map completely: INFO_BAR and EXPERIENCE_LEVEL → `renderExperienceBar` +
+`renderJumpMeter`, HEALTH/ARMOR/FOOD/AIR → `renderPlayerHealth`, MOUNT_HEALTH →
+`renderVehicleHealth`. `pose()` is a `PoseStack`, so the shift is pushPose/translate/popPose.
+
+`HudRenderCallback.onHudRender(GuiGraphics,float)` **does** exist in fabric-rendering-v1 3.0.9
+and would serve for the two mod draws. It is deliberately unused: it cannot raise a vanilla
+element, so the mixin must exist for `HUD_SHIFT` regardless, and splitting the HUD across an
+event and a mixin would make the draw order depend on event-vs-mixin ordering for no gain.
+
+**5j. `processResources` transforms are invisible to Gradle's up-to-date check.** Copy-spec
+ACTIONS — `eachFile`, `filter` — are not task inputs. Measured in Stage 5: the first build
+after adding the tag-directory rename and the item-model conversion reported
+`processResources UP-TO-DATE` and shipped the untransformed resources. Any new conditional
+transform needs its decision declared with `inputs.property(...)` in the same edit.
+
 **5f. Build scripts are NOT preprocessed.** Stonecutter only walks the source sets
 (`StonecutterBuildImpl`: `project.sourceSets.all { … }`). Version conditionals in
 `build.fabric.gradle.kts` must be plain Kotlin `if (sc.current.parsed >= "…")`. Design
@@ -402,6 +463,29 @@ Stage 2 re-proved both halves rather than taking them on trust — `TagEntry`'s 
 (so `required:false` is valid syntax everywhere, including 1.20.1, and `#`-prefixed tag
 references accept it too), and a real 1.21.11 dedicated server logged **no**
 `missing following references`.
+
+**CLOSED COMPLETELY IN STAGE 5.** The `processResources` rename landed exactly as prescribed
+(`eachFile { if (path.contains("/tags/item/")) path = path.replace("/tags/item/", "/tags/items/") }`
+under `if (sc.current.parsed < "1.21")`), and the 1.20.1 jar ships
+`data/specialities/tags/items/` while every other node's resource bytes are untouched. Proven
+loaded on a real 1.20.1 server with the positive probe below: all six tags answered
+`No player was found` (i.e. resolved at command parse time) and the deliberately absent control
+answered `Unknown item tag 'specialities:does_not_exist'`. Zero `missing following references`,
+and `/reload` re-ran the datapack load clean. The cascade did not fire.
+
+**A SECOND resource-layer bug, found in Stage 5 and NOT part of R-16**: item model
+DEFINITIONS (`assets/<ns>/items/<id>.json`) are **1.21.4+**. Below that an item binds to
+`assets/<ns>/models/item/<id>.json` by id and the file is a model, not a definition — so the
+thirty knowledge books had no model at all on the **1.21.1** node from Stage 4a onward, shipped
+verbatim into a directory that version does not read. Invisible because no client below 26.2
+has ever been launched. All thirty definitions name one vanilla model and nothing else, so the
+fix is mechanical (`{"model":{"type":"minecraft:model","model":"X"}}` → `{"parent":"X"}` plus
+the path move) and is applied for `< 1.21.4` in `processResources`, fixing both legacy nodes.
+That version number is deliberately the TRUE boundary rather than the nearest frozen predicate:
+no registered node sits between 1.21.2 and 1.21.11, §5f already requires plain Kotlin
+comparisons in build scripts, and the real number means a future 1.21.4-1.21.10 node behaves
+correctly with no edit. This relocation is the one deliberate resource change Stage 5 made to a
+prior node.
 
 **Two corrections from the 1.21.1 measurement:**
 
@@ -493,6 +577,34 @@ Bytecode-proven to be r,g,b,a and to manage its own `enableBlend`/`disableBlend`
   to vanilla's `blitSprite` of it. All four sprite ids used were checked present in that jar.
 - **`setColor` is still not the shared path** and the rejection above stands: it is gone in
   1.21.6+. It is used on 1.21.1 only for the one draw that has no tinted overload.
+- **CLOSED AT 1.20.1 IN STAGE 5, and R-17 was right about every one of its 1.20.1 claims.**
+  The public float-RGBA `blit(x, y, z, w, h, sprite, r, g, b, a)` is present and identical, so
+  the converging icons needed no third branch at all; `Gui.GUI_ICONS_LOCATION` really is
+  private (all six of `Gui`'s ResourceLocation fields are), so the XP bar background names
+  `textures/gui/icons.png` literally, at u=0, v=64, 182x5 — where vanilla's own
+  `renderExperienceBar` reads it. What R-17 did not cover is that 1.20.1 has **no GUI sprite
+  atlas at all**, so two more sprite ids had to become sheet coordinates:
+  - the toast backdrop → `Toast.TEXTURE` (`textures/gui/toasts.png`) at u=0, v=0, a PUBLIC
+    interface field there and the same thing vanilla's AdvancementToast blits;
+  - the two expand-arrow sprites → `textures/gui/resource_packs.png`, and WHICH cells was
+    settled by pixel comparison rather than by reading the selection-list code: every 32x32
+    cell of the 1.20.1 sheet was compared against the 1.21.1 sprite PNGs, giving
+    `transferable_list/select` = (0, 0) and `select_highlighted` = (0, 32). (By-product:
+    unselect = u32, move_down = u64, move_up = u96; the highlighted row is always v32.)
+  The arrow draw needs the overload that takes a destination size AND a source region —
+  `blit(rl, x, y, w, h, u, v, uWidth, vHeight, texW, texH)`, confirmed from its own bytecode to
+  forward to `innerBlit` with `x2 = x + w` — because that is the one that SCALES the native
+  32x32 into ARROW_SIZE the way `blitSprite` does above. The plain 7-arg
+  `blit(rl, x, y, u, v, w, h)` would have cropped instead, silently.
+- **`FastColor.ARGB32` on 1.20.1 has only the four-channel `color(a, r, g, b)`** — no
+  `color(alpha, rgb)`, no `colorFromFloat` — so both are restored as one-line private helpers
+  from the channel accessors that version does have, rather than growing four arguments at each
+  of seven call sites. Same value, bit for bit.
+- **A rendering bug no build could catch, and the reason a client-side port needs a reader as
+  well as a compiler:** on 1.20.1 `Screen.render` draws the registered widgets AND NOTHING
+  ELSE. Drawing the background became its job in 1.20.2, and every vanilla screen on that
+  version calls `renderBackground` itself first. Without that added call `SkillsScreen`
+  compiles, applies, and renders over the live world.
 
 Also stale in `CLAUDE.md`: the HUD bar is **opaque** (`BASE_ALPHA = 1.0F`), not "~50%
 alpha".

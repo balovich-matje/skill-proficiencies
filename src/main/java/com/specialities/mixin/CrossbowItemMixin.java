@@ -14,7 +14,10 @@ import com.llamalad7.mixinextras.sugar.Local;
 *///?}
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Unique;
+//? if >=1.21 {
+//?} else {
+/*import org.spongepowered.asm.mixin.Unique;
+*///?}
 import org.spongepowered.asm.mixin.injection.At;
 
 //? if >=1.21 {

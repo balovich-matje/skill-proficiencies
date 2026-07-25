@@ -10,15 +10,27 @@ import com.specialities.skills.SkillManager;
 import com.specialities.skills.Tuning;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
+//? if >=1.20.5 {
+//?} else {
+/*import org.spongepowered.asm.mixin.injection.Inject;
+*///?}
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+//? if >=1.20.5 {
+//?} else {
+/*import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+*///?}
 
 import com.specialities.ModTags;
 import com.specialities.platform.SkillStore;
-import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+//? if >=1.20.5 {
+//?} else {
+/*import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+*///?}
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
-import com.llamalad7.mixinextras.sugar.Local;
+//? if >=1.20.5 {
+//?} else {
+/*import com.llamalad7.mixinextras.sugar.Local;
+*///?}
 
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
