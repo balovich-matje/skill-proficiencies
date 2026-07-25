@@ -100,6 +100,17 @@ dependencies {
 	}
 }
 
+// Companion to the Mod Menu / Cloth Config gate above: those two source files import
+// `me.shedaniel.clothconfig2.api.*` and `com.terraformersmc.modmenu.api.*`, so below 26.1
+// they have no classpath and must leave the source set entirely. This is done here rather
+// than with a `//?` block wrapping each file because both carry `/** … */` javadoc: a
+// hand-written disabled branch would contain a `*/` that closes the branch comment early,
+// which needs the `*` -> `^` marker escalation of conventions §4 and is easy to get
+// silently wrong. `fabric.mod.json`'s `modmenu` entrypoint is gated to match.
+if (sc.current.parsed < "26.1") {
+	sourceSets["client"].java.exclude("com/specialities/client/config/**")
+}
+
 java {
 	// Loom attaches this to remapSourcesJar and to `build` automatically.
 	withSourcesJar()
@@ -128,12 +139,44 @@ val metadataProps: Map<String, String> = mapOf(
 	"java_floor" to requiredJava.majorVersion,
 )
 
+// Below 26.1 `client/config/**` leaves the source set (see the Mod Menu dependency gate),
+// so fabric.mod.json's `modmenu` entrypoint would name a class that is not in the jar.
+// Fabric resolves entrypoints lazily, so nothing breaks while Mod Menu is absent — but Mod
+// Menu ships for 1.21.x, and a user who installed it would get a ClassNotFoundException the
+// moment it queried the entrypoint. Blanking the class line leaves `"modmenu": []`, which is
+// valid JSON and inert.
+//
+// Three mechanisms were rejected for this, and the reasons are worth keeping:
+//   * A `//?` block. Conventions §4 says "`//?` also works in JSON". That holds for the
+//     *mixin* configs — Mixin reads those with `new Gson().fromJson(Reader, Class)`, and
+//     Gson's read path flips the reader to lenient, so `//` and `/* */` survive — but it is
+//     FALSE for fabric.mod.json. Fabric parses that with its own bundled JsonReader:
+//     `lenient = false` in the constructor (`iconst_0`), never set true anywhere in
+//     ModMetadataParser, and `checkLenient()` throws on a leading `/`. Verified by javap of
+//     fabric-loader 0.19.3. A leftover directive line there is an unloadable mod.
+//   * An `expand` placeholder for the entry. Measured: it makes the *raw* template invalid
+//     JSON, and Loom parses that file at configuration time to auto-detect the mod id —
+//     "Failed to parse fabric.mod.json" appears for every node, including 26.x.
+//   * A `versions/<node>/src` override. Duplicates the whole file, so the two copies drift.
+// Doing it here instead means the 26.x nodes get no transform at all, which is what keeps
+// their jars byte-identical to the shipped 1.5.0 resources.
+val strippedEntrypoints: List<String> =
+	if (sc.current.parsed >= "26.1") emptyList()
+	else listOf("com.specialities.client.config.ModMenuIntegration")
+
 tasks.withType<ProcessResources>().configureEach {
 	val mixinJava = "JAVA_${requiredJava.majorVersion}"
 	metadataProps.forEach { (k, v) -> inputs.property(k, v) }
 	inputs.property("mixinJava", mixinJava)
 
-	filesMatching("fabric.mod.json") { expand(metadataProps) }
+	inputs.property("strippedEntrypoints", strippedEntrypoints)
+
+	filesMatching("fabric.mod.json") {
+		expand(metadataProps)
+		if (strippedEntrypoints.isNotEmpty()) {
+			filter { line -> if (strippedEntrypoints.any(line::contains)) "" else line }
+		}
+	}
 	filesMatching("*.mixins.json") { expand("java" to mixinJava) }
 }
 

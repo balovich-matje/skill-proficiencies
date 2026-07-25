@@ -36,16 +36,26 @@ stonecutter parameters {
 	// StringSpecImpl, stonecutter 0.9.7 sources). So the shared tree may be authored
 	// in either spelling — it is authored in the 26.x spelling, matching the active node.
 	//
-	// Registering 1.21.11-fabric makes the SECOND entry live for the first time: that
-	// node gets `net.minecraft.util.Util` rewritten back down to `net.minecraft.Util`,
-	// so no `//?` block is needed for the Util import. The first entry stays inert until
-	// 1.21.1 lands — 1.21.11 is the OLDEST version that already spells it `Identifier`.
+	// BOTH entries are inert on the nodes registered so far and stay inert until 1.21.1
+	// lands: 1.21.11 is the OLDEST version that already spells it `Identifier`, AND the
+	// oldest that already spells it `net.minecraft.util.Util`.
+	//
+	// The Util boundary was `>=26.1` when the 1.21.11 node was registered. That was WRONG
+	// and would have broken this node on its first build: the rewrite is directional, so
+	// `>=26.1` being false for 1.21.11 rewrote the shared tree's `net.minecraft.util.Util`
+	// DOWN to `net.minecraft.Util` — a class that does not exist there. Mojmap ground
+	// truth (scratchpad/mappings/*-client.txt): 1.21.11 has `net.minecraft.util.Util -> bhs`
+	// and no `net.minecraft.Util` at all; 1.21.1 has `net.minecraft.Util -> ad`; 1.20.1 has
+	// `net.minecraft.Util -> ac`. The package move therefore happens at exactly 1.21.11.
+	// Importers in the shared tree: client/SkillHudState.java, client/StealthVignette.java.
+	// A `//?` block cannot fix this from the source side — replacements are applied to the
+	// generated text regardless of branch state, so only this condition can.
 	replacements {
 		string(current.parsed >= "1.21.11") {
 			replace("ResourceLocation", "Identifier")
 		}
 
-		string(current.parsed >= "26.1") {
+		string(current.parsed >= "1.21.11") {
 			replace("net.minecraft.Util", "net.minecraft.util.Util")
 		}
 	}
