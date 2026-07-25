@@ -10,7 +10,10 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 // 26.2 renamed the package `advancements.criterion` -> `advancements.triggers`.
-// Below 1.21.11 it is `advancements.critereon` (sic) — a third branch lands with that node.
+// 26.1 and 1.21.11 both spell it `advancements.criterion`, so the else branch serves both
+// (verified: net.minecraft.advancements.criterion.EnchantedItemTrigger in the 1.21.11 mojmap).
+// Below 1.21.11 it becomes `advancements.critereon` (sic); that third branch lands with the
+// 1.21.1 node, not with 1.21.11.
 //? if >=26.2 {
 import net.minecraft.advancements.triggers.EnchantedItemTrigger;
 //?} else {

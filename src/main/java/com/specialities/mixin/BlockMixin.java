@@ -20,7 +20,13 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.world.entity.Entity;
+// 26.x widened `Block.getDrops`'s tool parameter (and the matching
+// `EnchantmentHelper.getItemEnchantmentLevel` overload) from ItemStack to the new
+// ItemInstance interface, which ItemStack implements. Below 26.1 the parameter is a
+// plain ItemStack and this type does not exist.
+//? if >=26.1 {
 import net.minecraft.world.item.ItemInstance;
+//?}
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
@@ -43,11 +49,21 @@ import net.minecraft.core.component.DataComponents;
  */
 @Mixin(Block.class)
 public abstract class BlockMixin {
+	// Both overloads of getDrops exist on every target, so the descriptor cannot be
+	// shortened to a bare name — only the tool parameter's type moves.
 	private static final String GET_DROPS = "getDrops(Lnet/minecraft/world/level/block/state/BlockState;"
 			+ "Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/core/BlockPos;"
 			+ "Lnet/minecraft/world/level/block/entity/BlockEntity;Lnet/minecraft/world/entity/Entity;"
+			//? if >=26.1 {
 			+ "Lnet/minecraft/world/item/ItemInstance;)Ljava/util/List;";
+			//?} else {
+			/*+ "Lnet/minecraft/world/item/ItemStack;)Ljava/util/List;";
+			*///?}
 
+	// Only the annotation, the parameter list and the tool narrowing fork: below 26.1 the
+	// parameter already IS an ItemStack, so the `instanceof` becomes a plain assignment and
+	// everything from `fortuneSkill` down is the one shared implementation (conventions 5a).
+	//? if >=26.1 {
 	@ModifyVariable(method = GET_DROPS, at = @At("HEAD"), argsOnly = true)
 	private static ItemInstance specialities$boostToolFortune(final ItemInstance tool, final BlockState state,
 			final ServerLevel level, final BlockPos pos, final BlockEntity blockEntity, final Entity breaker,
@@ -55,6 +71,17 @@ public abstract class BlockMixin {
 		if (!(breaker instanceof ServerPlayer player) || !(tool instanceof ItemStack stack)) {
 			return tool;
 		}
+	//?} else {
+	/*@ModifyVariable(method = GET_DROPS, at = @At("HEAD"), argsOnly = true)
+	private static ItemStack specialities$boostToolFortune(final ItemStack tool, final BlockState state,
+			final ServerLevel level, final BlockPos pos, final BlockEntity blockEntity, final Entity breaker,
+			final ItemStack originalTool) {
+		if (!(breaker instanceof ServerPlayer player)) {
+			return tool;
+		}
+
+		ItemStack stack = tool;
+	*///?}
 
 		Skill skill = SkillCategories.fortuneSkill(state);
 		if (skill == null) {
@@ -78,10 +105,20 @@ public abstract class BlockMixin {
 		return boosted;
 	}
 
+	// Signature only: `getItemEnchantmentLevel` takes ItemInstance on 26.x and ItemStack
+	// below, so the body below reads `tool` at whichever type this branch declared and the
+	// whole implementation is shared.
+	//? if >=26.1 {
 	@Inject(method = GET_DROPS, at = @At("RETURN"))
 	private static void specialities$bonusLogDrops(final BlockState state, final ServerLevel level, final BlockPos pos,
 			final BlockEntity blockEntity, final Entity breaker, final ItemInstance tool,
 			final CallbackInfoReturnable<List<ItemStack>> cir) {
+	//?} else {
+	/*@Inject(method = GET_DROPS, at = @At("RETURN"))
+	private static void specialities$bonusLogDrops(final BlockState state, final ServerLevel level, final BlockPos pos,
+			final BlockEntity blockEntity, final Entity breaker, final ItemStack tool,
+			final CallbackInfoReturnable<List<ItemStack>> cir) {
+	*///?}
 		if (!(breaker instanceof ServerPlayer player) || !state.is(BlockTags.LOGS)) {
 			return;
 		}
