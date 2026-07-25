@@ -94,6 +94,17 @@ import net.minecraft.core.registries.Registries;
  * on, and NeoForge freezes its registries the same way, so {@code 1.21.1-neoforge} needs the
  * same answer. Reported, not done here.
  *
+ * <p><b>What {@code 1.21.1-neoforge} does instead, and why this node does NOT copy it.</b> That
+ * node keeps the shared init at CONSTRUCT and defers only {@code ModItems.initialize()}, through
+ * the {@code neoforge} arm of a three-arm chain in {@code Specialities.onInitialize()}. It has
+ * to: {@code NeoForgeSkillStore.initialize()} calls {@code ATTACHMENTS.register(modEventBus)},
+ * which ADDS a {@code RegisterEvent} listener, and doing that from inside a {@code RegisterEvent}
+ * dispatch mutates the {@code ListenerList} the bus is iterating. This node has no
+ * {@code DeferredRegister} at all — capabilities are not a registry on 1.20.1 and the items are
+ * registered directly — so the whole-init deferral has no such hazard here, and it is the shape
+ * that was booted green. The {@code forge} arm of that chain is therefore a plain
+ * {@code ModItems.initialize()}.
+ *
  * <p>Same placement rationale as {@code SpecialitiesNeoForge}: this lives in
  * {@code com.specialities.platform} so the bus hand-off to {@code ForgeSkillStore} stays
  * package-private, and so the whole file is caught by the node scripts' {@code Forge*} /

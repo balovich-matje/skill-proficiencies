@@ -390,24 +390,21 @@ public final class NeoForgeEvents {
 	 * ({@code registries/GameData.java:63-66}). {@code RegisterEvent} is posted inside that
 	 * window, one event per registry.
 	 *
-	 * <p>Hence this helper, and hence the shared arm it needs — four lines in
-	 * {@code Specialities.onInitialize()}, replacing the unconditional
-	 * {@code ModItems.initialize()}:
+	 * <p>Hence this helper, and hence the shared arm that calls it — <b>landed in Stage 6's
+	 * integration commit</b>, in {@code Specialities.onInitialize()}, replacing the
+	 * unconditional {@code ModItems.initialize()} with a three-arm loader chain whose
+	 * {@code neoforge} arm is {@code NeoForgeEvents.registerItems(ModItems::initialize)}. The
+	 * {@code forge} arm is a plain {@code ModItems.initialize()} and needs no helper of its own:
+	 * {@code SpecialitiesForge} defers the WHOLE shared init into {@code RegisterEvent(ITEM)},
+	 * which it can do safely because that node has no {@code DeferredRegister} anywhere. This
+	 * node cannot copy that: {@code NeoForgeSkillStore.initialize()} calls
+	 * {@code ATTACHMENTS.register(modEventBus)}, i.e. it adds a {@code RegisterEvent} listener,
+	 * and adding a listener for the event class currently being dispatched mutates the very
+	 * {@code ListenerList} the bus is iterating.
 	 *
-	 * <pre>
-	 * //? if fabric {
-	 * ModItems.initialize();
-	 * //?} elif neoforge {
-	 * /*NeoForgeEvents.registerItems(ModItems::initialize);
-	 * *&#47;//?} elif forge {
-	 * /*ForgeEvents.registerItems(ModItems::initialize);
-	 * *&#47;//?}
-	 * </pre>
-	 *
-	 * <b>MEASURED, not proposed:</b> with exactly that patch applied locally the node boots a
-	 * real headless dedicated server clean — all thirty items registered, every common mixin
-	 * applied, all six tags resolved, {@code /skillprof} present. The patch was then REVERTED,
-	 * so it is not in this branch.
+	 * <b>MEASURED, not proposed:</b> with exactly that arm the node boots a real headless
+	 * dedicated server clean — all thirty items registered, every common mixin applied, all six
+	 * tags resolved, {@code /skillprof} present.
 	 *
 	 * <p>Three consequences worth carrying into the review of that arm:
 	 *
@@ -425,11 +422,11 @@ public final class NeoForgeEvents {
 	 *     the {@code ListenerList} being iterated is not the one mutated
 	 *     ({@code bus-8.0.5 EventBus.addToListeners} → {@code getListenerList(eventType)}), and
 	 *     {@code BuildCreativeModeTabContentsEvent} has not been posted yet.</li>
-	 * <li><b>1.20.1-forge will hit the identical wall.</b> 1.20.1's {@code Item} has the same
-	 *     intrusive-holder field initialiser and LexForge freezes the built-in registries before
-	 *     mod construction too, so 6b needs the {@code forge} arm above and a
-	 *     {@code ForgeEvents.registerItems} of its own — via {@code RegisterEvent} there as
-	 *     well, which LexForge 47.4.22 has.</li>
+	 * <li><b>1.20.1-forge hit the identical wall</b>, independently and on its own first boot.
+	 *     1.20.1's {@code Item} has the same intrusive-holder field initialiser and LexForge
+	 *     freezes the built-in registries before mod construction too. It is contained
+	 *     differently — see {@code SpecialitiesForge} — and the asymmetry is deliberate, for the
+	 *     bus reason above.</li>
 	 * </ul>
 	 *
 	 * @param initializer {@code ModItems::initialize} — run once, inside the ITEM
