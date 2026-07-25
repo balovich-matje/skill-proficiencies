@@ -1,0 +1,16 @@
+{
+	"required": true,
+	"package": "com.specialities.client.mixin",
+	"compatibilityLevel": "${java}",
+	"client": [
+		"AbstractClientPlayerMixin",
+		"AbstractContainerScreenAccessor",
+		"GuiMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}

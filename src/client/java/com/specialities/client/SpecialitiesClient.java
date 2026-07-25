@@ -8,12 +8,22 @@ import com.specialities.client.mixin.AbstractContainerScreenAccessor;
 
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+// The whole `client.rendering.v1.hud` package (HudElementRegistry / VanillaHudElements /
+// HudElement) arrived in fabric-rendering-v1 16.x, i.e. at 1.21.11. 0.116.14+1.21.1 ships
+// fabric-rendering-v1 3.x, which has no `hud` subpackage at all — checked by compiling this
+// node, not by reading a changelog. Below 1.21.11 the HUD is done by mixin instead: see
+// `client/mixin/GuiMixin`, which draws the two elements and applies HUD_SHIFT by wrapping
+// the five vanilla bottom-HUD draws.
+//? if >=1.21.11 {
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
+//?}
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 
+//? if >=1.21.11 {
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement;
+//?}
 
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Tooltip;
@@ -49,6 +59,9 @@ public class SpecialitiesClient implements ClientModInitializer {
 		ClientPlayNetworking.registerGlobalReceiver(StealthStatePayload.TYPE,
 				(payload, context) -> StealthVignette.onUpdate(payload, context.client()));
 
+		// Nothing of this exists below 1.21.11 — the HUD is entirely GuiMixin's job there,
+		// and the client mixin config gates that class in on exactly those nodes.
+		//? if >=1.21.11 {
 		Identifier[] raisedElements = {
 				VanillaHudElements.INFO_BAR,
 				VanillaHudElements.EXPERIENCE_LEVEL,
@@ -72,6 +85,7 @@ public class SpecialitiesClient implements ClientModInitializer {
 		// Under the hotbar/health, alongside the vanilla vignette and overlays.
 		HudElementRegistry.attachElementAfter(VanillaHudElements.MISC_OVERLAYS,
 				Specialities.id("stealth_vignette"), StealthVignette::render);
+		//?}
 
 		ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
 			if (screen instanceof InventoryScreen) {
@@ -116,6 +130,11 @@ public class SpecialitiesClient implements ClientModInitializer {
 		});
 	}
 
+	// HudElement only exists from 1.21.11 up, so this whole helper does. Written as a flat
+	// three-branch chain rather than a `>=26.1` block nested inside a `>=1.21.11` one: a
+	// directive inside an already-disabled branch needs the `*` -> `^` marker escalation
+	// (conventions §4) and that is the case that fails silently when it is got wrong.
+	//? if >=26.1 {
 	private static HudElement raised(final HudElement element) {
 		// The lambda's parameter types are inferred from HudElement, so only the
 		// delegating call names the hook: extractRenderState on 26.x, render below.
@@ -123,14 +142,20 @@ public class SpecialitiesClient implements ClientModInitializer {
 		return (graphics, deltaTracker) -> {
 			graphics.pose().pushMatrix();
 			graphics.pose().translate(0.0F, (float) -HUD_SHIFT);
-			//? if >=26.1 {
 			element.extractRenderState(graphics, deltaTracker);
-			//?} else {
-			/*element.render(graphics, deltaTracker);
-			*///?}
 			graphics.pose().popMatrix();
 		};
 	}
+	//?} elif >=1.21.11 {
+	/*private static HudElement raised(final HudElement element) {
+		return (graphics, deltaTracker) -> {
+			graphics.pose().pushMatrix();
+			graphics.pose().translate(0.0F, (float) -HUD_SHIFT);
+			element.render(graphics, deltaTracker);
+			graphics.pose().popMatrix();
+		};
+	}
+	*///?}
 
 	private static void anchorButton(final AbstractContainerScreen<?> screen, final Button button) {
 		AbstractContainerScreenAccessor accessor = (AbstractContainerScreenAccessor) screen;
