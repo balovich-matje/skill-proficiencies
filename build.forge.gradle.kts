@@ -337,13 +337,43 @@ val modrinthDisplayName: Provider<String> = releaseTitle.map { title ->
 
 val publishLive: Boolean = providers.gradleProperty("publishLive").map(String::toBoolean).getOrElse(false)
 
+// MODRINTH'S 64-CHARACTER VERSION-NAME CAP, AS A BUILD GATE — measured against the LIVE 1.5.0
+// versions, not read off the docs. The published `1.5.0+26.1` (`GET /v2/version/on9OIUum`) is
+// named `1.5.0 — Bonuses only on real weapon attacks (26.1)`, 50 chars, while the published
+// `1.5.0` (26.2) is named `1.5.0 — Combat & stealth bonuses only on real weapon attacks`, 60
+// chars. The two live names carry DIFFERENT titles, and the short one is exactly the node whose
+// ` (26.1)` suffix would have pushed the long title to 67 — so the cap is real and it was
+// already worked around by hand at 1.5.0. `changelogs/<version>.md` holds ONE H1, so one title
+// now has to fit EVERY node's suffix; the longest is ` (1.21.1 NeoForge)` at 18 characters.
+//
+// Deliberately NOT auto-truncated: silently renaming a release is what §4.1 forbids. And it
+// fails the LIVE upload only, so the dry run stays usable as the pre-flight that prints the
+// numbers — `printPublishMetadata` reports `name length` and marks anything over.
+//
+// The title budget is arithmetic on plain Strings on purpose. Reading `releaseTitle` here would
+// move the "no release notes" failure from task time to CONFIGURATION time, i.e. a missing
+// changelog would break `./gradlew build` (§4.1 is explicit that it must not).
+val modrinthNameMax = 64
+val modrinthNameSuffixLength = " ($nodeKey Forge)".length
+val modrinthTitleBudget = modrinthNameMax - modVersion.length - " — ".length - modrinthNameSuffixLength
+
+val checkedDisplayName: Provider<String> = modrinthDisplayName.map { name ->
+	require(!publishLive || name.length <= modrinthNameMax) {
+		"Modrinth caps a version name at $modrinthNameMax characters; this one is ${name.length}: " +
+			"\"$name\". Shorten the `# ` title line in $changelogPath to at most " +
+			"$modrinthTitleBudget characters — that is the budget every node can carry."
+	}
+	name
+}
+
+
 publishMods {
 	dryRun = !publishLive
 	// `tasks.` is required here: inside `publishMods { }` the receiver is the extension,
 	// so a bare `named<Jar>(...)` does not resolve ("No applicable 'assign' function found").
 	file = tasks.named<org.gradle.jvm.tasks.Jar>("remapJar").flatMap { it.archiveFile }
 	version = modrinthVersion
-	displayName = modrinthDisplayName
+	displayName = checkedDisplayName
 	changelog = releaseNotes
 	type = STABLE
 	modLoaders.add("forge")
@@ -377,7 +407,10 @@ tasks.register("printPublishMetadata") {
 	val notes = releaseNotes
 	doLast {
 		rows.forEach { (k, v) -> logger.lifecycle("%-16s %s".format(k, v)) }
-		logger.lifecycle("%-16s %s".format("name", name.get()))
+		val rendered = name.get()
+		logger.lifecycle("%-16s %s".format("name", rendered))
+		logger.lifecycle("%-16s %d / %d%s".format("name length", rendered.length, modrinthNameMax,
+			if (rendered.length > modrinthNameMax) "   *** OVER THE CAP — a live upload will be refused ***" else ""))
 		logger.lifecycle("--- changelog ---")
 		logger.lifecycle(notes.get())
 	}
