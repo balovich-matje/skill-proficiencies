@@ -61,26 +61,76 @@ public enum Skill implements SkillType {
 	 * it borrows the iron ingot (block icons cannot be drawn translucent,
 	 * which the HUD needs).
 	 */
+	// Every arm forks below 1.21 and all fifteen fork the same way: `withDefaultNamespace`
+	// and `fromNamespaceAndPath` are 1.21 additions, made when the two `ResourceLocation`
+	// constructors were taken private. On 1.20.1 the constructor IS the API (mojmap has
+	// neither static; `tryParse` exists but returns @Nullable, which is a worse contract).
+	//
+	// The class name itself is NOT forked: the controller's `ResourceLocation` <-> `Identifier`
+	// replacement rewrites it per node (conventions §3), which is why the legacy branches
+	// below say `new Identifier(...)` — that text becomes `new ResourceLocation(...)` on
+	// every node where the branch is live.
+	//
+	// A `replacements` rule of its own (`Identifier.withDefaultNamespace(` <-> `new
+	// Identifier(`) would collapse all fifteen to one line and was rejected: it would have
+	// to run in a fixed order relative to the existing class-name rule, and getting that
+	// wrong is silent — exactly the failure mode conventions §3 records for the `Util` rule.
 	@Override
 	public Identifier iconTexture() {
 		return switch (this) {
-			case MINING -> Identifier.withDefaultNamespace("item/iron_pickaxe");
-			case WOODCUTTING -> Identifier.withDefaultNamespace("item/iron_axe");
-			case COMBAT -> Identifier.withDefaultNamespace("item/iron_sword");
-			case ARMS_MASTERY ->
-					/*? if >=1.21.11 {*/Identifier.withDefaultNamespace("item/iron_spear");
-					/*?} else *///Identifier.withDefaultNamespace("item/iron_sword");
-			case ARCHERY -> Identifier.withDefaultNamespace("item/bow");
-			case HARVESTING -> Identifier.withDefaultNamespace("item/iron_hoe");
-			case EXCAVATION -> Identifier.withDefaultNamespace("item/iron_shovel");
-			case FISHING -> Identifier.withDefaultNamespace("item/fishing_rod");
-			case DEFENCE -> Identifier.withDefaultNamespace("item/iron_chestplate");
-			case ACROBATICS -> Identifier.withDefaultNamespace("item/feather");
-			case ATHLETICS -> Identifier.withDefaultNamespace("item/golden_boots");
-			case SNEAKING -> Identifier.withDefaultNamespace("item/leather_boots");
-			case SMITHING -> Identifier.withDefaultNamespace("item/iron_ingot");
-			case ALCHEMY -> Identifier.withDefaultNamespace("item/brewing_stand");
-			case ENCHANTING -> Identifier.withDefaultNamespace("item/enchanted_book");
+			case MINING ->
+					/*? if >=1.21 {*/Identifier.withDefaultNamespace("item/iron_pickaxe");
+					/*?} else *///new Identifier("item/iron_pickaxe");
+			case WOODCUTTING ->
+					/*? if >=1.21 {*/Identifier.withDefaultNamespace("item/iron_axe");
+					/*?} else *///new Identifier("item/iron_axe");
+			case COMBAT ->
+					/*? if >=1.21 {*/Identifier.withDefaultNamespace("item/iron_sword");
+					/*?} else *///new Identifier("item/iron_sword");
+			// Three arms rather than two: the spear is >=1.21.11, and BELOW 1.21 the
+			// identifier itself has to be built with the constructor (see the note on
+			// iconTexture). Written as a statement block, not the inline form — an
+			// `elif` needs one.
+			//? if >=1.21.11 {
+			case ARMS_MASTERY -> Identifier.withDefaultNamespace("item/iron_spear");
+			//?} elif >=1.21 {
+			/*case ARMS_MASTERY -> Identifier.withDefaultNamespace("item/iron_sword");
+			*///?} else {
+			/*case ARMS_MASTERY -> new Identifier("item/iron_sword");
+			*///?}
+			case ARCHERY ->
+					/*? if >=1.21 {*/Identifier.withDefaultNamespace("item/bow");
+					/*?} else *///new Identifier("item/bow");
+			case HARVESTING ->
+					/*? if >=1.21 {*/Identifier.withDefaultNamespace("item/iron_hoe");
+					/*?} else *///new Identifier("item/iron_hoe");
+			case EXCAVATION ->
+					/*? if >=1.21 {*/Identifier.withDefaultNamespace("item/iron_shovel");
+					/*?} else *///new Identifier("item/iron_shovel");
+			case FISHING ->
+					/*? if >=1.21 {*/Identifier.withDefaultNamespace("item/fishing_rod");
+					/*?} else *///new Identifier("item/fishing_rod");
+			case DEFENCE ->
+					/*? if >=1.21 {*/Identifier.withDefaultNamespace("item/iron_chestplate");
+					/*?} else *///new Identifier("item/iron_chestplate");
+			case ACROBATICS ->
+					/*? if >=1.21 {*/Identifier.withDefaultNamespace("item/feather");
+					/*?} else *///new Identifier("item/feather");
+			case ATHLETICS ->
+					/*? if >=1.21 {*/Identifier.withDefaultNamespace("item/golden_boots");
+					/*?} else *///new Identifier("item/golden_boots");
+			case SNEAKING ->
+					/*? if >=1.21 {*/Identifier.withDefaultNamespace("item/leather_boots");
+					/*?} else *///new Identifier("item/leather_boots");
+			case SMITHING ->
+					/*? if >=1.21 {*/Identifier.withDefaultNamespace("item/iron_ingot");
+					/*?} else *///new Identifier("item/iron_ingot");
+			case ALCHEMY ->
+					/*? if >=1.21 {*/Identifier.withDefaultNamespace("item/brewing_stand");
+					/*?} else *///new Identifier("item/brewing_stand");
+			case ENCHANTING ->
+					/*? if >=1.21 {*/Identifier.withDefaultNamespace("item/enchanted_book");
+					/*?} else *///new Identifier("item/enchanted_book");
 		};
 	}
 

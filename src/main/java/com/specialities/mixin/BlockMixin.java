@@ -1,6 +1,10 @@
 package com.specialities.mixin;
 
 import java.util.List;
+//? if >=1.21 {
+//?} else {
+/*import java.util.Map;
+*///?}
 
 import com.specialities.skills.Skill;
 import com.specialities.skills.SkillCategories;
@@ -13,8 +17,10 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import net.minecraft.core.BlockPos;
+//? if >=1.21 {
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
+//?}
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.BlockTags;
@@ -31,12 +37,23 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.item.enchantment.Enchantments;
+// Enchantments live in item NBT below 1.21 — there is no `minecraft:enchantments` data
+// component and no `ItemEnchantments`. The replacement is not raw NBT surgery: that
+// version's own `EnchantmentHelper.getEnchantments(ItemStack)` /
+// `setEnchantments(Map<Enchantment,Integer>, ItemStack)` pair reads and writes the tag,
+// and both halves are enchanted-book aware (`getEnchantments` reads StoredEnchantments
+// for a book, `setEnchantments` writes through `EnchantedBookItem.addToBook`), so using
+// vanilla's own accessors keeps the behaviour vanilla's rather than approximating it.
+//? if >=1.21 {
 import net.minecraft.world.item.enchantment.ItemEnchantments;
+//?}
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
+//? if >=1.21 {
 import net.minecraft.core.component.DataComponents;
+//?}
 
 /**
  * Passive fortune from skills.
@@ -93,6 +110,10 @@ public abstract class BlockMixin {
 			return tool;
 		}
 
+		// `Enchantments.FORTUNE` is a ResourceKey needing a registry lookup from 1.21 up
+		// and a plain `Enchantment` instance named BLOCK_FORTUNE below (1.20.1 mojmap:
+		// `Enchantments.BLOCK_FORTUNE -> x`), so the lookup disappears with the Holder.
+		//? if >=1.21 {
 		Holder<Enchantment> fortune = level.registryAccess()
 				.lookupOrThrow(Registries.ENCHANTMENT)
 				.getOrThrow(Enchantments.FORTUNE);
@@ -102,6 +123,12 @@ public abstract class BlockMixin {
 		ItemEnchantments.Mutable mutable = new ItemEnchantments.Mutable(current);
 		mutable.set(fortune, mutable.getLevel(fortune) + bonus);
 		boosted.set(DataComponents.ENCHANTMENTS, mutable.toImmutable());
+		//?} else {
+		/*ItemStack boosted = stack.copy();
+		Map<Enchantment, Integer> current = EnchantmentHelper.getEnchantments(boosted);
+		current.merge(Enchantments.BLOCK_FORTUNE, bonus, Integer::sum);
+		EnchantmentHelper.setEnchantments(current, boosted);
+		*///?}
 		return boosted;
 	}
 
@@ -123,12 +150,17 @@ public abstract class BlockMixin {
 			return;
 		}
 
+		//? if >=1.21 {
 		Holder<Enchantment> fortune = level.registryAccess()
 				.lookupOrThrow(Registries.ENCHANTMENT)
 				.getOrThrow(Enchantments.FORTUNE);
 
 		int skillBonus = Tuning.luckBonus(SkillManager.get(player).level(Skill.WOODCUTTING));
 		int totalFortune = EnchantmentHelper.getItemEnchantmentLevel(fortune, tool) + skillBonus;
+		//?} else {
+		/*int skillBonus = Tuning.luckBonus(SkillManager.get(player).level(Skill.WOODCUTTING));
+		int totalFortune = EnchantmentHelper.getItemEnchantmentLevel(Enchantments.BLOCK_FORTUNE, tool) + skillBonus;
+		*///?}
 		if (totalFortune <= 0) {
 			return;
 		}

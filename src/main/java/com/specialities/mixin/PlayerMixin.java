@@ -11,6 +11,7 @@ import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
@@ -118,19 +119,31 @@ public abstract class PlayerMixin {
 	// Method g:(Ljm;)D`, no owner prefix = the class itself), so the target descriptor is
 	// unchanged. NOTE for the bytecode audit: `attack` also carries this file's
 	// @WrapMethod (MeleeSwing) on 1.21.1 — the two must coexist in one method there.
+	//
+	// On 1.20.1 there is no SWEEPING_DAMAGE_RATIO attribute at all: the sweep ratio comes
+	// straight from `EnchantmentHelper.getSweepingDamageRatio(LivingEntity)F`, called
+	// EXACTLY ONCE in `attack` (offset 563 of the 1.20.1 `javap -c`, as design §3.3
+	// predicted, so no ordinal). That method returns level/(level+1) — the same formula the
+	// attribute carries above — so the balance logic below is unchanged; only the width of
+	// the value moves, F instead of D. That is why this method stops being the injector on
+	// that node and becomes a plain `@Unique` helper the float wrapper delegates to
+	// (conventions §5a). Written this way round on purpose: it keeps the four nodes above
+	// 1.21 with the annotation, the body and therefore the bytecode they already had.
 	//? if >=1.21.11 {
 	@ModifyExpressionValue(
 			method = "doSweepAttack",
 			at = @At(
 					value = "INVOKE",
 					target = "Lnet/minecraft/world/entity/player/Player;getAttributeValue(Lnet/minecraft/core/Holder;)D"))
-	//?} else {
+	//?} elif >=1.21 {
 	/*@ModifyExpressionValue(
 			method = "attack",
 			at = @At(
 					value = "INVOKE",
 					target = "Lnet/minecraft/world/entity/player/Player;getAttributeValue(Lnet/minecraft/core/Holder;)D",
 					ordinal = 1))
+	*///?} else {
+	/*@Unique
 	*///?}
 	private double specialities$passiveSweepingEdge(final double original) {
 		Player self = (Player) (Object) this;
@@ -140,16 +153,39 @@ public abstract class PlayerMixin {
 			return original;
 		}
 
+		// Enchantments are a static registry below 1.21, so there is no Holder and no
+		// registry lookup — `Enchantments.SWEEPING_EDGE` is the instance itself, and
+		// `getItemEnchantmentLevel(Enchantment, ItemStack)I` is the overload that takes it.
+		//? if >=1.21 {
 		Holder<Enchantment> sweeping = self.level().registryAccess()
 				.lookupOrThrow(Registries.ENCHANTMENT)
 				.getOrThrow(Enchantments.SWEEPING_EDGE);
 		int enchantLevel = EnchantmentHelper.getItemEnchantmentLevel(sweeping, self.getMainHandItem());
+		//?} else {
+		/*int enchantLevel = EnchantmentHelper.getItemEnchantmentLevel(Enchantments.SWEEPING_EDGE,
+				self.getMainHandItem());
+		*///?}
 		int effectiveLevel = enchantLevel + bonus;
 
 		double enchantRatio = enchantLevel > 0 ? (double) enchantLevel / (enchantLevel + 1) : 0.0;
 		double effectiveRatio = (double) effectiveLevel / (effectiveLevel + 1);
 		return original - enchantRatio + effectiveRatio;
 	}
+
+	// The 1.20.1 injector for the passive sweeping edge. Nothing but a width conversion
+	// around the shared implementation above.
+	//? if >=1.21 {
+	//?} else {
+	/*@ModifyExpressionValue(
+			method = "attack",
+			at = @At(
+					value = "INVOKE",
+					target = "Lnet/minecraft/world/item/enchantment/EnchantmentHelper;"
+							+ "getSweepingDamageRatio(Lnet/minecraft/world/entity/LivingEntity;)F"))
+	private float specialities$passiveSweepingEdgeRatio(final float original) {
+		return (float) this.specialities$passiveSweepingEdge(original);
+	}
+	*///?}
 
 	/**
 	 * Mark the one path a real melee swing takes, so the sneaking skill's

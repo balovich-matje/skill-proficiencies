@@ -38,7 +38,15 @@ public class Specialities implements ModInitializer {
 		LOGGER.info("Skills mod initialized");
 	}
 
+	// `fromNamespaceAndPath` is a 1.21 addition (it and `withDefaultNamespace` replaced the
+	// two constructors when those were made private). Below that the constructor is the
+	// API. The class name is handled by the controller's replacement rule, so the legacy
+	// branch says `Identifier` and is generated as `ResourceLocation`.
 	public static Identifier id(String path) {
+		//? if >=1.21 {
 		return Identifier.fromNamespaceAndPath(MOD_ID, path);
+		//?} else {
+		/*return new Identifier(MOD_ID, path);
+		*///?}
 	}
 }
