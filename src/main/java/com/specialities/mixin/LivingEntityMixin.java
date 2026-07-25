@@ -17,7 +17,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 //? if >=1.20.5 {
 //?} else {
-/*import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+/*import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 *///?}
 
 import com.specialities.ModTags;
@@ -275,24 +275,50 @@ public abstract class LivingEntityMixin {
 	//?} else {
 	/*// ServerLivingEntityEvents.AFTER_DAMAGE does not exist in fabric-api 0.92.11
 	// (SkillEvents has the evidence), and nothing else there reports the damage actually
-	// taken. This is where fabric-api's own implementation of that event injects.
+	// taken. So this reproduces the event at the site fabric-api's own implementation uses
+	// — TAIL of the `hurt`/`hurtServer` family — with fabric-api's own three semantics.
+	// All three are load-bearing, and the earlier `actuallyHurt` TAIL inject got each of
+	// them wrong; this is the regression it replaces.
 	//
-	// The two filters the event's consumer applies are reproduced by the injection point
-	// itself plus one check: `actuallyHurt` returns EARLY (offset 8) when the entity is
-	// invulnerable and EARLY (offset 113) when the post-absorption amount is exactly 0 —
-	// which is where a shield-blocked hit ends up, since `hurt` zeroes the damage before
-	// calling this — so TAIL, the last RETURN, is reached only on the path that really
-	// reduced health. At that point argument slot 2 holds the post-armor,
-	// post-absorption amount, i.e. the event's `damageTaken`. Structure read off
-	// `javap -c` of the 1.20.1 class, not assumed.
-	@Inject(method = "actuallyHurt(Lnet/minecraft/world/damagesource/DamageSource;F)V", at = @At("TAIL"))
+	// 1. IT HAS TO FIRE FOR PLAYERS. `Player` OVERRIDES `actuallyHurt` on 1.20.1 and never
+	//    calls super (mojmap `Player -> byo`, `actuallyHurt -> f`; that method's `javap -c`
+	//    contains ZERO `invokespecial`), so a TAIL inject on `LivingEntity.actuallyHurt`
+	//    was dead for every player — DEFENCE XP, ACROBATICS XP and the attacker half of
+	//    PvP with it. `hurt` is the one site every entity shares: `Player.hurt` ends in
+	//    `invokespecial LivingEntity.hurt` (offset 137) and `ServerPlayer.hurt` ends in
+	//    `invokespecial Player.hurt` (offset 149).
+	// 2. `damageTaken` IS THE PRE-ARMOR AMOUNT. The event reports the damage after shields
+	//    and extra freezing damage and explicitly NOT after armor or enchantment reduction
+	//    (`ServerLivingEntityEvents.AFTER_DAMAGE`'s own javadoc). `actuallyHurt` is where
+	//    armor, magic absorption and absorption hearts are applied, so its argument is
+	//    post-everything and under-reported every hit on an armoured target. The value the
+	//    event reports is `hurt`'s own argument slot 2 as mutated in place: `fstore_2` at
+	//    offset 110 (a shield block zeroes it) and at 179 (freezing x5), read back by the
+	//    `actuallyHurt` calls at 234 and 262. A Mixin callback loads the target's args from
+	//    their slots at the injection point, so the parameter below IS that local.
+	// 3. IT MUST NOT FIRE ON A KILLING BLOW. "This event is not fired if the entity was
+	//    killed by the damage" — fabric-api enforces that with a `!isDeadOrDying()` guard
+	//    inside the handler (0.116.14's compiled handler is `method_29504` / `ifne`), and
+	//    vanilla's own second `isDeadOrDying()` at offset 618 has already run by TAIL.
+	//
+	// The remaining two filters are the event CONSUMER's, and this file applies them
+	// because it calls the consumer directly: positive damage, and not shield-blocked.
+	// `blocked` is vanilla's `flag`, the first boolean local (`istore 4` at offset 82,
+	// `iconst_1` at 148 in the shield branch) — the same local fabric-api captures, and
+	// the same ordinal, since 1.20.1's frame at TAIL is slot 3 = the pre-shield amount,
+	// slot 4 = blocked, exactly like 1.21.1's. Everything above is `javap -c` of the
+	// vanilla 1.20.1 class plus `javap -v` of fabric-entity-events-v1 0.116.14, not
+	// assumed.
+	@Inject(method = "hurt(Lnet/minecraft/world/damagesource/DamageSource;F)Z", at = @At("TAIL"))
 	private void specialities$afterDamageXp(final DamageSource source, final float damageTaken,
-			final CallbackInfo ci) {
-		if (damageTaken <= 0.0F) {
+			final CallbackInfoReturnable<Boolean> cir, @Local(ordinal = 0) final boolean blocked) {
+		LivingEntity self = (LivingEntity) (Object) this;
+
+		if (blocked || damageTaken <= 0.0F || self.isDeadOrDying()) {
 			return;
 		}
 
-		SkillEvents.afterDamage((LivingEntity) (Object) this, source, damageTaken);
+		SkillEvents.afterDamage(self, source, damageTaken);
 	}
 
 	// Acrobatics protection points, re-rooted (design R-05). Above 1.21 this is

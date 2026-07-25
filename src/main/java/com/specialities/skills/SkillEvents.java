@@ -53,8 +53,8 @@ public final class SkillEvents {
 		});
 
 		// Below 1.20.5 there is no AFTER_DAMAGE to register at all: LivingEntityMixin's
-		// `actuallyHurt` hook calls `afterDamage` below instead, applying the same two
-		// filters this lambda does.
+		// TAIL hook on `hurt` — the same site fabric-api's own implementation injects at —
+		// calls `afterDamage` below instead, applying the same two filters this lambda does.
 		//? if >=1.20.5 {
 		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, baseDamage, damageTaken, blocked) -> {
 			if (blocked || damageTaken <= 0.0F) {
@@ -134,9 +134,10 @@ public final class SkillEvents {
 
 	// The AFTER_DAMAGE substitute below 1.20.5. Public because a mixin calls it; gated so
 	// the nodes that have the real event do not carry an unreachable method. `damageTaken`
-	// is the post-armor, post-absorption amount actually applied to health — the same
-	// number the event reports — and the caller applies the event's own two filters
-	// (positive damage; a shield-blocked hit reaches `actuallyHurt` with 0).
+	// is what the event reports: the amount after shields and extra freezing damage and
+	// BEFORE armor and enchantment reduction (the event's javadoc says so explicitly). The
+	// caller applies the event's own two consumer filters — positive damage, not blocked —
+	// and reproduces fabric-api's `!isDeadOrDying()` gate on the invocation itself.
 	//? if >=1.20.5 {
 	//?} else {
 	/*public static void afterDamage(final LivingEntity entity, final DamageSource source, final float damageTaken) {
