@@ -6,8 +6,8 @@ import java.util.Map;
 import java.util.UUID;
 
 import com.specialities.StealthStatePayload;
+import com.specialities.platform.Net;
 
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
@@ -86,7 +86,7 @@ public final class SneakingTicker {
 		Integer previous = lastState.put(player.getUUID(), state);
 
 		if (previous == null || previous != state) {
-			ServerPlayNetworking.send(player, new StealthStatePayload(state));
+			Net.INSTANCE.sendStealthState(player, state);
 		}
 	}
 

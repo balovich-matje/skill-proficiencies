@@ -33,6 +33,17 @@ public class SpecialitiesClient implements ClientModInitializer {
 
 	@Override
 	public void onInitializeClient() {
+		// These two receivers stay here rather than behind the `Net` seam (design §2
+		// puts a registerClientReceivers() on it). Measured reason: `Net` and its
+		// implementation live in `src/main`, and `net.minecraft.client` is not on that
+		// source set's compile classpath — a probe calling
+		// ClientPlayNetworking.registerGlobalReceiver from `src/main` fails with
+		// "cannot access Minecraft / class file for net.minecraft.client.Minecraft not
+		// found". Keeping the split source sets is design §1.4, so the seam cannot
+		// reach here. This file is Fabric-only anyway (it *implements*
+		// ClientModInitializer), which is the same reason §2 gives for the HUD hook
+		// not being a seam. Below 1.20.5 these two lines fork in place, like the
+		// registration in FabricNet.
 		ClientPlayNetworking.registerGlobalReceiver(SkillUpdatePayload.TYPE,
 				(payload, context) -> SkillHudState.onUpdate(payload, context.client()));
 		ClientPlayNetworking.registerGlobalReceiver(StealthStatePayload.TYPE,

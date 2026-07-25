@@ -1,11 +1,9 @@
 package com.specialities.skills;
 
 import com.specialities.api.SkillType;
-import com.specialities.SkillUpdatePayload;
 import com.specialities.config.ConfigManager;
+import com.specialities.platform.Net;
 import com.specialities.platform.SkillStore;
-
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 
@@ -83,7 +81,7 @@ public final class SkillManager {
 			DefencePassives.apply(player);
 		}
 
-		ServerPlayNetworking.send(player, new SkillUpdatePayload(
-				skill.id(), old.totalXp(skill), newTotal, old.level(skill), updated.level(skill)));
+		Net.INSTANCE.sendSkillUpdate(player,
+				skill.id(), old.totalXp(skill), newTotal, old.level(skill), updated.level(skill));
 	}
 }
