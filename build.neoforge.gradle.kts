@@ -90,6 +90,22 @@ neoForge {
 	}
 }
 
+// LOADER-AXIS EXCLUSIONS (conventions §5e-ter), the mirror of build.fabric.gradle.kts's block:
+// this node compiles the NeoForge seam implementations and neither the Fabric nor the Forge
+// ones. The naming rule the globs depend on is documented there.
+sourceSets["main"].java.exclude(
+	"com/specialities/platform/Fabric*.java",
+	"com/specialities/platform/Forge*.java",
+	"com/specialities/platform/SpecialitiesForge.java",
+)
+sourceSets["client"].java.exclude(
+	"com/specialities/client/Forge*.java",
+)
+// The optional Cloth Config / Mod Menu UI is Fabric-only tooling and neither is pinned for this
+// node, so those two files have no classpath here either — same reason the Fabric nodes below
+// 26.1 exclude them.
+sourceSets["client"].java.exclude("com/specialities/client/config/**")
+
 java {
 	withSourcesJar()
 	sourceCompatibility = requiredJava

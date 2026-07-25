@@ -10,10 +10,17 @@ import com.specialities.skills.Skill;
 // Both hand the callback a `CreativeModeTab.Output`, so the 30 accepts below are
 // shared: `FabricItemGroupEntries` implements that interface and inherits its
 // `accept(ItemLike)` default.
-//? if >=26.1 {
+// Both loader-axis loaders hand their creative-tab callback a
+// `BuildCreativeModeTabContentsEvent`, which `implements CreativeModeTab.Output` on each — so
+// the thirty accepts stay outside the conditional there too, and only the registration forks.
+//? if fabric && >=26.1 {
 import net.fabricmc.fabric.api.creativetab.v1.CreativeModeTabEvents;
-//?} else {
+//?} elif fabric {
 /*import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
+*///?} elif neoforge {
+/*import com.specialities.platform.NeoForgeEvents;
+*///?} elif forge {
+/*import com.specialities.platform.ForgeEvents;
 *///?}
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -72,8 +79,18 @@ public final class ModItems {
 	}
 
 	public static void initialize() {
-		/*? if >=26.1 {*/CreativeModeTabEvents.modifyOutputEvent(CreativeModeTabs.TOOLS_AND_UTILITIES).register(output -> {
-		/*?} else *///ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.TOOLS_AND_UTILITIES).register(output -> {
+		// Registration only — the thirty accepts below are shared by every node. A loader
+		// helper takes (ResourceKey<CreativeModeTab>, Consumer<CreativeModeTab.Output>) and
+		// must fire once for that tab, on the mod event bus.
+		//? if fabric && >=26.1 {
+		CreativeModeTabEvents.modifyOutputEvent(CreativeModeTabs.TOOLS_AND_UTILITIES).register(output -> {
+		//?} elif fabric {
+		/*ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.TOOLS_AND_UTILITIES).register(output -> {
+		*///?} elif neoforge {
+		/*NeoForgeEvents.creativeTabOutput(CreativeModeTabs.TOOLS_AND_UTILITIES, output -> {
+		*///?} elif forge {
+		/*ForgeEvents.creativeTabOutput(CreativeModeTabs.TOOLS_AND_UTILITIES, output -> {
+		*///?}
 			output.accept(MINING_KNOWLEDGE_25);
 			output.accept(MINING_KNOWLEDGE_100);
 			output.accept(WOODCUTTING_KNOWLEDGE_25);

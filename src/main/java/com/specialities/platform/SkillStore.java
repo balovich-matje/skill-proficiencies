@@ -39,7 +39,15 @@ import org.jspecify.annotations.Nullable;
  * these values stays exactly where it was, shared by every node.
  */
 public interface SkillStore {
+	// See the note on Platform.INSTANCE for the form, and for the source-set exclusion the three
+	// mutually exclusive implementations need.
+	//? if fabric {
 	SkillStore INSTANCE = new FabricSkillStore();
+	//?} elif neoforge {
+	/*SkillStore INSTANCE = new NeoForgeSkillStore();
+	*///?} elif forge {
+	/*SkillStore INSTANCE = new ForgeSkillStore();
+	*///?}
 
 	/**
 	 * Registers whatever the platform needs before any world can load —

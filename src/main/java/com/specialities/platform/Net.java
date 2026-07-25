@@ -5,6 +5,21 @@ package com.specialities.platform;
 /*import com.specialities.skills.PlayerSkills;
 *///?}
 
+// Only the loaders whose payload registration takes the client handler as an argument need
+// these — see `clientReceivers` at the bottom of this file.
+//? if fabric {
+//?} else {
+/*import java.util.function.Consumer;
+
+import com.specialities.SkillUpdatePayload;
+import com.specialities.StealthStatePayload;
+*///?}
+// The third wire id exists only below 1.20.5 (design R-03), so only the loader that is below
+// that line has a third sink to install.
+//? if forge {
+/*import com.specialities.SkillsFullPayload;
+*///?}
+
 import net.minecraft.server.level.ServerPlayer;
 
 /**
@@ -27,11 +42,28 @@ import net.minecraft.server.level.ServerPlayer;
  * payload object: below 1.20.5 the payload class itself has a different
  * supertype, so only the implementation may name it.
  *
- * <p>Client-side receiver registration is deliberately NOT here; see the note in
- * {@code client/SpecialitiesClient}.
+ * <p><b>On Fabric, client-side receiver registration is deliberately NOT here</b>
+ * — a seam in {@code src/main} cannot reach client-only API (measured; conventions
+ * §5g), so it lives in {@code client/SpecialitiesClient}. That still holds. What
+ * Phase B adds is not a receiver but a SINK INSTALLER: NeoForge's
+ * {@code PayloadRegistrar.playToClient(TYPE, CODEC, handler)} and Forge's
+ * {@code SimpleChannel.registerMessage(index, class, encoder, decoder, handler)}
+ * take the handler as an ARGUMENT to the one registration call, which has to run
+ * in common init because a dedicated server must register the type too. So the
+ * client hands its two (or three) consumers down, and registration still happens
+ * exactly where it does on every other node. Nothing in {@code src/main} names a
+ * client type. See {@link #clientReceivers} at the bottom.
  */
 public interface Net {
+	// See the note on Platform.INSTANCE for the form, and for the source-set exclusion the three
+	// mutually exclusive implementations need.
+	//? if fabric {
 	Net INSTANCE = new FabricNet();
+	//?} elif neoforge {
+	/*Net INSTANCE = new NeoForgeNet();
+	*///?} elif forge {
+	/*Net INSTANCE = new ForgeNet();
+	*///?}
 
 	/** Registers the clientbound payload types. Called once from common init. */
 	void registerClientbound();
@@ -54,5 +86,31 @@ public interface Net {
 	//? if >=1.20.5 {
 	//?} else {
 	/*void sendSkillsFull(ServerPlayer player, PlayerSkills skills);
+	*///?}
+
+	// THE SINK INSTALLER — the one member on this seam that does not exist on Fabric.
+	//
+	// Installs the client-side handlers that a one-call payload registration needs. Called from
+	// client init, BEFORE the registration event fires and therefore before any packet can
+	// arrive; an implementation stores the consumers and reads them from inside the handler it
+	// hands the platform. The registration itself stays in `registerClientbound()`, i.e. in
+	// common init, which is what keeps a dedicated server able to send.
+	//
+	// Two gated declarations rather than one with a nested arity fork: the alternative needs a
+	// directive inside an already-disabled branch and the `*` -> `^` marker escalation
+	// (conventions §4), which is the case that fails silently. The arity difference is real —
+	// below 1.20.5 there is a third wire id (design R-03) and above it there is not.
+	//
+	// Consumers are called on the client thread; the implementation is responsible for
+	// scheduling (`enqueueWork` on both loaders), exactly as fabric-api's typed receiver does
+	// with `Minecraft.execute`.
+	//? if fabric {
+	//?} elif neoforge {
+	/*void clientReceivers(Consumer<SkillUpdatePayload> onSkillUpdate,
+			Consumer<StealthStatePayload> onStealthState);
+	*///?} elif forge {
+	/*void clientReceivers(Consumer<SkillUpdatePayload> onSkillUpdate,
+			Consumer<StealthStatePayload> onStealthState,
+			Consumer<SkillsFullPayload> onSkillsFull);
 	*///?}
 }

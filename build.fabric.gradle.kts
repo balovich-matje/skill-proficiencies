@@ -116,6 +116,30 @@ if (sc.current.parsed < "26.1") {
 	sourceSets["client"].java.exclude("com/specialities/client/config/**")
 }
 
+// LOADER-AXIS EXCLUSIONS (conventions §5e-ter), and they must be here BEFORE the first
+// NeoForge/Forge file lands or every Fabric node breaks the moment one does.
+//
+// The three seam implementations are mutually exclusive: `platform/{SkillStore,Net,Platform}`
+// pick theirs with an inline `//? if fabric / elif neoforge / elif forge` on the INSTANCE
+// initializer, and the two classes a node does not pick name loader API it has no classpath
+// for. Same for each loader's `@Mod` entrypoint and its event/client helpers.
+//
+// NAMING RULE these globs depend on: a file that exists for one loader only is named after
+// that loader — `NeoForge*` / `Forge*` in `com/specialities/platform/` and
+// `com/specialities/client/`, plus the two entrypoint classes. `Forge*` does not match
+// `NeoForge*` (the pattern is anchored), which is what lets each node exclude exactly the
+// other's files.
+sourceSets["main"].java.exclude(
+	"com/specialities/platform/NeoForge*.java",
+	"com/specialities/platform/Forge*.java",
+	"com/specialities/platform/SpecialitiesNeoForge.java",
+	"com/specialities/platform/SpecialitiesForge.java",
+)
+sourceSets["client"].java.exclude(
+	"com/specialities/client/NeoForge*.java",
+	"com/specialities/client/Forge*.java",
+)
+
 java {
 	// Loom attaches this to remapSourcesJar and to `build` automatically.
 	withSourcesJar()

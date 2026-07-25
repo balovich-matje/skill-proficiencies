@@ -11,8 +11,20 @@ import com.specialities.StealthStatePayload;
 
 import com.specialities.client.mixin.AbstractContainerScreenAccessor;
 
+// LOADER AXIS: this file keeps its class, its HUD_SHIFT constant (GuiMixin reads it) and every
+// line of UI logic on every loader. Only the WIRING forks — the entrypoint interface, the two
+// payload receivers, and the four fabric-api screen calls — and each loader's arm hands the
+// same shared lambda to a client-side helper the node's own agent writes. A client-side helper
+// is unavoidable rather than a seam member: `com.specialities.platform` lives in `src/main`,
+// which cannot see `net.minecraft.client` at all (measured, conventions §5g).
+//? if fabric {
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+//?} elif neoforge {
+/*import com.specialities.platform.Net;
+*///?} elif forge {
+/*import com.specialities.platform.Net;
+*///?}
 // The whole `client.rendering.v1.hud` package (HudElementRegistry / VanillaHudElements /
 // HudElement) arrived in fabric-rendering-v1 16.x, i.e. at 1.21.11. 0.116.14+1.21.1 ships
 // fabric-rendering-v1 3.x, which has no `hud` subpackage at all — checked by compiling this
@@ -23,14 +35,22 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
 //?}
+// The loader arms need no import for their helper: `NeoForgeClientEvents` / `ForgeClientEvents`
+// live in this same package (they have to — a client helper cannot live behind the seam).
+//? if fabric {
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
+//?}
 
 //? if >=1.21.11 {
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement;
 //?}
 
-//? if >=1.20.5 {
+// Needed wherever the receiver handler does not get a context object that already carries the
+// client: below 1.20.5 on Fabric, and on both loader-axis loaders (their sink consumers take
+// the payload and nothing else). `fabric &&` scopes the fabric-api boundary to Fabric; it is
+// not a new one.
+//? if fabric && >=1.20.5 {
 //?} else {
 /*import net.minecraft.client.Minecraft;
 *///?}
@@ -42,7 +62,13 @@ import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 
+// Only the declaration forks — see the same shape on `Specialities`. On the loader axis
+// `onInitializeClient()` is a plain public method the node's client-setup hook calls.
+//? if fabric {
 public class SpecialitiesClient implements ClientModInitializer {
+//?} else {
+/*public class SpecialitiesClient {
+*///?}
 	/**
 	 * How far the vanilla bottom HUD (XP bar, level number, hearts, food, armor,
 	 * air, mount health) is raised to make room for the skill XP bar, which takes
@@ -50,7 +76,9 @@ public class SpecialitiesClient implements ClientModInitializer {
 	 */
 	public static final int HUD_SHIFT = 7;
 
+	//? if fabric {
 	@Override
+	//?}
 	public void onInitializeClient() {
 		// These two receivers stay here rather than behind the `Net` seam (design §2
 		// puts a registerClientReceivers() on it). Measured reason: `Net` and its
@@ -77,12 +105,35 @@ public class SpecialitiesClient implements ClientModInitializer {
 		// entry in SkillHudState.onUpdate, which keeps `SkillManager.get(minecraft.player)`
 		// — what the HUD bar and the skills screen both read — correct without either of
 		// them knowing the difference.
-		//? if >=1.20.5 {
+		//
+		// ON THE LOADER AXIS THERE IS NOTHING TO REGISTER HERE, and that is not the seam being
+		// widened by the back door: NeoForge's `playToClient(TYPE, CODEC, handler)` and Forge's
+		// `registerMessage(index, class, encoder, decoder, handler)` take the handler as an
+		// argument to the ONE registration call, which has to run in common init because a
+		// dedicated server must register the type too. So the client hands its consumers DOWN
+		// through `Net.clientReceivers` and the registration still happens in
+		// `Net.registerClientbound()`. Nothing in `src/main` names a client type; this line is
+		// the only direction that crosses.
+		//
+		// It must run BEFORE the platform's registration event fires. Both loaders' client-setup
+		// hooks run after mod construction, so the node's client entrypoint installs the sinks
+		// from the mod constructor, not from client setup — the node's own agent owns that
+		// ordering and must assert it on the Tier-2 boot.
+		//? if fabric && >=1.20.5 {
 		ClientPlayNetworking.registerGlobalReceiver(SkillUpdatePayload.TYPE,
 				(payload, context) -> SkillHudState.onUpdate(payload, context.client()));
 		ClientPlayNetworking.registerGlobalReceiver(StealthStatePayload.TYPE,
 				(payload, context) -> StealthVignette.onUpdate(payload, context.client()));
-		//?} else {
+		//?} elif neoforge {
+		/*Net.INSTANCE.clientReceivers(
+				payload -> SkillHudState.onUpdate(payload, Minecraft.getInstance()),
+				payload -> StealthVignette.onUpdate(payload, Minecraft.getInstance()));
+		*///?} elif forge {
+		/*Net.INSTANCE.clientReceivers(
+				payload -> SkillHudState.onUpdate(payload, Minecraft.getInstance()),
+				payload -> StealthVignette.onUpdate(payload, Minecraft.getInstance()),
+				payload -> SkillStore.INSTANCE.setSkills(Minecraft.getInstance().player, payload.skills()));
+		*///?} else {
 		/*ClientPlayNetworking.registerGlobalReceiver(SkillUpdatePayload.TYPE,
 				(payload, player, responseSender) -> SkillHudState.onUpdate(payload, Minecraft.getInstance()));
 		ClientPlayNetworking.registerGlobalReceiver(StealthStatePayload.TYPE,
@@ -119,7 +170,17 @@ public class SpecialitiesClient implements ClientModInitializer {
 				Specialities.id("stealth_vignette"), StealthVignette::render);
 		//?}
 
+		// Registration only — every line of the tab/button construction below, including its two
+		// `>=26.2` screen-management forks, is shared. A loader helper's listener takes the same
+		// four parameters in the same order (Minecraft, Screen, int, int) and must fire AFTER the
+		// screen's widgets exist.
+		//? if fabric {
 		ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
+		//?} elif neoforge {
+		/*NeoForgeClientEvents.afterScreenInit((client, screen, scaledWidth, scaledHeight) -> {
+		*///?} elif forge {
+		/*ForgeClientEvents.afterScreenInit((client, screen, scaledWidth, scaledHeight) -> {
+		*///?}
 			if (screen instanceof InventoryScreen) {
 				// Survival inventory: a bookmark on the top edge, clear of
 				// the effect list vanilla draws to the panel's right. The
@@ -130,15 +191,30 @@ public class SpecialitiesClient implements ClientModInitializer {
 						/*? if >=26.2 {*/() -> client.gui.setScreen(new SkillsScreen(screen)));
 						/*?} else *///() -> client.setScreen(new SkillsScreen(screen)));
 				anchorTab((AbstractContainerScreen<?>) screen, tab);
-				// fabric-screen-api-v1 renamed the accessor: getButtons below 26.1.
-				//? if >=26.1 {
+				// fabric-screen-api-v1 renamed the accessor: getButtons below 26.1. The loader
+				// helper adds the widget to the screen's own renderable+event lists; it is the
+				// one call here with no vanilla equivalent, since `Screen.addRenderableWidget`
+				// is protected.
+				//? if fabric && >=26.1 {
 				Screens.getWidgets(screen).add(tab);
-				//?} else {
+				//?} elif fabric {
 				/*Screens.getButtons(screen).add(tab);
+				*///?} elif neoforge {
+				/*NeoForgeClientEvents.addWidget(screen, tab);
+				*///?} elif forge {
+				/*ForgeClientEvents.addWidget(screen, tab);
 				*///?}
 
+				//? if fabric {
 				ScreenEvents.afterTick(screen).register(
 						s -> anchorTab((AbstractContainerScreen<?>) s, tab));
+				//?} elif neoforge {
+				/*NeoForgeClientEvents.afterScreenTick(screen,
+						s -> anchorTab((AbstractContainerScreen<?>) s, tab));
+				*///?} elif forge {
+				/*ForgeClientEvents.afterScreenTick(screen,
+						s -> anchorTab((AbstractContainerScreen<?>) s, tab));
+				*///?}
 			} else if (screen instanceof CreativeModeInventoryScreen) {
 				// Creative keeps the compact square to the panel's right:
 				// the top edge belongs to the real creative tabs, and
@@ -150,14 +226,26 @@ public class SpecialitiesClient implements ClientModInitializer {
 						.tooltip(Tooltip.create(Component.translatable("screen.specialities.skills")))
 						.build();
 				anchorButton((AbstractContainerScreen<?>) screen, button);
-				//? if >=26.1 {
+				//? if fabric && >=26.1 {
 				Screens.getWidgets(screen).add(button);
-				//?} else {
+				//?} elif fabric {
 				/*Screens.getButtons(screen).add(button);
+				*///?} elif neoforge {
+				/*NeoForgeClientEvents.addWidget(screen, button);
+				*///?} elif forge {
+				/*ForgeClientEvents.addWidget(screen, button);
 				*///?}
 
+				//? if fabric {
 				ScreenEvents.afterTick(screen).register(
 						s -> anchorButton((AbstractContainerScreen<?>) s, button));
+				//?} elif neoforge {
+				/*NeoForgeClientEvents.afterScreenTick(screen,
+						s -> anchorButton((AbstractContainerScreen<?>) s, button));
+				*///?} elif forge {
+				/*ForgeClientEvents.afterScreenTick(screen,
+						s -> anchorButton((AbstractContainerScreen<?>) s, button));
+				*///?}
 			}
 		});
 	}

@@ -17,7 +17,13 @@ import com.specialities.skills.SkillManager;
 import com.specialities.skills.SkillTypes;
 import com.specialities.skills.Tuning;
 
+//? if fabric {
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+//?} elif neoforge {
+/*import com.specialities.platform.NeoForgeEvents;
+*///?} elif forge {
+/*import com.specialities.platform.ForgeEvents;
+*///?}
 
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -82,7 +88,17 @@ public final class SkillCommands {
 	}
 
 	public static void register() {
+		// The whole command tree — including its `>=1.21.11` permission fork — is built by the
+		// private overload below and is shared. `RegisterCommandsEvent` is verified identical on
+		// both loader-axis loaders (`getDispatcher()`/`getCommandSelection()`/`getBuildContext()`),
+		// so their helpers differ only in which package the event class comes from.
+		//? if fabric {
 		CommandRegistrationCallback.EVENT.register((dispatcher, buildContext, selection) -> register(dispatcher));
+		//?} elif neoforge {
+		/*NeoForgeEvents.registerCommands(SkillCommands::register);
+		*///?} elif forge {
+		/*ForgeEvents.registerCommands(SkillCommands::register);
+		*///?}
 	}
 
 	private static void register(final CommandDispatcher<CommandSourceStack> dispatcher) {

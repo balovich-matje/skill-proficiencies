@@ -21,23 +21,29 @@ import com.specialities.api.SkillsEntrypoint;
  * published API surface; {@code api/SkillType} and {@code api/SkillRegistrar}
  * stay byte-identical either way).
  *
- * <p>{@link #INSTANCE} is unconditional on purpose. Every registered node is a
- * Fabric node, so a loader-constant block around it would be a branch no build
- * can exercise, and a disabled branch naming a class that does not exist yet is
- * the silently-wrong case. Phase B forks exactly this line using the INLINE
- * (expression) directive form — the initializer is a fragment, not a whole
- * statement, so the directive cannot own its own line; conventions §4 has the
- * literal syntax, and {@code client/SpecialitiesClient} has two worked examples
- * of it in the tree. It must also exclude the unused implementation class from
- * that node's source set, the way {@code client/config} is excluded below 26.1
- * (conventions §5e-ter).
+ * <p>{@link #INSTANCE} forks per loader as a three-arm BLOCK chain, with the
+ * whole field declaration in each arm. The inline (expression) form the
+ * maintained multiloader template uses for its own {@code ModLoaderAccess}
+ * cannot do this: measured, a single-line {@code elif} closes the block, so a
+ * second one fails preprocessing with "Unmatched scope closer". Chains of three
+ * or more arms are block-form only. The three implementation classes are
+ * mutually exclusive, so each node's build script also excludes the two it does
+ * not use from the source set, the way {@code client/config} is excluded below
+ * 26.1 (conventions §5e-ter). Naming rule that keeps those globs simple: a file
+ * that exists for one loader only is named after that loader.
  *
  * <p>No directive token is written out here on purpose: Stonecutter scans
  * javadoc like any other text, so a sample directive in a comment is a live
  * directive.
  */
 public interface Platform {
+	//? if fabric {
 	Platform INSTANCE = new FabricPlatform();
+	//?} elif neoforge {
+	/*Platform INSTANCE = new NeoForgePlatform();
+	*///?} elif forge {
+	/*Platform INSTANCE = new ForgePlatform();
+	*///?}
 
 	/** The instance config directory; the mod writes {@code specialities.json} into it. */
 	Path configDir();
