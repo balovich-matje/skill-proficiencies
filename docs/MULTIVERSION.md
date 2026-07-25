@@ -920,7 +920,22 @@ Three tiers. **Claude does tiers 1 and 2 only. The mod is never launched as a cl
 ./gradlew :<node>:build                        # one node
 ```
 
-What this actually catches, per node: mojmap resolution, Java level, **and — because both mixin configs keep `injectors.defaultRequire: 1` — every one of the 31 injection points must resolve or the build's mixin-apply stage fails hard.** That is the single most valuable regression signal in this project; keep `defaultRequire: 1` on every variant.
+What this actually catches, per node: mojmap resolution and Java level. That is all.
+
+> **CORRECTED IN STAGE 4 — the original claim here was false and it cost a stage.** This
+> paragraph used to say that "because both mixin configs keep `injectors.defaultRequire: 1`,
+> every one of the 31 injection points must resolve or the build's mixin-apply stage fails
+> hard". **There is no build mixin-apply stage.** Loom never applies mixins — Mixin is a
+> *runtime* transformer, and `defaultRequire` is only consulted when a target class is first
+> loaded. Measured in Stage 4a: `:1.21.1-fabric:build` was **green** while
+> `LivingEntityMixin` targeted `hurtServer(…)Z`, which does not exist on that node; the
+> failure surfaced only as `InvalidInjectionException` killing the dedicated server on boot.
+> The same run also proved `ServerPlayerMixin.jumpFromGround` unresolvable. So:
+> **Tier 2 is the injector gate, not Tier 1**, and a Tier-2 run that does not force-load the
+> target classes leaves the injectors on lazily-loaded classes (`EnchantmentHelper`, `Player`,
+> `LivingEntity`) unverified — see the Tier-2 table below. Keep `defaultRequire: 1` on every
+> variant anyway: it is what turns a stale target into a loud crash instead of a silent
+> balance loss.
 
 Add per node: `-Dmixin.debug.export=true` (already in the run config) writes transformed classes to `run/.mixin.out/` — the way to confirm R-07's ordinal and the R-08 handler stacking without playing.
 
@@ -934,11 +949,11 @@ Assert from `run/logs/latest.log`:
 
 | Check | Signal |
 |---|---|
-| Mixin application | zero `Mixin apply failed` / `InvalidInjectionException`; with `defaultRequire: 1` a bad target is fatal |
+| Mixin application | zero `Mixin apply failed` / `InvalidInjectionException`; with `defaultRequire: 1` a bad target is fatal. **Assert the applied count, not just the absence of errors** — `Preparing specialities.mixins.json (15)` must be matched by 15 `Mixing … into` lines. Mixins apply lazily, so the driver has to force-load the stragglers: `EnchantmentHelper` via `loot spawn … chests/stronghold_library` (`enchant_with_levels` is the only console-reachable path), and `Player`/`LivingEntity` via `summon` + `damage`. Without that, a bare boot reports 14/15 and four injectors go unverified |
 | Common init order | `ConfigManager.load` → `SkillTypes.pullEntrypoints` → `SkillStore.INSTANCE.initialize` → `ModItems` → `Net.INSTANCE.registerClientbound` → `SkillEvents.register` → `SkillCommands.register` (the first two names are what they became in Stage 3; `docs/ARCHITECTURE.md` was corrected in the same commit) |
 | Skill registry validation | 15 built-ins accepted, no `IllegalArgumentException` from `SkillTypes` |
 | Item registration | 30 knowledge books registered |
-| Datapack tags | **no tag-loading errors** — this is the check that catches R-16 (`#minecraft:spears`, `mace`, copper armor, `#minecraft:pickaxes`) |
+| Datapack tags | **no tag-loading errors** — this is the check that catches R-16 (`#minecraft:spears`, `mace`, copper armor, `#minecraft:pickaxes`). The negative grep is `missing following references` / `Couldn't load tag`. Stage 4 added a **positive** probe, because a silently-dropped tag produces no log line at all once `required:false` is in play: `clear @a #specialities:<tag>` resolves the tag at command *parse* time, so a loaded tag answers `No player was found` while a missing one answers `Unknown item tag`. Probe all six (`melee_weapons`, `ranged_weapons`, `weapons`, `heavy_armor`, `smithing_items`, `smelted_metals`) plus one deliberately absent id as the control — that is what proves the R-16 cascade (`melee_weapons` → `weapons` → `smithing_items`) did not fire |
 | Config round-trip | `config/specialities.json` written with all five knobs after first boot |
 | Commands | `/skillprof` present in the dispatcher (server console `help skillprof`) |
 | Clean shutdown | `stop` on stdin exits 0 |

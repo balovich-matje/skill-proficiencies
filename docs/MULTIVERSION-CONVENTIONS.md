@@ -5,8 +5,9 @@ This file is the **normative** half of the port. The full reasoning lives in
 mirrored into the gitignored `CLAUDE.md` so a fresh session sees it; **this file is the
 versioned copy and wins if the two ever disagree.**
 
-Landed in Stage 1 (branch `workspace`). Registered nodes: `26.2-fabric` (active + VCS),
-`26.1-fabric`.
+Frozen in Stage 1 (branch `workspace`). Registered nodes as of Stage 4: **`26.2-fabric`
+(active + VCS), `26.1-fabric`, `1.21.11-fabric`, `1.21.1-fabric`** — all four build, and all
+four boot a real headless dedicated server clean.
 
 ---
 
@@ -62,8 +63,8 @@ boundary (`>=26` vs `>=26.1`) is the most likely silent-divergence bug in this p
 |---|---|---|
 | `>=26.2` | 26.2 | `BlockItemTags`; `advancements.triggers`; `Minecraft.gui.setScreen`/`toastManager()` |
 | `>=26.1` | 26.2, 26.1 | Java 25; Cloth/ModMenu artifacts; `ItemInstance` (the `Block.getDrops` tool param and the matching `EnchantmentHelper.getItemEnchantmentLevel` overload); the extract-vs-immediate render hooks (`GuiGraphicsExtractor`, `Screen`/`AbstractWidget`/`Toast`/`HudElement` `extract*` vs `render*`, `text()` vs `drawString()`, `fakeItem()` vs `renderFakeItem()`); **fabric-api:** `PayloadTypeRegistry.clientboundPlay()/serverboundPlay()` (vs `playS2C()/playC2S()`), `creativetab.v1.CreativeModeTabEvents` (vs `itemgroup.v1.ItemGroupEvents`), `Screens.getWidgets` (vs `getButtons`) |
-| `>=1.21.11` | 26.x, 1.21.11 | `Identifier`; **`net.minecraft.util.Util`**; `HudElementRegistry`; `.projectile.arrow` package; `ItemTags.SPEARS`; **`Items.IRON_SPEAR`**; `getAtlasManager`; `AtlasIds`; `getFieldOfViewModifier(ZF)F`; `MouseButtonEvent`; `pose()` returning `Matrix3x2fStack`; **`PermissionCheck.Require`** / the `net.minecraft.server.permissions` stack; copper armor; `advancements.criterion` (vs `critereon` below) |
-| `>=1.21.2` | 26.x, 1.21.11 | `LivingEntity.hurtServer`; `InteractionResult` returns; `Equippable`; `MobEffects.SPEED` |
+| `>=1.21.11` | 26.x, 1.21.11 | `Identifier`; **`net.minecraft.util.Util`**; `HudElementRegistry`/`VanillaHudElements`/`HudElement` (the whole `client.rendering.v1.hud` package); `.projectile.arrow` package; `ItemTags.SPEARS`; **`Items.IRON_SPEAR`**; `getAtlasManager`; `AtlasIds`; `getFieldOfViewModifier(ZF)F`; `MouseButtonEvent`; `pose()` returning `Matrix3x2fStack`; **`PermissionCheck.Require`** / the `net.minecraft.server.permissions` stack; copper armor; `advancements.criterion` (vs `critereon` below) — **added in Stage 4a:** `net.minecraft.util.ARGB` (vs `FastColor.ARGB32`); `RenderPipelines`; the 3-arg `Toast.render` interface shape and `ToastManager` (vs `ToastComponent` + a `Visibility render(GuiGraphics, ToastComponent, long)` that draws *and* returns visibility, with no `getSoundEvent()`); `Minecraft.getToastManager()` (vs `getToasts()`); `client.input.MouseButtonEvent` in widget/screen click signatures (vs `onClick(double,double)` / `mouseClicked(double,double,int)`); `setTooltipForNextFrame` (vs `renderTooltip(Font,List,Optional,int,int)`); `Item$Properties.setId`; jspecify-vs-jetbrains `@Nullable` (§5e-bis); `ServerPlayer.jumpFromGround` (it is on `Player` below, and runs on both sides there); `EnchantmentHelper.getComponentType` being **public** (private on 1.21.1); `client.renderer.item.properties.numeric.UseDuration` + `net.minecraft.world.entity.ItemOwner` |
+| `>=1.21.2` | 26.x, 1.21.11 | `LivingEntity.hurtServer` (this is §3.2's worked example, and it had **never actually landed** until Stage 4a); `InteractionResult` returns (`Item.use` returns `InteractionResultHolder<ItemStack>` below); `Equippable` / the `minecraft:equippable` component (below: `net.minecraft.world.item.Equipable`, implemented by both `ArmorItem` and `ElytraItem`); `MobEffects.SPEED` (the rename of `MOVEMENT_SPEED`) |
 | `>=1.21` | 26.x, 1.21.11, 1.21.1 | `Holder<Attribute>`; `ResourceKey` enchantments; data components; **singular `tags/item/` datapack directory** |
 | `>=1.20.5` | everything but 1.20.1 | `StreamCodec`/`RegistryFriendlyByteBuf`; the whole payload stack; Java 21 |
 
@@ -94,6 +95,21 @@ boundary was one step off. Recorded so nobody "restores" them:
   the same one `build.fabric.gradle.kts` already used for the module swap.
 - `ItemInstance` and the extract-vs-immediate render surface were never listed at all; they
   are the two largest `>=26.1` deltas in the tree and now say so.
+
+**Stage 4a added rows but invented no predicate.** All 67 new blocks for `1.21.1-fabric` sit
+on `>=1.21.11` (57) or `>=1.21.2` (10), and six existing two-branch blocks became three-branch
+`elif` chains (`>=26.2` / `>=26.1` / `>=1.21.11` / else). Two process notes worth keeping:
+
+- **Chains, never nesting.** Where a line already forked at `>=26.1` and needed a third
+  behaviour at 1.21.1, the fix is another `elif` arm on the *same* block, not a `//?` inside a
+  disabled branch. Nesting needs the `*` → `^` marker escalation of §4 and fails silently when
+  got wrong.
+- **Nine of the deltas were on nobody's list.** `Item$Properties.setId`, `MobEffects.SPEED`,
+  the `InteractionResult` return, both `Artisan` blocks, the whole Toast-interface rewrite,
+  `getToasts()`, jspecify, `LivingEntityMixin.hurtServer` and
+  `ServerPlayerMixin.jumpFromGround` came out of the compiler, the boot log and the target
+  audit — not out of the design's §3.3/§3.4 prediction, which covered roughly half the real
+  surface. Budget a mapping-audit pass per node, and expect the boot to find the rest.
 
 ## 4. `//?` comment syntax (the authoritative forms)
 
@@ -134,19 +150,59 @@ comment marker `*` → `^`:
 *///?}
 ```
 
-`//?` works in JSON too (both scanners exist), but see §6 for why the tag JSONs do not
-need it — **and it is not safe in every JSON file the mod ships.** An enabled branch leaves
-its own directive line behind as a `//` comment, and a disabled branch is wrapped in
-`/* … */`, so the output is only valid input for a *lenient* JSON reader. Measured in
-Stage 2 (javap, fabric-loader 0.19.3 / sponge-mixin 0.17.3):
+### `//?` DOES NOT WORK IN ANY `.json` FILE — corrected in Stage 4a
 
-| File | Parser | `//?` safe? |
+**This table said "yes" for the two mixin configs until Stage 4a, and that error is
+crash-level. Do not restore it.** Stage 2 verified only that Mixin's *parser* tolerates a
+leftover directive. It never verified that Stonecutter would ever put one there. **It will
+not: Stonecutter does not process `.json` at all.** Ground truth, read out of the 0.9.7
+sources jar: `dev/kikugie/stonecutter/controller/file/Defaults.kt` registers file handlers
+for exactly `java, scala, sc, groovy, gradle, json5, kt, kts, fsh, vsh, cfg, aw,
+accesswidener, ct, classtweaker, yml, yaml` — **`json5` is there, `json` is not** — and
+`StonecutterBuildImpl` filters the prepare task's input to that extension set.
+
+Measured, not reasoned: with a `//?` directive written in place in
+`src/client/resources/specialities.client.mixins.json`, the shipped **1.21.1 jar carried the
+directive verbatim** — a config still listing `UseDurationMixin` (absent on that node) and
+commenting out `GuiMixin` (required on that node). That is a guaranteed hard crash on the
+first client launch, produced by a green build.
+
+| File | `//?` processed by Stonecutter? | Verdict |
 |---|---|---|
-| `specialities.mixins.json`, `specialities.client.mixins.json` | Mixin: `new Gson().fromJson(Reader, Class)`; Gson's read path saves `isLenient()` and forces `setLenient(true)` | **yes** |
-| `fabric.mod.json` | Fabric's own bundled `JsonReader`: `lenient = false` in the ctor (`iconst_0`), never set true anywhere in `ModMetadataParser`, and `checkLenient()` throws on a leading `/` | **NO — unloadable mod** |
-| `data/**` tag JSONs, `assets/**` | vanilla `JsonParser`, lenient | yes (but unnecessary — see §6 R-16) |
+| `specialities.mixins.json`, `specialities.client.mixins.json` | **no** — `json` is not a registered file handler | **NO. The directive ships as literal text.** Mixin's lenient Gson would *tolerate* it, which is exactly why the failure is silent in the build and fatal at runtime |
+| `fabric.mod.json` | **no** (same reason) — and even if it were, Fabric's own bundled `JsonReader` has `lenient = false` in the ctor (`iconst_0`), never set true in `ModMetadataParser`, and `checkLenient()` throws on a leading `/` | **NO — unloadable mod** |
+| `data/**` tag JSONs, `assets/**` | **no** (same reason) | **NO** — and unnecessary anyway, see §6 R-16 |
+| a file renamed to `.json5` | yes | works, but Fabric/Mixin/vanilla all read by literal path, so renaming is not an option for any file the game loads by name |
 
-For `fabric.mod.json`, condition the content in `processResources` instead. An `expand`
+**The two mechanisms that do work**, in preference order:
+
+1. **`processResources` conditioning** — plain Kotlin `if (sc.current.parsed …)` in
+   `build.fabric.gradle.kts`, `filter`/`eachFile` on the copy spec. This is how the
+   `modmenu` entrypoint is blanked below 26.1 and how R-16's `tags/item/` → `tags/items/`
+   rename will be done for 1.20.1. **It leaves the 26.x nodes' resource bytes untouched**,
+   which is what keeps the reproduction gate sharp.
+2. **A per-node file override at `versions/<node>/src/…`** — Stonecutter's generate task
+   honours it by construction (`exclude { relativePath.getFile(localSourceFile).exists() }`).
+   This is what Stage 4a used for the 1.21.1 client mixin config. Cost: a duplicated ~20-line
+   file per legacy node, and a **drift hazard every time a client mixin is added or removed** —
+   the override does not inherit. Prefer (1) for anything that will be touched again.
+
+**Rejected, deliberately:** registering `json` in the controller's
+`stonecutter parameters { }` file handlers so the in-place `//?` starts working. It is one
+line, but it routes **every** JSON resource on every non-active node through the generator,
+where the controller's `replacements` also apply — so it can move resource bytes on nodes
+that are supposed to be byte-inert, and it would need its own regression pass. If it is ever
+done, it must be its own commit with the four-node resource-byte gate re-run.
+
+An alternative for a whole file that must vanish on a node is the source-set exclusion of
+§5e-ter, or Stage 4a's variant of it: put the file's **entire body including the type
+declaration** inside the `//?` block, leaving only the `package` line live. A `.java` file
+with no type declaration is a legal, empty compilation unit and produces no `.class` — which
+is how `client/mixin/GuiMixin.java` exists in all four generated trees but is compiled into
+the 1.21.1 jar only. (Its javadoc had to be rewritten as `//` comments first: a `*/` inside a
+disabled branch closes the branch comment early — §5e-ter.)
+
+For `fabric.mod.json`, condition the content in `processResources`. An `expand`
 placeholder is also wrong: it makes the *raw* template invalid JSON, and Loom parses that
 file at configuration time for mod-id detection ("Failed to parse fabric.mod.json").
 Stage 2 gates the `modmenu` entrypoint by blanking its class line below 26.1, which leaves
@@ -199,11 +255,28 @@ regression signal in the project.
 **5e. Java 17 is the shared-code ceiling** once `1.20.1` lands (R-15). Records are fine;
 pattern-matching `switch`, sealed types and unnamed patterns are not.
 
-**5e-bis. `org.jspecify.annotations.Nullable` needs no fork down to 1.21.11.**
-`org.jspecify:jspecify:1.0.0` is one of 1.21.11's *own* vanilla libraries (its version
-manifest lists it), so the import resolves on that node's compile classpath with no block —
-confirmed by `:1.21.11-fabric:build` compiling `LivingEntityMixin` and `SkillCategories`
-untouched. It looks 26.x-only and is not. (Still unverified for 1.21.1/1.20.1.)
+**5e-bis. `org.jspecify.annotations.Nullable` needs no fork down to 1.21.11 — and forks at
+1.21.1.** `org.jspecify:jspecify:1.0.0` is one of 1.21.11's *own* vanilla libraries (its
+version manifest lists it), so the import resolves on that node's compile classpath with no
+block — confirmed by `:1.21.11-fabric:build` compiling `LivingEntityMixin` and
+`SkillCategories` untouched. It looks 26.x-only and is not.
+
+**Measured in Stage 4a: it does NOT resolve on 1.21.1.** That version manifest lists no
+jspecify artifact, and the node failed with `package org.jspecify.annotations does not exist`
+in **nine** files (`MeleeSwing`, `platform/SkillStore`, `platform/FabricSkillStore`,
+`mixin/LivingEntityMixin`, `skills/Artisan`, `skills/SkillCategories`, `client/SkillsScreen`,
+`client/SkillLevelUpToast`, `client/SkillHudState`). `org.jetbrains:annotations:26.0.2` **is**
+on that node's `compileClasspath` (exactly one annotations artifact in
+`:1.21.1-fabric:dependencies`) and its `@Nullable` includes `TYPE_USE` and has the same simple
+name, so the fork is **import-only, on `>=1.21.11`**, and no shared branch loses an
+annotation. Assume 1.20.1 behaves like 1.21.1 until measured.
+
+The cheaper-looking alternative — `if (sc.current.parsed < "1.21.11")
+compileOnly("org.jspecify:jspecify:1.0.0")` in `build.fabric.gradle.kts` (mavenCentral is on
+that node's repository list as Loom's "MavenRepo") — was **not** taken. Nine import-only
+blocks are self-documenting and keep the node's compile classpath equal to what the game
+actually ships; adding a dependency the target version never had hides the boundary from the
+next porter. Do not "simplify" it back.
 
 **5e-ter. A whole file that must vanish on a node leaves via the source set, not via `//?`.**
 `client/config/ClothConfigScreen.java` and `ModMenuIntegration.java` have no classpath below
@@ -236,6 +309,35 @@ Three rules that fall out of it:
   "cannot access Minecraft". Client-side registration therefore stays in
   `client/SpecialitiesClient` and forks in place — same reasoning design §2 uses to reject
   a HUD seam. Do not "complete" the `Net` interface with a client method.
+
+**5h. Below `>=1.21.11` the HUD is a `Gui` mixin, and every `@Mixin` member reference on
+`Gui` must carry a FULL DESCRIPTOR.** Landed in Stage 4a for `1.21.1-fabric`; 1.20.1 will need
+the same shape. There is no `client.rendering.v1.hud` package in fabric-api 0.116.14+1.21.1,
+so `HudElementRegistry` / `VanillaHudElements` / `HudElement` are all absent and nothing can
+be registered. `client/mixin/GuiMixin.java` replaces them: one `@Inject` at `TAIL` of
+`Gui.render(GuiGraphics,DeltaTracker)V` that draws through the **same shared**
+`SkillXpHudBar.render` / `StealthVignette.render` the other nodes call, plus five
+`@WrapMethod`s that translate the pose by `-HUD_SHIFT`, all delegating to one shared
+`@Unique` helper (§5a). This is R-11's "decide explicitly" decision, taken to preserve
+`HUD_SHIFT = 7`, which is part of the Archetypes collision contract.
+
+- The seven raised `VanillaHudElements` ids map onto exactly **five** 1.21.1 methods:
+  `renderJumpMeter` + `renderExperienceBar` (INFO_BAR), `renderExperienceLevel`,
+  `renderPlayerHealth` (armor + hearts + food + air are all inside it), `renderVehicleHealth`.
+  `renderSelectedItemName`, `renderEffects` and the hotbar are deliberately **not** wrapped —
+  their 26.x counterparts are not raised either. That is also why wrapping
+  `renderHotbarAndDecorations` instead is wrong.
+- **Bare method names are not acceptable here.** After remap these five plus `render` become
+  `a`/`b`/`c`/`n`, and `a` alone is overloaded ~20× on `Gui`. Write the full descriptor on all
+  six and verify it in the *shipped* jar against that node's `intermediary` `mappings.tiny`
+  (loom remaps mixin annotations in place — there is no refmap, so what is in the jar is
+  literally what Mixin will use).
+- Blend state: the legacy 14-arg `innerBlit` ends with an unconditional
+  `RenderSystem.disableBlend()`, so inject at/after the experience bar or at `TAIL` of
+  `Gui.render` — see R-17's blend-state note.
+- The whole file is gated `<1.21.11` by putting its **entire body including the class
+  declaration** inside the `//?` block (see §4) — so it compiles to no class on 26.x/1.21.11,
+  and `GuiMixin` is listed only in the 1.21.1 per-node mixin config.
 
 **5f. Build scripts are NOT preprocessed.** Stonecutter only walks the source sets
 (`StonecutterBuildImpl`: `project.sourceSets.all { … }`). Version conditionals in
@@ -287,19 +389,37 @@ Verified against five SHA1-checked vanilla client jars (1.20.1, 1.20.6, 1.21, 1.
   was verified in `TagEntry` bytecode (`RecordCodecBuilder` over `fieldOf("id")` +
   `optionalFieldOf("required")`), not from memory — vanilla itself never uses it.
 
-**Not done in Stage 1 or Stage 2** (no registered node is affected): the six
-`required:false` edits and the `processResources` rename land with the node that needs
-them, i.e. `1.21.1-fabric`. Stage 2 re-proved both halves of this rather than taking them
-on trust — `TagEntry`'s codec is `ExtraCodecs.TAG_OR_ELEMENT_ID.fieldOf("id")` +
+**LANDED IN STAGE 4** (commit `20bdd72`, with the 1.21.1 node). Stage 2 wrote and measured
+the six `required:false` edits but parked them on branch `stage4a-tags-required-false`,
+because they were a no-op until 1.21.1 existed and were the one change that would have moved
+the 26.x jars' resource bytes. Stage 4a cherry-picked that one commit; the branch's other five
+commits were a parallel rebase of work already on `workspace` (patch-ids identical), so the
+branch was **deleted, local and remote, in Stage 4** — nothing was lost.
+
+Stage 2 re-proved both halves rather than taking them on trust — `TagEntry`'s codec is
+`ExtraCodecs.TAG_OR_ELEMENT_ID.fieldOf("id")` +
 `Codec.BOOL.optionalFieldOf("required", TRUE)`, bytecode-identical in all five target jars
 (so `required:false` is valid syntax everywhere, including 1.20.1, and `#`-prefixed tag
 references accept it too), and a real 1.21.11 dedicated server logged **no**
-`missing following references`, confirming all six files load clean on this node.
-The edits were written, measured, and then **parked on branch
-`stage4a-tags-required-false`** rather than landed: they are a no-op until 1.21.1 exists,
-and landing them early is the one change in the whole stage that would have moved the 26.x
-jars' resource bytes and so blunted the reproduction gate. Cherry-pick that branch's tag
-commit when the 1.21.1 node lands.
+`missing following references`.
+
+**Two corrections from the 1.21.1 measurement:**
+
+- Exactly **five** direct entries fail on 1.21.1 — the four `minecraft:copper_*` armor pieces
+  and `#minecraft:spears` (no `data/minecraft/tags/item/spears.json` in that jar).
+  **`minecraft:mace` DOES resolve on 1.21.1** (it is in that version's mojmap `Items`), so
+  design §3.4's parenthetical is wrong and the bullet above is right. Marking `mace` optional
+  anyway is harmless and it stays marked — the entry that *is* present is unaffected.
+- The `tags/item/` (singular) directory is **already correct for 1.21.1** (`>=1.21`), so the
+  `processResources` rename is a **1.20.1-only** concern. Nothing was needed on this node.
+
+**Verified on the real 1.21.1 server in Stage 4**, both directions: zero
+`missing following references` / `Couldn't load tag`, *and* a positive probe —
+`clear @a #specialities:<tag>` for all six tags answered `No player was found` (i.e. the tag
+resolved at parse time) while a deliberately absent control id answered `Unknown item tag`.
+That is what actually rules out the cascade; the absence of an error line does not, because a
+`required:false` drop is by design silent. `/reload` re-ran the datapack load clean. All four
+nodes' servers were re-booted after this change with zero tag diagnostics.
 
 ### R-17 — HUD sprite tinting on legacy (CLOSED GREEN, cost ~0)
 
@@ -354,8 +474,58 @@ Bytecode-proven to be r,g,b,a and to manage its own `enableBlend`/`disableBlend`
   (~half a day), and dropping the converging-icon fade (real feature loss — do not take
   it).
 
+- **CLOSED at 1.21.1 in Stage 4a, exactly as written above — trap included.** `javap -p` of
+  `GuiGraphics` on the real 1.21.1 client jar: the float-RGBA blit
+  `a(int,int,int,int,int,TextureAtlasSprite,float,float,float,float)` is **public**, both
+  sprite-taking `blitSprite` overloads are **private**, and `setColor(float,float,float,float)`
+  and the two `blitSprite(ResourceLocation, …)` forms are public. Every tinted sprite draw went
+  through the public float-RGBA blit; `iconAlpha` stayed an int 0..255 divided at the call site
+  (§5b) and no easing was forked.
+- **What R-17 did not predict, and it is the bigger half of the client work on this node:**
+  `net.minecraft.util.ARGB` is absent below 1.21.11 → `FastColor.ARGB32` (identical member
+  names and shapes: `color(int,int)`, `colorFromFloat`, `alpha`/`red`/`green`/`blue`). Those
+  lines already forked at `>=26.1`, which is what turned three blocks into `elif` chains.
+  `StealthVignette` has no colour-taking blit overload at all on 1.21.1, so it calls `setColor`
+  first — which is how vanilla's own `Gui.renderTextureOverlay` tints there — with blend armed
+  by hand per the blend-state note. And the bar background keeps honouring `BASE_ALPHA` via
+  `Minecraft.getGuiSprites().getSprite(...)` + the float-RGBA blit; `hud/experience_bar_background`
+  ships no `.mcmeta` in the 1.21.1 jar (plain STRETCH), so the draw is geometrically identical
+  to vanilla's `blitSprite` of it. All four sprite ids used were checked present in that jar.
+- **`setColor` is still not the shared path** and the rejection above stands: it is gone in
+  1.21.6+. It is used on 1.21.1 only for the one draw that has no tinted overload.
+
 Also stale in `CLAUDE.md`: the HUD bar is **opaque** (`BASE_ALPHA = 1.0F`), not "~50%
 alpha".
+
+### R-07 — the sweeping-edge `ordinal` (CLOSED at 1.21.1, and the answer differs per node)
+
+Do **not** let the 1.21.11 evidence talk anyone out of the `ordinal` on the legacy nodes.
+
+- **1.21.11 and 26.x: no `ordinal`.** `doSweepAttack` exists as its own method and contains
+  exactly one `getAttributeValue(Holder)D` call, on `SWEEPING_DAMAGE_RATIO`.
+- **1.21.1: `method = "attack"` + `ordinal = 1`.** `doSweepAttack` does not exist; the sweep is
+  inline in `Player.attack(Entity)V`, which contains **two** `getAttributeValue` calls —
+  ordinal 0 is `ATTACK_DAMAGE` (base melee damage) and ordinal 1 is `SWEEPING_DAMAGE_RATIO`.
+  Getting this wrong silently multiplies base attack damage instead of the sweep ratio: no
+  crash, no log line, a large balance change.
+- **Proven at the bytecode level twice** (Stage 4a from `javap -c` of the vanilla class, Stage 4
+  independently from the server's `-Dmixin.debug.export` dump). In the transformed
+  `class_1657`, `@WrapMethod` moves the body to `method_7324$mixinextras$wrapped$219`; inside
+  it the *only* specialities handler is
+  `modifyExpressionValue$…$specialities$passiveSweepingEdge:(D)D` at offset 633, sitting
+  immediately after `624: getstatic class_5134.field_51577` / `627: invokevirtual
+  method_45325`, feeding `d2f; fload_2; fmul; fadd`. The ordinal-0 call at offset 35
+  (`field_23721`) goes straight to `d2f; fstore_2` — untouched. Field identities resolved from
+  the real 1.21.1 artifacts, not memory: intermediary `class_5134` = obf `buw` = mojmap
+  `Attributes`; `field_23721` = obf `c` = `ATTACK_DAMAGE`; `field_51577` = obf `D` =
+  `SWEEPING_DAMAGE_RATIO`.
+- Side result worth keeping: **`@WrapMethod` and an ordinal-N `@ModifyExpressionValue` coexist
+  correctly in one method** on MixinExtras 0.4.1 / loader 0.16.14. That combination exists on
+  no other node.
+- Both `getAttributeValue` constants in that method carry no owner prefix, i.e. the bytecode
+  owner really is `Player`, so the `@At` target descriptor is unchanged from 26.x. This is the
+  CLAUDE.md "`this.getAttributeValue(...)` inside `Player` compiles with owner `Player`"
+  gotcha — check it with `javap -c` per node rather than assuming either way.
 
 ### R-18 — building a non-active node (CLOSED, measured in Stage 1)
 
@@ -377,11 +547,26 @@ which is what writes back). So:
 #    src/main/java/com/specialities/skills/Tuning.java
 #    (config defaults/clamps: src/main/java/com/specialities/config/SpecialitiesConfig.java)
 # 2. Bump the version in ONE place: stonecutter.properties.toml -> mod.version
-# 3. Build every node (stonecutterGenerate runs automatically):
+# 3. Write the release notes: changelogs/<mod.version>.md
+#    line 1 "# <release title>" becomes the Modrinth version name; the rest is the body.
+# 4. Build every node (stonecutterGenerate runs automatically):
 ./gradlew buildAndCollect          # -> build/libs/<mod.version>/specialities-<ver>+<mc>.jar
-# 4. Boot-smoke each jar on a headless dedicated server (design §7 Tier 2).
-# 5. Publish (Stage 4b wires this up), then tag and push.
+# 5. Boot-smoke each jar on a headless dedicated server (design §7 Tier 2).
+./gradlew printPublishMetadata     # 6. pre-flight: what each node WOULD upload. No network.
+./gradlew publishMods              # 7. full dry run — the checked-in default, no token needed
+# 8. THE upload (needs the user's go-ahead; only this step touches Modrinth):
+#    MODRINTH_TOKEN=$(cat ~/.config/modrinth/token) \
+#      ./gradlew --no-daemon -PpublishLive=true publishMods
+# 9. git commit -am "Release <v>" && git tag Release-<v> && git push --follow-tags
 ```
+
+Steps 6-9 are Stage 4b's as-built wiring; `docs/MULTIVERSION.md` §4/§4.1 is the full account.
+Two safety gates make step 7 un-dangerous: no lifecycle task depends on `publishModrinth`
+(measured — `build --dry-run` lists neither publish task on any node), and `dryRun` is set on
+the *extension* so `-PpublishLive=true` is the only way off it. In dry run the plugin never
+calls `accessToken.get()`, so a mistaken invocation cannot leak a token. `--no-daemon` on the
+live step is deliberate: a credential-carrying invocation must not leave a daemon holding
+`MODRINTH_TOKEN` in its environment. **Claude never creates, pastes or reads the PAT.**
 
 - There is **no chiseled task.** `chiseledBuild` was removed; aggregation is the
   unqualified task name plus `stonecutter.tasks.order(...)` for endpoint sequencing.
