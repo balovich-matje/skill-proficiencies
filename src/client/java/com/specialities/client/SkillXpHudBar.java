@@ -6,7 +6,12 @@ import com.specialities.skills.SkillCategories;
 import com.specialities.skills.SkillManager;
 import com.specialities.skills.Tuning;
 
+// `DeltaTracker` is 1.21+. Below it the frame delta is a bare float and every HUD draw hook
+// takes one, so the parameter type moves and nothing else does — this class never reads it
+// (it exists to match the HudElement functional interface on the nodes that have one).
+//? if >=1.21 {
 import net.minecraft.client.DeltaTracker;
+//?}
 import net.minecraft.client.Minecraft;
 // 26.x GUI rendering is extract-based; 1.21.11 and below draw immediately. Every
 // draw call this file makes exists verbatim on GuiGraphics — including the
@@ -33,6 +38,10 @@ import net.minecraft.util.ARGB;
 /*import net.minecraft.util.FastColor;
 *///?}
 import net.minecraft.util.Mth;
+//? if >=1.21 {
+//?} else {
+/*import com.mojang.blaze3d.systems.RenderSystem;
+*///?}
 
 /**
  * Always-visible skill XP bar sitting right above the vanilla experience bar,
@@ -42,7 +51,19 @@ import net.minecraft.util.Mth;
  * the bar (fading in), then the bar grows.
  */
 public final class SkillXpHudBar {
+	// R-17's remaining 1.20.1 delta: that version has NO GUI sprite atlas at all, so there
+	// is no `hud/experience_bar_background` sprite and no `Minecraft.getGuiSprites()` to
+	// resolve one with. The bar background comes from the classic sheet instead —
+	// `textures/gui/icons.png` at u=0, v=64, 182x5, which is where vanilla's own
+	// `Gui.renderExperienceBar` reads it. The path is written out rather than taken from
+	// `Gui.GUI_ICONS_LOCATION`, which is PRIVATE on that version.
+	//? if >=1.21 {
 	private static final Identifier BAR_BACKGROUND_SPRITE = Identifier.withDefaultNamespace("hud/experience_bar_background");
+	//?} else {
+	/*private static final Identifier BAR_BACKGROUND_TEXTURE = new Identifier("textures/gui/icons.png");
+	private static final int BAR_BACKGROUND_U = 0;
+	private static final int BAR_BACKGROUND_V = 64;
+	*///?}
 	private static final int BAR_WIDTH = 182;
 	private static final int BAR_HEIGHT = 5;
 	/**
@@ -62,11 +83,15 @@ public final class SkillXpHudBar {
 	private SkillXpHudBar() {
 	}
 
-	// Matches HudElement's functional method: extractRenderState on 26.x, render below.
+	// Matches HudElement's functional method: extractRenderState on 26.x, render below. On
+	// 1.20.1 there is no HudElement and no DeltaTracker; GuiMixin calls this directly with
+	// the frame delta `Gui.render` was handed.
 	//? if >=26.1 {
 	public static void render(final GuiGraphicsExtractor graphics, final DeltaTracker deltaTracker) {
-	//?} else {
+	//?} elif >=1.21 {
 	/*public static void render(final GuiGraphics graphics, final DeltaTracker deltaTracker) {
+	*///?} else {
+	/*public static void render(final GuiGraphics graphics, final float tickDelta) {
 	*///?}
 		Minecraft minecraft = Minecraft.getInstance();
 
@@ -110,7 +135,7 @@ public final class SkillXpHudBar {
 		// Bar background + fill.
 		//? if >=1.21.11 {
 		graphics.blitSprite(RenderPipelines.GUI_TEXTURED, BAR_BACKGROUND_SPRITE, left, top, BAR_WIDTH, BAR_HEIGHT, BASE_ALPHA);
-		//?} else {
+		//?} elif >=1.21 {
 		/*// Same float-alpha path as the icons: resolve the GUI sprite by hand
 		// (`Minecraft.getGuiSprites().getSprite(...)`) and use the public float-RGBA blit,
 		// so BASE_ALPHA keeps meaning something here instead of being silently dropped.
@@ -119,6 +144,18 @@ public final class SkillXpHudBar {
 		graphics.blit(left, top, 0, BAR_WIDTH, BAR_HEIGHT,
 				Minecraft.getInstance().getGuiSprites().getSprite(BAR_BACKGROUND_SPRITE),
 				1.0F, 1.0F, 1.0F, BASE_ALPHA);
+		*///?} else {
+		/*// No sprite atlas and no colour-taking blit on 1.20.1, so BASE_ALPHA goes through
+		// `setColor` — the same route StealthVignette takes and the one vanilla's own
+		// `Gui.renderTextureOverlay` uses on this version. Blend is armed by hand because the
+		// legacy 14-arg innerBlit ends with an unconditional `RenderSystem.disableBlend()`
+		// (R-17's blend-state hazard), and reset afterwards so the vanilla draws that follow
+		// are unaffected. Geometry is vanilla's own: 182x5 at u=0, v=64 of icons.png.
+		RenderSystem.enableBlend();
+		RenderSystem.defaultBlendFunc();
+		graphics.setColor(1.0F, 1.0F, 1.0F, BASE_ALPHA);
+		graphics.blit(BAR_BACKGROUND_TEXTURE, left, top, BAR_BACKGROUND_U, BAR_BACKGROUND_V, BAR_WIDTH, BAR_HEIGHT);
+		graphics.setColor(1.0F, 1.0F, 1.0F, 1.0F);
 		*///?}
 
 		int fillWidth = (int) (progress * (BAR_WIDTH - 2));
@@ -134,8 +171,10 @@ public final class SkillXpHudBar {
 		int textY = top - 2;
 		//? if >=1.21.11 {
 		int outline = ARGB.color(0xFF, 0x000000);
-		//?} else {
+		//?} elif >=1.21 {
 		/*int outline = FastColor.ARGB32.color(0xFF, 0x000000);
+		*///?} else {
+		/*int outline = argb(0xFF, 0x000000);
 		*///?}
 		// 26.x names the text draw `text`; below it is `drawString`. Same overload set. The
 		// third branch exists only because ARGB moves to FastColor.ARGB32 below 1.21.11 —
@@ -152,12 +191,18 @@ public final class SkillXpHudBar {
 		graphics.drawString(minecraft.font, label, textX, textY + 1, outline, false);
 		graphics.drawString(minecraft.font, label, textX, textY - 1, outline, false);
 		graphics.drawString(minecraft.font, label, textX, textY, ARGB.color(0xFF, skill.color()), false);
-		*///?} else {
+		*///?} elif >=1.21 {
 		/*graphics.drawString(minecraft.font, label, textX + 1, textY, outline, false);
 		graphics.drawString(minecraft.font, label, textX - 1, textY, outline, false);
 		graphics.drawString(minecraft.font, label, textX, textY + 1, outline, false);
 		graphics.drawString(minecraft.font, label, textX, textY - 1, outline, false);
 		graphics.drawString(minecraft.font, label, textX, textY, FastColor.ARGB32.color(0xFF, skill.color()), false);
+		*///?} else {
+		/*graphics.drawString(minecraft.font, label, textX + 1, textY, outline, false);
+		graphics.drawString(minecraft.font, label, textX - 1, textY, outline, false);
+		graphics.drawString(minecraft.font, label, textX, textY + 1, outline, false);
+		graphics.drawString(minecraft.font, label, textX, textY - 1, outline, false);
+		graphics.drawString(minecraft.font, label, textX, textY, argb(0xFF, skill.color()), false);
 		*///?}
 
 		// Converging tool icons while the animation runs.
@@ -189,6 +234,19 @@ public final class SkillXpHudBar {
 			}
 		}
 	}
+
+	// `FastColor.ARGB32` on 1.20.1 has only the four-channel `color(a, r, g, b)` — the
+	// two-argument `color(alpha, rgb)` that the rest of this file (and `ARGB` above) uses
+	// arrived later. This restores that shape from the channel accessors the version does
+	// have, so the call sites keep reading the same way instead of growing four arguments
+	// each. Same value, bit for bit: alpha in 24..31, the low 24 bits of `rgb` below it.
+	//? if >=1.21 {
+	//?} else {
+	/*private static int argb(final int alpha, final int rgb) {
+		return FastColor.ARGB32.color(alpha, FastColor.ARGB32.red(rgb), FastColor.ARGB32.green(rgb),
+				FastColor.ARGB32.blue(rgb));
+	}
+	*///?}
 
 	/** Bar fill: hold the old value while icons fly, then grow to the new one. */
 	private static float displayedProgress(final long age) {

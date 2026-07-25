@@ -52,7 +52,13 @@ import org.jspecify.annotations.Nullable;
  * or 100; otherwise just the regular quiet toast whoosh.
  */
 public class SkillLevelUpToast implements Toast {
+	// 1.20.1 has no GUI sprite atlas, so there is no `toast/advancement` sprite. The backdrop
+	// comes from the sheet the Toast interface itself points at — `Toast.TEXTURE`
+	// (`textures/gui/toasts.png`), a PUBLIC interface field on that version — at u=0, v=0,
+	// which is exactly what vanilla's own AdvancementToast blits there.
+	//? if >=1.21 {
 	private static final Identifier BACKGROUND_SPRITE = Identifier.withDefaultNamespace("toast/advancement");
+	//?}
 	private static final long DISPLAY_TIME_MS = 5000;
 
 	private final SkillType skill;
@@ -133,8 +139,10 @@ public class SkillLevelUpToast implements Toast {
 	*///?}
 		//? if >=1.21.11 {
 		graphics.blitSprite(RenderPipelines.GUI_TEXTURED, BACKGROUND_SPRITE, 0, 0, this.width(), this.height());
-		//?} else {
+		//?} elif >=1.21 {
 		/*graphics.blitSprite(BACKGROUND_SPRITE, 0, 0, this.width(), this.height());
+		*///?} else {
+		/*graphics.blit(Toast.TEXTURE, 0, 0, 0, 0, this.width(), this.height());
 		*///?}
 		//? if >=26.1 {
 		graphics.text(font, this.skill.displayName(), 30, 7, this.skill.color(), false);

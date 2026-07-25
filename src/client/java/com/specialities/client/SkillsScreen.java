@@ -67,8 +67,21 @@ public class SkillsScreen extends Screen {
 	 * own down arrow draws a smaller triangle, which made the two states
 	 * mismatch in size.
 	 */
+	// 1.20.1 has no GUI sprite atlas: the two sprites were split OUT of
+	// `textures/gui/resource_packs.png` when the atlas arrived, so on that version the same
+	// pixels are a (u, v) pair in the old 256x256 sheet. Which pair was settled by comparing
+	// the 1.21.1 sprite PNGs against every 32x32 cell of the 1.20.1 sheet, not by reading the
+	// selection-list code: `select` is (0, 0) and `select_highlighted` is (0, 32).
+	//? if >=1.21 {
 	private static final Identifier ARROW = Identifier.withDefaultNamespace("transferable_list/select");
 	private static final Identifier ARROW_HOVER = Identifier.withDefaultNamespace("transferable_list/select_highlighted");
+	//?} else {
+	/*private static final Identifier ARROW_TEXTURE = new Identifier("textures/gui/resource_packs.png");
+	private static final int ARROW_V = 0;
+	private static final int ARROW_HOVER_V = 32;
+	private static final int ARROW_NATIVE_SIZE = 32;
+	private static final int ARROW_SHEET_SIZE = 256;
+	*///?}
 
 	private static final int ROW_HEIGHT = 24;
 	private static final int ROW_WIDTH = 240;
@@ -148,7 +161,10 @@ public class SkillsScreen extends Screen {
 		this.scroll = Mth.clamp(this.scroll, 0.0, this.maxScroll());
 	}
 
+	// The horizontal scroll axis arrived in 1.20.2; before that there is one `delta`, which
+	// is the vertical one. Same body, same sign.
 	@Override
+	//? if >=1.20.5 {
 	public boolean mouseScrolled(final double x, final double y, final double scrollX, final double scrollY) {
 		if (this.maxScroll() > 0) {
 			this.scroll = Mth.clamp(this.scroll - scrollY * LINE_HEIGHT, 0.0, this.maxScroll());
@@ -157,6 +173,16 @@ public class SkillsScreen extends Screen {
 
 		return super.mouseScrolled(x, y, scrollX, scrollY);
 	}
+	//?} else {
+	/*public boolean mouseScrolled(final double x, final double y, final double scrollY) {
+		if (this.maxScroll() > 0) {
+			this.scroll = Mth.clamp(this.scroll - scrollY * LINE_HEIGHT, 0.0, this.maxScroll());
+			return true;
+		}
+
+		return super.mouseScrolled(x, y, scrollY);
+	}
+	*///?}
 
 	@Override
 	//? if >=1.21.11 {
@@ -225,8 +251,16 @@ public class SkillsScreen extends Screen {
 	//? if >=26.1 {
 	public void extractRenderState(final GuiGraphicsExtractor graphics, final int mouseX, final int mouseY, final float a) {
 		super.extractRenderState(graphics, mouseX, mouseY, a);
-	//?} else {
+	//?} elif >=1.20.5 {
 	/*public void render(final GuiGraphics graphics, final int mouseX, final int mouseY, final float a) {
+		super.render(graphics, mouseX, mouseY, a);
+	*///?} else {
+	/*public void render(final GuiGraphics graphics, final int mouseX, final int mouseY, final float a) {
+		// On 1.20.1 `Screen.render` draws the REGISTERED WIDGETS AND NOTHING ELSE — the
+		// background became its job in 1.20.2, and every vanilla screen on this version calls
+		// `renderBackground` itself first. Without this line the skills screen would draw over
+		// the live world. Nothing in the build catches that: it compiles, it just looks wrong.
+		this.renderBackground(graphics);
 		super.render(graphics, mouseX, mouseY, a);
 	*///?}
 
@@ -325,11 +359,16 @@ public class SkillsScreen extends Screen {
 		/*graphics.drawString(this.font, skill.displayName(), left + 25, top + 3, ARGB.color(alpha, skill.color()), true);
 		graphics.drawString(this.font, Component.translatable("screen.specialities.skills.level", level),
 				left + 25, top + 13, ARGB.color(alpha, 0xDDDDDD), false);
-		*///?} else {
+		*///?} elif >=1.21 {
 		/*graphics.drawString(this.font, skill.displayName(), left + 25, top + 3,
 				FastColor.ARGB32.color(alpha, skill.color()), true);
 		graphics.drawString(this.font, Component.translatable("screen.specialities.skills.level", level),
 				left + 25, top + 13, FastColor.ARGB32.color(alpha, 0xDDDDDD), false);
+		*///?} else {
+		/*graphics.drawString(this.font, skill.displayName(), left + 25, top + 3,
+				argb(alpha, skill.color()), true);
+		graphics.drawString(this.font, Component.translatable("screen.specialities.skills.level", level),
+				left + 25, top + 13, argb(alpha, 0xDDDDDD), false);
 		*///?}
 
 		// Progress bar on the right.
@@ -338,8 +377,10 @@ public class SkillsScreen extends Screen {
 		int barTop = top + 9;
 		//? if >=1.21.11 {
 		graphics.fill(barLeft, barTop, barRight, barTop + 5, ARGB.color(alpha, 0x222222));
-		//?} else {
+		//?} elif >=1.21 {
 		/*graphics.fill(barLeft, barTop, barRight, barTop + 5, FastColor.ARGB32.color(alpha, 0x222222));
+		*///?} else {
+		/*graphics.fill(barLeft, barTop, barRight, barTop + 5, argb(alpha, 0x222222));
 		*///?}
 
 		int intoLevel = skills.totalXp(skill) - Tuning.totalXpForLevel(level);
@@ -350,9 +391,12 @@ public class SkillsScreen extends Screen {
 		if (fill > 0) {
 			//? if >=1.21.11 {
 			graphics.fill(barLeft + 1, barTop + 1, barLeft + 1 + fill, barTop + 4, ARGB.color(alpha, skill.color()));
-			//?} else {
+			//?} elif >=1.21 {
 			/*graphics.fill(barLeft + 1, barTop + 1, barLeft + 1 + fill, barTop + 4,
 					FastColor.ARGB32.color(alpha, skill.color()));
+			*///?} else {
+			/*graphics.fill(barLeft + 1, barTop + 1, barLeft + 1 + fill, barTop + 4,
+					argb(alpha, skill.color()));
 			*///?}
 		}
 	}
@@ -369,7 +413,12 @@ public class SkillsScreen extends Screen {
 	*///?}
 		int arrowTop = top + (ROW_HEIGHT - 2 - ARROW_SIZE) / 2;
 		boolean hovered = mouseInArrows && mouseY >= arrowTop && mouseY < arrowTop + ARROW_SIZE;
+		// Sprite id above 1.21, sheet row below it — same two images either way.
+		//? if >=1.21 {
 		Identifier sprite = hovered ? ARROW_HOVER : ARROW;
+		//?} else {
+		/*int spriteV = hovered ? ARROW_HOVER_V : ARROW_V;
+		*///?}
 
 		if (this.expanded.contains(skill)) {
 			// Quarter turn clockwise: the arrow points down while open.
@@ -379,7 +428,7 @@ public class SkillsScreen extends Screen {
 					left + ARROW_SIZE / 2.0F, arrowTop + ARROW_SIZE / 2.0F);
 			graphics.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, left, arrowTop, ARROW_SIZE, ARROW_SIZE);
 			graphics.pose().popMatrix();
-			//?} else {
+			//?} elif >=1.21 {
 			/*// PoseStack, not Matrix3x2fStack: the 2D `rotateAbout(radians, px, py)` becomes
 			// a Z-axis quaternion rotation about (px, py, 0).
 			graphics.pose().pushPose();
@@ -387,12 +436,28 @@ public class SkillsScreen extends Screen {
 					left + ARROW_SIZE / 2.0F, arrowTop + ARROW_SIZE / 2.0F, 0.0F);
 			graphics.blitSprite(sprite, left, arrowTop, ARROW_SIZE, ARROW_SIZE);
 			graphics.pose().popPose();
+			*///?} else {
+			/*// PoseStack + Axis.ZP.rotation are AS-IS on 1.20.1; only the draw changes. The
+			// overload that takes a destination size AND a source region is the one that
+			// SCALES — `blit(rl, x, y, w, h, u, v, uWidth, vHeight, texW, texH)`, read out of
+			// its own bytecode (it forwards to innerBlit with x2 = x + w) — so the native
+			// 32x32 arrow lands in ARROW_SIZE just as blitSprite scales it above. The plain
+			// `blit(rl, x, y, u, v, w, h)` would crop instead.
+			graphics.pose().pushPose();
+			graphics.pose().rotateAround(Axis.ZP.rotation((float) (Math.PI / 2.0)),
+					left + ARROW_SIZE / 2.0F, arrowTop + ARROW_SIZE / 2.0F, 0.0F);
+			graphics.blit(ARROW_TEXTURE, left, arrowTop, ARROW_SIZE, ARROW_SIZE, 0.0F, spriteV,
+					ARROW_NATIVE_SIZE, ARROW_NATIVE_SIZE, ARROW_SHEET_SIZE, ARROW_SHEET_SIZE);
+			graphics.pose().popPose();
 			*///?}
 		} else {
 			//? if >=1.21.11 {
 			graphics.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, left, arrowTop, ARROW_SIZE, ARROW_SIZE);
-			//?} else {
+			//?} elif >=1.21 {
 			/*graphics.blitSprite(sprite, left, arrowTop, ARROW_SIZE, ARROW_SIZE);
+			*///?} else {
+			/*graphics.blit(ARROW_TEXTURE, left, arrowTop, ARROW_SIZE, ARROW_SIZE, 0.0F, spriteV,
+					ARROW_NATIVE_SIZE, ARROW_NATIVE_SIZE, ARROW_SHEET_SIZE, ARROW_SHEET_SIZE);
 			*///?}
 		}
 	}
@@ -444,6 +509,17 @@ public class SkillsScreen extends Screen {
 		graphics.fill(trackX, LIST_TOP, trackX + 3, bottom, 0x44000000);
 		graphics.fill(trackX, thumbY, trackX + 3, thumbY + thumbHeight, 0xAAFFFFFF);
 	}
+
+	// See SkillXpHudBar for why this exists: 1.20.1's FastColor.ARGB32 has only the
+	// four-channel `color(a, r, g, b)`, not the two-argument `color(alpha, rgb)` the rest of
+	// this file uses. Same value, bit for bit.
+	//? if >=1.21 {
+	//?} else {
+	/*private static int argb(final int alpha, final int rgb) {
+		return FastColor.ARGB32.color(alpha, FastColor.ARGB32.red(rgb), FastColor.ARGB32.green(rgb),
+				FastColor.ARGB32.blue(rgb));
+	}
+	*///?}
 
 	private List<Component> bonusLines(final SkillType skill, final PlayerSkills skills, final int level) {
 		List<Component> lines = new ArrayList<>();

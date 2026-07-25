@@ -46,8 +46,28 @@ package com.specialities.client.mixin;
 //     method is a three-call wrapper around the LayeredDraw: enableDepthTest, layers.render,
 //     disableDepthTest), so the two mod draws are unclipped by depth. Both manage their own
 //     blend state.
+//
+// THE 1.20.1 ARM, and it is SMALLER, not bigger — four wrapped methods instead of five:
+//
+//   * `Gui.render` takes `(GuiGraphics, float)` there; `DeltaTracker` is 1.21+. That method
+//     is the whole HUD rather than a LayeredDraw wrapper, and it has exactly ONE `return`
+//     (offset 1537, right after `renderSavingIndicator`), so TAIL is unambiguous and always
+//     reached.
+//   * there is NO `renderExperienceLevel` on 1.20.1 — measured, not assumed:
+//     `renderExperienceBar(GuiGraphics,I)V` draws the bar AND the level number, the second
+//     under its own `expLevel` profiler section with the familiar five `drawString` calls
+//     (four black offsets and the green centre, `javap -c` of `eow.a(eox,int)`). So wrapping
+//     the bar raises the number with it and the seven raised VanillaHudElements ids still map
+//     completely: INFO_BAR and EXPERIENCE_LEVEL -> renderExperienceBar + renderJumpMeter,
+//     HEALTH/ARMOR/FOOD/AIR -> renderPlayerHealth, MOUNT_HEALTH -> renderVehicleHealth.
+//   * `pose()` is a PoseStack, so the shift is pushPose/translate/popPose.
+//   * fabric-rendering-v1 3.0.9 DOES have `HudRenderCallback.onHudRender(GuiGraphics,float)`,
+//     and it would serve for the two mod DRAWS. It is deliberately not used: it cannot raise
+//     a vanilla element, so the mixin has to exist for HUD_SHIFT regardless, and splitting
+//     the HUD across two mechanisms would leave the draw order dependent on event-vs-mixin
+//     ordering for no gain.
 //? if >=1.21.11 {
-//?} else {
+//?} elif >=1.21 {
 /*import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 
@@ -102,6 +122,66 @@ public abstract class GuiMixin {
 	private void specialities$raiseExperienceLevel(final GuiGraphics graphics, final DeltaTracker deltaTracker,
 			final Operation<Void> original) {
 		this.specialities$shifted(graphics, original, graphics, deltaTracker);
+	}
+
+	@WrapMethod(method = "renderPlayerHealth(Lnet/minecraft/client/gui/GuiGraphics;)V")
+	private void specialities$raisePlayerHealth(final GuiGraphics graphics, final Operation<Void> original) {
+		this.specialities$shifted(graphics, original, graphics);
+	}
+
+	@WrapMethod(method = "renderVehicleHealth(Lnet/minecraft/client/gui/GuiGraphics;)V")
+	private void specialities$raiseVehicleHealth(final GuiGraphics graphics, final Operation<Void> original) {
+		this.specialities$shifted(graphics, original, graphics);
+	}
+}
+*///?} else {
+/*import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+
+import com.specialities.client.SkillXpHudBar;
+import com.specialities.client.SpecialitiesClient;
+import com.specialities.client.StealthVignette;
+
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.world.entity.PlayerRideableJumping;
+
+@Mixin(Gui.class)
+public abstract class GuiMixin {
+	// SHARED — one implementation for all four wrapped elements.
+	@Unique
+	private void specialities$shifted(final GuiGraphics graphics, final Operation<Void> original,
+			final Object... args) {
+		graphics.pose().pushPose();
+		graphics.pose().translate(0.0F, (float) -SpecialitiesClient.HUD_SHIFT, 0.0F);
+		original.call(args);
+		graphics.pose().popPose();
+	}
+
+	@Inject(method = "render(Lnet/minecraft/client/gui/GuiGraphics;F)V", at = @At("TAIL"))
+	private void specialities$renderSkillHud(final GuiGraphics graphics, final float tickDelta,
+			final CallbackInfo ci) {
+		SkillXpHudBar.render(graphics, tickDelta);
+		StealthVignette.render(graphics, tickDelta);
+	}
+
+	// Raises the bar AND the level number — they are drawn by the same method here.
+	@WrapMethod(method = "renderExperienceBar(Lnet/minecraft/client/gui/GuiGraphics;I)V")
+	private void specialities$raiseExperienceBar(final GuiGraphics graphics, final int x,
+			final Operation<Void> original) {
+		this.specialities$shifted(graphics, original, graphics, x);
+	}
+
+	@WrapMethod(method = "renderJumpMeter(Lnet/minecraft/world/entity/PlayerRideableJumping;Lnet/minecraft/client/gui/GuiGraphics;I)V")
+	private void specialities$raiseJumpMeter(final PlayerRideableJumping jumpable, final GuiGraphics graphics,
+			final int x, final Operation<Void> original) {
+		this.specialities$shifted(graphics, original, jumpable, graphics, x);
 	}
 
 	@WrapMethod(method = "renderPlayerHealth(Lnet/minecraft/client/gui/GuiGraphics;)V")

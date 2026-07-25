@@ -3,7 +3,10 @@ package com.specialities.client;
 import com.specialities.Specialities;
 import com.specialities.StealthStatePayload;
 
+// `DeltaTracker` is 1.21+; below it the frame delta is a bare float. Never read here.
+//? if >=1.21 {
 import net.minecraft.client.DeltaTracker;
+//?}
 import net.minecraft.client.Minecraft;
 // 26.x GUI rendering is extract-based; 1.21.11 and below draw immediately.
 //? if >=26.1 {
@@ -63,11 +66,14 @@ public final class StealthVignette {
 		state = payload.state();
 	}
 
-	// Matches HudElement's functional method: extractRenderState on 26.x, render below.
+	// Matches HudElement's functional method: extractRenderState on 26.x, render below. On
+	// 1.20.1 there is no HudElement and no DeltaTracker; GuiMixin calls this directly.
 	//? if >=26.1 {
 	public static void render(final GuiGraphicsExtractor graphics, final DeltaTracker deltaTracker) {
-	//?} else {
+	//?} elif >=1.21 {
 	/*public static void render(final GuiGraphics graphics, final DeltaTracker deltaTracker) {
+	*///?} else {
+	/*public static void render(final GuiGraphics graphics, final float tickDelta) {
 	*///?}
 		long now = Util.getMillis();
 		float dt = Math.min((now - lastFrameMs) / 1000.0F, 0.1F);
@@ -85,8 +91,10 @@ public final class StealthVignette {
 		if (darkAlpha > 0.01F) {
 			//? if >=1.21.11 {
 			draw(graphics, ARGB.colorFromFloat(darkAlpha, DARK_RED, DARK_GREEN, DARK_BLUE));
-			//?} else {
+			//?} elif >=1.21 {
 			/*draw(graphics, FastColor.ARGB32.colorFromFloat(darkAlpha, DARK_RED, DARK_GREEN, DARK_BLUE));
+			*///?} else {
+			/*draw(graphics, colorFromFloat(darkAlpha, DARK_RED, DARK_GREEN, DARK_BLUE));
 			*///?}
 		}
 
@@ -97,11 +105,25 @@ public final class StealthVignette {
 			float alpha = LIGHT_MAX_ALPHA * Mth.square(fade);
 			//? if >=1.21.11 {
 			draw(graphics, ARGB.colorFromFloat(alpha, 1.0F, 1.0F, 1.0F));
-			//?} else {
+			//?} elif >=1.21 {
 			/*draw(graphics, FastColor.ARGB32.colorFromFloat(alpha, 1.0F, 1.0F, 1.0F));
+			*///?} else {
+			/*draw(graphics, colorFromFloat(alpha, 1.0F, 1.0F, 1.0F));
 			*///?}
 		}
 	}
+
+	// `FastColor.ARGB32.colorFromFloat` does not exist on 1.20.1 — only the four-int
+	// `color(a, r, g, b)`. This is vanilla's own body for it (each channel scaled by 255 and
+	// truncated), kept as a helper so the two call sites above stay one line each and the
+	// fade arithmetic never forks (conventions §5b).
+	//? if >=1.21 {
+	//?} else {
+	/*private static int colorFromFloat(final float a, final float r, final float g, final float b) {
+		return FastColor.ARGB32.color((int) (a * 255.0F), (int) (r * 255.0F), (int) (g * 255.0F),
+				(int) (b * 255.0F));
+	}
+	*///?}
 
 	//? if >=26.1 {
 	private static void draw(final GuiGraphicsExtractor graphics, final int color) {
