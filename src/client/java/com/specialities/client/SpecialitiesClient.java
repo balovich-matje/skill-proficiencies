@@ -2,6 +2,8 @@ package com.specialities.client;
 
 import com.specialities.Specialities;
 import com.specialities.SkillUpdatePayload;
+import com.specialities.config.ConfigManager;
+import com.specialities.platform.Platform;
 //? if >=1.20.5 {
 //?} else {
 /*import com.specialities.SkillsFullPayload;
@@ -73,8 +75,74 @@ public class SpecialitiesClient implements ClientModInitializer {
 	 * How far the vanilla bottom HUD (XP bar, level number, hearts, food, armor,
 	 * air, mount health) is raised to make room for the skill XP bar, which takes
 	 * over the vanilla XP bar's original position.
+	 *
+	 * <p>Published constant, part of the Archetypes collision contract
+	 * ({@code ../archetypes/notes/design.md}). It is the SIZE of the raise and never moves;
+	 * whether the raise applies on a given frame is {@link #hudShift()}.
 	 */
 	public static final int HUD_SHIFT = 7;
+
+	/**
+	 * Resolved once, on the first HUD frame rather than at class init: on both loader nodes
+	 * {@code ModList.get()} is not guaranteed non-null while mod construction is still running,
+	 * and this class is constructed there. Nothing can load or unload a mod afterwards, so one
+	 * lookup is enough, and every read below is on the render thread.
+	 */
+	private static Boolean archetypesLoaded;
+
+	/**
+	 * THE ONE GATE FOR THE SKILL XP BAR, read live every frame — a client-local display
+	 * preference ({@code config/specialities.json}, key {@code showXpHudBar}), never a synced
+	 * balance knob. See {@code SpecialitiesConfig#showXpHudBar}: nothing in this mod puts config
+	 * on the wire, so a server cannot hide a connected client's bar.
+	 *
+	 * <p>Every node's draw path funnels through {@code SkillXpHudBar.render}, which asks this
+	 * first — the >=1.21.11 Fabric {@code HudElementRegistry} element, the {@code GuiMixin} TAIL
+	 * inject below it, NeoForge's {@code registerAbove} layer and the Forge node's
+	 * {@code ForgeGuiMixin} TAIL inject all call that same shared method. So the check lives once
+	 * for all seven nodes and no per-loader draw hook needs to know about it.
+	 */
+	public static boolean hudBarVisible() {
+		return ConfigManager.get().showXpHudBar;
+	}
+
+	/**
+	 * How far to raise the vanilla bottom HUD THIS FRAME: {@link #HUD_SHIFT} while the skill XP
+	 * bar occupies that row, {@code 0} when it does not — otherwise hiding the bar would leave a
+	 * seven-pixel gap of nothing above the hotbar.
+	 *
+	 * <p>The four raise implementations (26.x/1.21.11 {@code HudElementRegistry.replaceElement}
+	 * via {@link #raised}, {@code GuiMixin.specialities$shifted}, {@code NeoForgeClientEvents
+	 * .raise}, {@code ForgeGuiMixin.specialities$shifted}) exist separately only because the pose
+	 * API and the hook shape differ per node; all four read this one method, so the DECISION is
+	 * single-implementation the way conventions §5a requires of balance logic.
+	 *
+	 * <p><b>ARCHETYPES CARVE-OUT, and it is deliberately conservative.</b> Archetypes positions
+	 * its mana row ({@code client/ManaHud}) and its banked-hunger halos
+	 * ({@code client/BankedHungerHud}) with a HARDCODED {@code SPECIALITIES_SHIFT = 7} applied
+	 * whenever {@code isModLoaded("specialities")} — it reads presence, not the live shift. So
+	 * dropping the raise while Archetypes is installed would strand both of its rows seven pixels
+	 * above the vanilla stack they are measured against: their layout breaks, ours merely gains a
+	 * gap. The gap is the lesser failure, so with Archetypes present the raise is kept and only
+	 * the bar itself disappears. Retiring this needs a change on their side (read the shift
+	 * instead of the mod id) and this branch can go the release after that ships; until then, do
+	 * not "simplify" it away. This is the only place in the tree that names another mod, and it
+	 * names it through the {@code Platform} seam, so it costs no loader fork.
+	 */
+	public static int hudShift() {
+		return hudBarVisible() || archetypesLoaded() ? HUD_SHIFT : 0;
+	}
+
+	private static boolean archetypesLoaded() {
+		Boolean cached = archetypesLoaded;
+
+		if (cached == null) {
+			cached = Platform.INSTANCE.isModLoaded("archetypes");
+			archetypesLoaded = cached;
+		}
+
+		return cached;
+	}
 
 	//? if fabric {
 	@Override
@@ -254,6 +322,9 @@ public class SpecialitiesClient implements ClientModInitializer {
 	// three-branch chain rather than a `>=26.1` block nested inside a `>=1.21.11` one: a
 	// directive inside an already-disabled branch needs the `*` -> `^` marker escalation
 	// (conventions §4) and that is the case that fails silently when it is got wrong.
+	// The wrapper is installed once at init and the shift is read INSIDE the returned lambda, so
+	// hudShift() is evaluated per frame and the toggle takes effect immediately — no re-register,
+	// no restart. Same property holds for the other three raise paths.
 	//? if >=26.1 {
 	private static HudElement raised(final HudElement element) {
 		// The lambda's parameter types are inferred from HudElement, so only the
@@ -261,7 +332,7 @@ public class SpecialitiesClient implements ClientModInitializer {
 		// pose() is org.joml.Matrix3x2fStack on both sides.
 		return (graphics, deltaTracker) -> {
 			graphics.pose().pushMatrix();
-			graphics.pose().translate(0.0F, (float) -HUD_SHIFT);
+			graphics.pose().translate(0.0F, (float) -hudShift());
 			element.extractRenderState(graphics, deltaTracker);
 			graphics.pose().popMatrix();
 		};
@@ -270,7 +341,7 @@ public class SpecialitiesClient implements ClientModInitializer {
 	/*private static HudElement raised(final HudElement element) {
 		return (graphics, deltaTracker) -> {
 			graphics.pose().pushMatrix();
-			graphics.pose().translate(0.0F, (float) -HUD_SHIFT);
+			graphics.pose().translate(0.0F, (float) -hudShift());
 			element.render(graphics, deltaTracker);
 			graphics.pose().popMatrix();
 		};

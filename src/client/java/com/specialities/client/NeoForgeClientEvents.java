@@ -207,11 +207,13 @@ public final class NeoForgeClientEvents {
 		return (graphics, deltaTracker) -> {
 			// 1.21.1's GuiGraphics.pose() is a com.mojang.blaze3d.vertex.PoseStack, NOT the
 			// org.joml.Matrix3x2fStack of >=1.21.11 — so pushPose/translate/popPose with a z
-			// argument, exactly as the 1.21.1-fabric GuiMixin's shared helper does. HUD_SHIFT
-			// itself is read from the shared constant and is never redefined here: it is part of
-			// the published Archetypes collision contract.
+			// argument, exactly as the 1.21.1-fabric GuiMixin's shared helper does. The shift
+			// itself is never decided here: SpecialitiesClient.hudShift() is the one shared
+			// implementation for all four raise paths (HUD_SHIFT while the skill XP bar occupies
+			// the row, 0 once the client hides it), and it is read per frame, inside the wrapper
+			// the event installed once, so the toggle needs no re-registration.
 			graphics.pose().pushPose();
-			graphics.pose().translate(0.0F, (float) -SpecialitiesClient.HUD_SHIFT, 0.0F);
+			graphics.pose().translate(0.0F, (float) -SpecialitiesClient.hudShift(), 0.0F);
 			inner.render(graphics, deltaTracker);
 			graphics.pose().popPose();
 		};

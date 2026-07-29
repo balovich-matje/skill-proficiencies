@@ -68,7 +68,8 @@ public final class SkillXpHudBar {
 	private static final int BAR_HEIGHT = 5;
 	/**
 	 * The vanilla XP bar's original slot (guiHeight - 29); the real vanilla bar
-	 * and everything above it are raised by {@link SpecialitiesClient#HUD_SHIFT}.
+	 * and everything above it are raised by {@link SpecialitiesClient#hudShift()},
+	 * which is {@link SpecialitiesClient#HUD_SHIFT} exactly while this bar is drawn.
 	 */
 	private static final int BOTTOM_OFFSET = 29;
 
@@ -93,6 +94,16 @@ public final class SkillXpHudBar {
 	*///?} else {
 	/*public static void render(final GuiGraphics graphics, final float tickDelta) {
 	*///?}
+		// THE SHARED GATE. Every node's HUD entry point ends up here — the >=1.21.11 Fabric
+		// HudElementRegistry element, GuiMixin's TAIL inject on 1.21.1/1.20.1-fabric, NeoForge's
+		// registerAbove layer and ForgeGuiMixin's TAIL inject on 1.20.1-forge — so one early-out
+		// hides the bar on all seven, and no draw hook is forked to add a check. The matching
+		// HUD_SHIFT decision is SpecialitiesClient.hudShift(); it is read by the four raise
+		// paths, not from here, because they run whether or not this method draws anything.
+		if (!SpecialitiesClient.hudBarVisible()) {
+			return;
+		}
+
 		Minecraft minecraft = Minecraft.getInstance();
 
 		if (minecraft.player == null) {

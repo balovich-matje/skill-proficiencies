@@ -122,12 +122,18 @@ import net.minecraft.world.entity.PlayerRideableJumping;
  */
 @Mixin(ForgeGui.class)
 public abstract class ForgeGuiMixin {
-	/** SHARED — one implementation of the shift for all seven wrapped elements (§5a). */
+	/**
+	 * SHARED — one implementation of the shift for all seven wrapped elements (§5a). The AMOUNT
+	 * comes from {@code SpecialitiesClient.hudShift()}, the same shared decision the other three
+	 * raise paths read: {@code HUD_SHIFT} while the skill XP bar occupies the row, {@code 0} once
+	 * the client's {@code showXpHudBar} hides it, so hiding the bar does not leave seven pixels of
+	 * nothing above the hotbar. Read per call, not cached, so the toggle applies on the next frame.
+	 */
 	@Unique
 	private void specialities$shifted(final GuiGraphics graphics, final Operation<Void> original,
 			final Object... args) {
 		graphics.pose().pushPose();
-		graphics.pose().translate(0.0F, (float) -SpecialitiesClient.HUD_SHIFT, 0.0F);
+		graphics.pose().translate(0.0F, (float) -SpecialitiesClient.hudShift(), 0.0F);
 		original.call(args);
 		graphics.pose().popPose();
 	}
