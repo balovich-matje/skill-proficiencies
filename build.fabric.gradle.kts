@@ -60,10 +60,25 @@ loom {
 }
 
 dependencies {
-	/** Pulls only the Fabric API modules the mod imports, per node. */
+	/**
+	 * Pulls only the Fabric API modules the mod imports, per node — COMPILE
+	 * classpath only. The dev RUNTIME gets the full fabric-api umbrella below
+	 * instead: the shipped fabric.mod.json declares `depends: fabric-api`, and
+	 * only the umbrella jar carries that mod id — per-module jars declare their
+	 * own ids, so a modules-only dev run dies at loader resolution ("requires
+	 * any version of fabric-api, which is missing"), which is exactly how the
+	 * Desktop launcher failed on 2026-07-26. Modules must NOT also be on the
+	 * runtime classpath or every one of them is a duplicate of its copy nested
+	 * in the umbrella.
+	 */
 	fun fapi(vararg modules: String) {
-		for (it in modules) modImplementation(fabricApi.module(it, sc.properties["deps.fabric_api"]))
+		for (it in modules) modCompileOnly(fabricApi.module(it, sc.properties["deps.fabric_api"]))
 	}
+
+	// The whole thing, dev runs only. Production never sees this: users install
+	// fabric-api themselves, and the headless smoke servers drop the same jar
+	// into mods/.
+	modLocalRuntime("net.fabricmc.fabric-api:fabric-api:${sc.properties["deps.fabric_api"] as String}")
 
 	minecraft("com.mojang:minecraft:${sc.current.version}")
 	// No-op on 26.x (already unobfuscated); layers Mojang mappings on obfuscated nodes.
