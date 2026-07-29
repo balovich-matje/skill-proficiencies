@@ -38,6 +38,23 @@ All bonuses stack **additively** with the matching vanilla enchantments (e.g. a 
 - Stealth vignette: sneaking near unaware hostiles tints the screen edges violet; being spotted flashes them light.
 - Testing/creative: knowledge books (+25 / +100 levels per skill) in the Tools & Utilities tab.
 
+## Config
+
+Settings live in `config/specialities.json`, written on first launch. With **Mod Menu + Cloth Config** installed there is an in-game screen for them; without those (and on the Forge/NeoForge builds, which ship no config screen) edit the file directly.
+
+| Key | Default | What it does |
+| --- | --- | --- |
+| `combatDamageMaxBonus` | `0.5` | Extra weapon damage at Combat 100, as a fraction. `1.0` = the old +100%. |
+| `attackSpeedMaxReduction` | `0.3` | Fraction of attack-recovery / bow-draw time removed at level 100. |
+| `miningSpeedMaxBonus` | `1.0` | Extra block-breaking speed at Mining 100, as a fraction. |
+| `xpRateMultiplier` | `1.0` | Multiplier on every skill XP gain. `0.0` disables gains entirely. |
+| `luckLevelsPerBonus` | `20` | Skill levels needed per +1 passive Fortune/Looting. |
+| `showXpHudBar` | `true` | Draw the skill XP bar above the hotbar. |
+
+The five balance keys are read wherever the skill logic runs — the server's copy of the file is the one that counts in multiplayer.
+
+**`showXpHudBar` is the exception: it is yours alone.** It is read only by your own client, out of your own file, and is never sent either way — a server cannot hide your bar and turning it off changes nothing for anyone else. Off also drops the 7px raise the mod applies to the vanilla XP bar, hearts, food and armor, so they go back where vanilla draws them; level-up toasts, the skills screen and the stealth vignette are unaffected. (If **Archetypes** is also installed the raise is kept, because its mana and banked-hunger rows are positioned against it.)
+
 ## Versions
 
 | Component | Version |

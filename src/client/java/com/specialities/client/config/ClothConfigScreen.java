@@ -68,6 +68,19 @@ public final class ClothConfigScreen {
 				.setSaveConsumer(v -> config.xpRateMultiplier = v)
 				.build());
 
+		// Its own category on purpose: every knob above is a balance number the skill logic reads
+		// where it runs, this one is a client-local display preference that is never synced. The
+		// tooltip says so too, because "I turned it off on the server" is the obvious wrong guess.
+		// This screen exists on the 26.x nodes only (Cloth/Mod Menu are gated >=26.1 and the
+		// client source set excludes com/specialities/client/config below that), so on the five
+		// legacy/loader nodes `showXpHudBar` in config/specialities.json is the whole UI.
+		ConfigCategory ui = builder.getOrCreateCategory(Component.translatable("config.specialities.category.interface"));
+		ui.addEntry(eb.startBooleanToggle(Component.translatable("config.specialities.showXpHudBar"), config.showXpHudBar)
+				.setDefaultValue(true)
+				.setTooltip(Component.translatable("config.specialities.showXpHudBar.tooltip"))
+				.setSaveConsumer(v -> config.showXpHudBar = v)
+				.build());
+
 		return builder.build();
 	}
 }

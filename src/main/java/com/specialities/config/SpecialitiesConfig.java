@@ -1,11 +1,17 @@
 package com.specialities.config;
 
 /**
- * Player-editable balance knobs, persisted to {@code config/specialities.json}
- * and surfaced through the Mod Menu / Cloth Config screen. Every field here is
- * read by {@link com.specialities.skills.Tuning} (or {@code SkillManager}) at
+ * Player-editable knobs, persisted to {@code config/specialities.json} and
+ * surfaced through the Mod Menu / Cloth Config screen. Every BALANCE field here
+ * is read by {@link com.specialities.skills.Tuning} (or {@code SkillManager}) at
  * runtime, so the skills screen's displayed numbers follow whatever the player
  * sets — the config is the single source of truth for these knobs.
+ *
+ * <p>Two kinds of field live in this one file, and the difference matters:
+ * the balance knobs are read wherever the skill logic runs (the server, or the
+ * integrated server in singleplayer), while {@link #showXpHudBar} is read only
+ * on a physical client, out of that client's own copy of the file. Nothing here
+ * is ever synced — see that field's note.
  *
  * <p>Defaults are the 1.3.0 rebalance. To restore the 1.2.0 feel set
  * {@code combatDamageMaxBonus = 1.0} and {@code attackSpeedMaxReduction = 0.5}.
@@ -38,6 +44,21 @@ public final class SpecialitiesConfig {
 
 	/** Skill levels required per +1 passive Fortune/Looting. Lower = luck comes faster. */
 	public int luckLevelsPerBonus = 20;
+
+	/**
+	 * Draw the skill XP bar above the hotbar. {@code false} hides the bar and, with it, the
+	 * {@code HUD_SHIFT} raise of the vanilla bottom HUD; toasts, the skills screen and the
+	 * stealth vignette are unaffected.
+	 *
+	 * <p><b>This one knob is CLIENT-LOCAL, unlike every field above it.</b> It is read only by
+	 * {@code client/SkillXpHudBar} and {@code client/SpecialitiesClient}, i.e. only ever on a
+	 * physical client, out of that client's own {@code config/specialities.json}. Nothing in the
+	 * mod puts config values on the wire (the three payloads carry skill state and nothing else),
+	 * so a server setting this to {@code false} cannot hide a connected player's bar, and a player
+	 * setting it to {@code false} changes nothing on the server. On a dedicated server the field
+	 * is written to the file and then ignored.
+	 */
+	public boolean showXpHudBar = true;
 
 	/** Clamp every field into a sane range so a hand-edited file can't break the math (e.g. divide-by-zero). */
 	public void sanitize() {

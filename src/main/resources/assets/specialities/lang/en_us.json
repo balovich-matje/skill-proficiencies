@@ -105,6 +105,7 @@
 	"config.specialities.category.combat": "Combat",
 	"config.specialities.category.skills": "Skills",
 	"config.specialities.category.general": "General",
+	"config.specialities.category.interface": "Interface",
 	"config.specialities.combatDamageMaxBonus": "Combat damage bonus at level 100",
 	"config.specialities.combatDamageMaxBonus.tooltip": "Extra weapon damage at combat level 100, as a fraction. 0.5 = +50% (x1.5). Set to 1.0 for the old +100% (x2.0).",
 	"config.specialities.attackSpeedMaxReduction": "Attack/draw speed bonus at level 100",
@@ -114,5 +115,7 @@
 	"config.specialities.luckLevelsPerBonus": "Levels per +1 Fortune/Looting",
 	"config.specialities.luckLevelsPerBonus.tooltip": "Skill levels required for each +1 passive Fortune/Looting. Lower = luck comes faster. Default 20.",
 	"config.specialities.xpRateMultiplier": "Global XP rate multiplier",
-	"config.specialities.xpRateMultiplier.tooltip": "Multiplier on all skill XP gains. 1.0 = normal, 2.0 = double, 0.0 = disabled."
+	"config.specialities.xpRateMultiplier.tooltip": "Multiplier on all skill XP gains. 1.0 = normal, 2.0 = double, 0.0 = disabled.",
+	"config.specialities.showXpHudBar": "Show the skill XP bar",
+	"config.specialities.showXpHudBar.tooltip": "Draw the skill XP bar above the hotbar. Off also puts the vanilla XP bar, hearts, food and armor back where vanilla draws them. Level-up toasts, the skills screen and the stealth vignette are unaffected. Yours alone: this setting is never sent to or from a server."
 }
