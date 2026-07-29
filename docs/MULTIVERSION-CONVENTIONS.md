@@ -526,6 +526,30 @@ that no longer declares the pair.
   ask which row of §3 that API is in. If the block's predicate is not that row, it is either
   a new boundary (add it to §3 in the same commit) or a bug.
 
+**5l. A user-facing FEATURE GATE goes at the shared funnel point, never in the per-node
+hooks.** §5a's rule for mixins ("the annotation forks, the logic never does") applies just as
+well to a UI switch, and the HUD-bar toggle (`config.showXpHudBar`, landed after Stage 6) is the
+worked example. The HUD has FOUR entry points per concern across the seven nodes —
+`HudElementRegistry` on `>=1.21.11` Fabric, `client/mixin/GuiMixin` below it, NeoForge's
+`RegisterGuiLayersEvent`, and `1.20.1-forge`'s per-node `ForgeGuiMixin` — and the gate is written
+**twice in total**, not eight times:
+
+- the DRAW gate is one early-out at the top of `client/SkillXpHudBar.render`, which all four
+  paths already call (that is what makes it the funnel; the same is true of
+  `StealthVignette.render`, which is deliberately NOT gated);
+- the RAISE gate is `client/SpecialitiesClient.hudShift()`, and the four raise implementations
+  stop naming the `HUD_SHIFT` constant and read that method instead. They stay four
+  implementations because the pose API (`Matrix3x2fStack` vs `PoseStack`) and the hook shape
+  differ per node — but the DECISION has one implementation, which is the property that matters.
+
+Two things to check when adding the next one. **Read the gate inside the per-frame callback, not
+at registration**: all four raise paths install a wrapper once and run it every frame, so a value
+captured at init would need a restart to take effect. And **a client-local preference must not
+travel** — see `config/SpecialitiesConfig#showXpHudBar`: nothing in the mod puts config on the
+wire, so each side reads its own `config/specialities.json`, and that fact is what makes it safe
+to keep a client-only knob in the same file as the balance knobs rather than adding a second
+config. Say so in the field's javadoc, because the file's name does not.
+
 **5f. Build scripts are NOT preprocessed.** Stonecutter only walks the source sets
 (`StonecutterBuildImpl`: `project.sourceSets.all { … }`). Version conditionals in
 `build.fabric.gradle.kts` must be plain Kotlin `if (sc.current.parsed >= "…")`. Design

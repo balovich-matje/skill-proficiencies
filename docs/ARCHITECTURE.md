@@ -122,6 +122,15 @@ applied in `SkillManager.addXp`), so player config edits take effect without
 touching the formulas. The skills screen reads the same `Tuning`
 methods, so displayed numbers always match actual behaviour.
 
+`SpecialitiesConfig` carries one field that is **not** a balance knob:
+`showXpHudBar` (§5). Balance knobs are read wherever the skill logic runs — the
+dedicated server, or the integrated server in singleplayer — while that one is
+read only on a physical client. Nothing in the mod puts config on the wire (the
+three payloads carry skill state and nothing else), so each side reads its own
+`config/specialities.json` and a server can neither read nor override a client's
+display preference. Keep any future client-only knob on the same footing, and say
+so in its javadoc.
+
 ---
 
 ## 2. How activity becomes XP
@@ -346,8 +355,9 @@ the `SkillUpdatePayload` animation) but not merely from holding a related item.
 
 All client rendering is registered in `SpecialitiesClient.onInitializeClient()`.
 
-- **`SkillXpHudBar`** — an always-visible bar (once any skill has gained XP this
-  session) in the vanilla XP bar's old slot (`guiHeight - 29`, 182×5). It shows
+- **`SkillXpHudBar`** — a bar (visible once any skill has gained XP this
+  session, unless the player turned it off — see the toggle below) in the vanilla
+  XP bar's old slot (`guiHeight - 29`, 182×5). It shows
   the held-tool skill, or a recently-gained skill during/after a gain (with a
   linger); on each gain two tool icons converge into the bar and the fill grows.
   Icons are item-atlas sprites (`SkillIcons`, via `AtlasIds.ITEMS`) drawn with
@@ -380,6 +390,35 @@ health, armor, food, air, mount health) by `HUD_SHIFT` pixels via
 `HudElementRegistry.replaceElement`, and attaches the skill bar after
 `VanillaHudElements.HOTBAR` (not the experience-level element, which vanilla
 skips at 0 XP). It is a stable value other HUD-adjacent mods can align to.
+
+### The HUD-bar toggle, and where the two gates live
+
+`showXpHudBar` (client-local, default `true`) hides the bar. It is gated in
+exactly two shared places, never per node:
+
+- **The draw** — one early-out at the top of `SkillXpHudBar.render`. Every node's
+  HUD entry point funnels through that method: `HudElementRegistry` on
+  `>=1.21.11` Fabric, `GuiMixin`'s `TAIL` inject on `1.21.1-fabric` /
+  `1.20.1-fabric`, NeoForge's `RegisterGuiLayersEvent.registerAbove`, and
+  `ForgeGuiMixin`'s `TAIL` inject on `1.20.1-forge`. Toasts, the skills screen and
+  `StealthVignette` are untouched — the vignette is a separate element on every
+  one of those paths.
+- **The raise** — `SpecialitiesClient.hudShift()`, read per frame by all four raise
+  implementations (`raised`, `GuiMixin.specialities$shifted`,
+  `NeoForgeClientEvents.raise`, `ForgeGuiMixin.specialities$shifted`). Those four
+  exist separately only because the pose API and the hook shape differ per node;
+  the decision itself has one implementation. It returns `0` when the bar is
+  hidden, so nothing is left floating seven pixels above the hotbar.
+
+**Archetypes carve-out.** `hudShift()` keeps returning `HUD_SHIFT` when
+`archetypes` is loaded, even with the bar hidden. Archetypes positions its mana
+row and banked-hunger halos with a hardcoded `SPECIALITIES_SHIFT = 7` applied
+whenever `isModLoaded("specialities")` — it reads presence, not the live shift —
+so dropping the raise would strand both of its rows above the vanilla stack they
+measure against. Their layout breaking is worse than our gap. Retiring the
+carve-out needs Archetypes to read the shift instead of the mod id; until it
+does, leave the branch alone. It is the only place in the tree that names another
+mod, and it goes through `Platform.isModLoaded`, so it costs no loader fork.
 
 ---
 
