@@ -3,7 +3,6 @@ package com.specialities.client;
 import com.specialities.Specialities;
 import com.specialities.SkillUpdatePayload;
 import com.specialities.config.ConfigManager;
-import com.specialities.platform.Platform;
 //? if >=1.20.5 {
 //?} else {
 /*import com.specialities.SkillsFullPayload;
@@ -83,14 +82,6 @@ public class SpecialitiesClient implements ClientModInitializer {
 	public static final int HUD_SHIFT = 7;
 
 	/**
-	 * Resolved once, on the first HUD frame rather than at class init: on both loader nodes
-	 * {@code ModList.get()} is not guaranteed non-null while mod construction is still running,
-	 * and this class is constructed there. Nothing can load or unload a mod afterwards, so one
-	 * lookup is enough, and every read below is on the render thread.
-	 */
-	private static Boolean archetypesLoaded;
-
-	/**
 	 * THE ONE GATE FOR THE SKILL XP BAR, read live every frame — a client-local display
 	 * preference ({@code config/specialities.json}, key {@code showXpHudBar}), never a synced
 	 * balance knob. See {@code SpecialitiesConfig#showXpHudBar}: nothing in this mod puts config
@@ -117,31 +108,13 @@ public class SpecialitiesClient implements ClientModInitializer {
 	 * API and the hook shape differ per node; all four read this one method, so the DECISION is
 	 * single-implementation the way conventions §5a requires of balance logic.
 	 *
-	 * <p><b>ARCHETYPES CARVE-OUT, and it is deliberately conservative.</b> Archetypes positions
-	 * its mana row ({@code client/ManaHud}) and its banked-hunger halos
-	 * ({@code client/BankedHungerHud}) with a HARDCODED {@code SPECIALITIES_SHIFT = 7} applied
-	 * whenever {@code isModLoaded("specialities")} — it reads presence, not the live shift. So
-	 * dropping the raise while Archetypes is installed would strand both of its rows seven pixels
-	 * above the vanilla stack they are measured against: their layout breaks, ours merely gains a
-	 * gap. The gap is the lesser failure, so with Archetypes present the raise is kept and only
-	 * the bar itself disappears. Retiring this needs a change on their side (read the shift
-	 * instead of the mod id) and this branch can go the release after that ships; until then, do
-	 * not "simplify" it away. This is the only place in the tree that names another mod, and it
-	 * names it through the {@code Platform} seam, so it costs no loader fork.
+	 * <p>The Archetypes carve-out that also returned {@code HUD_SHIFT} on
+	 * {@code isModLoaded("archetypes")} was RETIRED 2026-08-01: Archetypes >=1.2.0 reads this
+	 * method live per frame ({@code compat/SpecialitiesBridge#hudShift}) instead of hardcoding 7
+	 * on presence, so its rows now follow the toggle down and nothing needs stranding.
 	 */
 	public static int hudShift() {
-		return hudBarVisible() || archetypesLoaded() ? HUD_SHIFT : 0;
-	}
-
-	private static boolean archetypesLoaded() {
-		Boolean cached = archetypesLoaded;
-
-		if (cached == null) {
-			cached = Platform.INSTANCE.isModLoaded("archetypes");
-			archetypesLoaded = cached;
-		}
-
-		return cached;
+		return hudBarVisible() ? HUD_SHIFT : 0;
 	}
 
 	//? if fabric {

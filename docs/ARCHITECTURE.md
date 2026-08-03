@@ -410,15 +410,17 @@ exactly two shared places, never per node:
   the decision itself has one implementation. It returns `0` when the bar is
   hidden, so nothing is left floating seven pixels above the hotbar.
 
-**Archetypes carve-out.** `hudShift()` keeps returning `HUD_SHIFT` when
-`archetypes` is loaded, even with the bar hidden. Archetypes positions its mana
-row and banked-hunger halos with a hardcoded `SPECIALITIES_SHIFT = 7` applied
-whenever `isModLoaded("specialities")` — it reads presence, not the live shift —
-so dropping the raise would strand both of its rows above the vanilla stack they
-measure against. Their layout breaking is worse than our gap. Retiring the
-carve-out needs Archetypes to read the shift instead of the mod id; until it
-does, leave the branch alone. It is the only place in the tree that names another
-mod, and it goes through `Platform.isModLoaded`, so it costs no loader fork.
+**Archetypes carve-out — RETIRED 1.6.1 (2026-08-01).** `hudShift()` used to keep
+returning `HUD_SHIFT` whenever `isModLoaded("archetypes")`, because Archetypes
+positioned its mana row and banked-hunger halos with a hardcoded
+`SPECIALITIES_SHIFT = 7` applied on mere presence of this mod, so dropping the
+raise would have stranded both of its rows above the vanilla stack they measure
+against. Archetypes >=1.2.0 reads `hudShift()` live per frame instead
+(`compat/SpecialitiesBridge#hudShift`, their design R-C4), so the condition it
+guarded is gone and the branch with it — the bar toggle now returns the vanilla
+HUD to vanilla height whether or not Archetypes is installed. Nothing in the tree
+names another mod any more. Older Archetypes keeps its hardcoded 7 and will sit
+seven pixels high with the bar hidden; cosmetic, and its own fix shipped.
 
 ---
 
