@@ -55,7 +55,7 @@ Settings live in `config/skill-proficiencies.json`, written on first launch. Wit
 
 The five balance keys are read wherever the skill logic runs — the server's copy of the file is the one that counts in multiplayer.
 
-**`showXpHudBar` is the exception: it is yours alone.** It is read only by your own client, out of your own file, and is never sent either way — a server cannot hide your bar and turning it off changes nothing for anyone else. Off also drops the 7px raise the mod applies to the vanilla XP bar, hearts, food and armor, so they go back where vanilla draws them; level-up toasts, the skills screen and the stealth vignette are unaffected. (If **Archetypes** is also installed the raise is kept, because its mana and banked-hunger rows are positioned against it.)
+**`showXpHudBar` is the exception: it is yours alone.** It is read only by your own client, out of your own file, and is never sent either way — a server cannot hide your bar and turning it off changes nothing for anyone else. Off also drops the raise the mod applies to the vanilla XP bar, hearts, food and armor, so they go back where vanilla draws them; level-up toasts, the skills screen and the stealth vignette are unaffected. This holds with **Archetypes** installed too — since Skill Proficiencies 1.6.1 and Archetypes 1.2.0 its mana and banked-hunger rows follow the raise instead of assuming it.
 
 ## Versions
 

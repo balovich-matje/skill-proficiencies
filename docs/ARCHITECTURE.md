@@ -392,6 +392,34 @@ health, armor, food, air, mount health) by `HUD_SHIFT` pixels via
 `VanillaHudElements.HOTBAR` (not the experience-level element, which vanilla
 skips at 0 XP). It is a stable value other HUD-adjacent mods can align to.
 
+### Raise coverage per node — the seven-element set, audited (GitHub issue #3)
+
+The same seven logical elements are raised on all seven nodes. They are reached
+through four different mechanisms, so the mapping is worth writing down: issue #3
+reported hunger and air raised while hearts and armor were not, which no node can
+produce on its own. Every row below was read out of the real mapped artifact
+(`javap -p` of the node's own Minecraft/loader jar), not from memory.
+
+| Node(s) | Mechanism | What carries hearts / armor / food / air |
+| --- | --- | --- |
+| `26.2-fabric`, `26.1-fabric`, `1.21.11-fabric` | `HudElementRegistry.replaceElement` over a 7-id array | Four separate ids — `HEALTH_BAR`, `ARMOR_BAR`, `FOOD_BAR`, `AIR_BAR` — replaced in ONE loop with the same wrapper, so they cannot diverge |
+| `1.21.1-fabric`, `1.20.1-fabric` | `@WrapMethod` on vanilla `Gui` | ALL FOUR live inside the single `renderPlayerHealth(GuiGraphics)V`; `javap -c` of that method shows `getHealth`, `getArmorValue`, `getFoodData`, `getAirSupply`/`getMaxAirSupply` in one body. Splitting them is not expressible |
+| `1.21.1-neoforge` | `RegisterGuiLayersEvent.wrapLayer` over an 8-id array | Four separate layers — `PLAYER_HEALTH`, `ARMOR_LEVEL`, `FOOD_LEVEL`, `AIR_LEVEL` — wrapped in ONE loop. Those are the only four of `VanillaGuiLayers`' 25 ids that draw this stack |
+| `1.20.1-forge` | `@WrapMethod` on `ForgeGui` | Four separate methods — `renderHealth(IIL…GuiGraphics;)V`, `renderArmor(L…GuiGraphics;II)V` (note the parameter order), `renderFood(IIL…GuiGraphics;)V`, `renderAir(IIL…GuiGraphics;)V` — each delegating to the one shared `specialities$shifted` |
+
+Two invariants hold everywhere and are what make the split impossible from our
+side: the four elements are raised **in one loop / by one shared helper**, and the
+amount comes from **one** `SpecialitiesClient.hudShift()` read per element per
+frame. There is no per-element condition anywhere in the tree.
+
+So a hearts/armor-vs-food/air split needs a THIRD party between the layers. Both
+Fabric's `replaceElement` and NeoForge's `wrapLayer` hand a mod the current
+element and take whatever it returns, so a mod that re-implements hearts and armor
+and drops the element it was handed silently discards our wrapper for those two
+while food and air keep theirs — which is exactly the reported symptom, and
+exactly what the HUD mods in issue #4 do. Nothing was changed for that half;
+reproducing it needs the reporter's mod list.
+
 ### The HUD-bar toggle, and where the two gates live
 
 `showXpHudBar` (client-local, default `true`) hides the bar. It is gated in
