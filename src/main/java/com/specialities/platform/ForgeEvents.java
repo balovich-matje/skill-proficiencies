@@ -157,9 +157,103 @@ public final class ForgeEvents {
 	 * player map and its health restored, and {@code serverplayer} IS the new instance. That is
 	 * what {@code DefencePassives.apply} needs — it writes attribute modifiers onto the object
 	 * the client will see.
+	 *
+	 * <p><b>It has a SECOND consumer since the desync fix, and the R-20 ordering is what makes
+	 * that safe.</b> {@code javap -c} of {@code PlayerList.respawn} on the merged jar:
+	 * {@code ClientboundRespawnPacket} is built at 467/542, the new player goes into the map at
+	 * 709, {@code initInventoryMenu} at 717, {@code setHealth} at 727 and
+	 * {@code firePlayerRespawnEvent} at 733 — so the client has already been told to rebuild its
+	 * {@code LocalPlayer} by the time this fires, which is exactly the window
+	 * {@code ForgeSkillStore}'s resync needs. A death respawn is one of the three vanilla senders
+	 * of that packet on this version (the others are {@code changeDimension} and the
+	 * cross-dimension {@code teleportTo}); see {@link #playerChangedDimension} for the other two.
 	 */
 	public static void afterRespawn(final Consumer<ServerPlayer> listener) {
 		MinecraftForge.EVENT_BUS.addListener((PlayerEvent.PlayerRespawnEvent event) -> {
+			if (event.getEntity() instanceof ServerPlayer player) {
+				listener.accept(player);
+			}
+		});
+	}
+
+	/**
+	 * Fires with the player AFTER it has arrived in a new dimension — every portal (vanilla and
+	 * modded alike), every cross-dimension teleport.
+	 *
+	 * <p><b>WHY THIS EXISTS AND NO OTHER NODE HAS IT.</b> A dimension change makes the vanilla
+	 * server send {@code ClientboundRespawnPacket}, and every client that receives one throws
+	 * its {@code LocalPlayer} away and builds a new one. On the five Fabric nodes that costs
+	 * nothing, because fabric-api's own
+	 * {@code mixin/attachment/client/ClientPlayNetworkHandlerMixin} wraps that very call and
+	 * copies the old player's attachments onto the new one — present and identical in
+	 * {@code fabric-data-attachment-api-v1} <b>0.92.11</b> and <b>0.116.14</b> (javap: one
+	 * {@code AttachmentTargetImpl.transfer(old, new, !packet.shouldKeep(KEEP_ATTRIBUTES))}), and
+	 * in the 1.8.48 / 2.2.x rewrites as {@code ClientPacketListenerMixin}. On NeoForge it costs
+	 * nothing either, because NeoForge patches {@code AttachmentSync.syncInitialPlayerAttachments}
+	 * into {@code ServerPlayer.changeDimension} itself (javap of the 21.1.243 merged jar: offset
+	 * 407, i.e. AFTER the respawn packet at 145).
+	 *
+	 * <p><b>LexForge patches in no such thing, and capabilities have no sync at all</b>, so this
+	 * node's client rebuilt its player, got a fresh empty {@link ForgeSkillStore.SkillsHolder}
+	 * from {@code AttachCapabilitiesEvent}, and nothing ever re-sent the map. Server state was
+	 * never involved: {@code ServerPlayer.changeDimension} calls {@code revive()} (javap offset
+	 * 237), which is {@code unsetRemoved(); reviveCaps();}. Only the client mirror died.
+	 *
+	 * <p><b>R-20 ORDERING, and it is the whole reason this is safe</b> — a resync fired before
+	 * the client swaps its {@code LocalPlayer} would write into an object about to be discarded,
+	 * fail silently, and look exactly like no fix at all. Measured with {@code javap -c} on the
+	 * {@code forge-1.20.1-47.4.22} merged jar, both firing sites, and the event is LAST in both:
+	 *
+	 * <pre>
+	 *   ServerPlayer.changeDimension(ServerLevel, ITeleporter)
+	 *     129/179  new/&lt;init&gt; ClientboundRespawnPacket
+	 *     233      removePlayerImmediately
+	 *     237      revive()
+	 *     473      ForgeEventFactory.firePlayerChangedDimensionEvent   &lt;-- here
+	 *
+	 *   ServerPlayer.teleportTo(ServerLevel, double, double, double, float, float)
+	 *      63/113  new/&lt;init&gt; ClientboundRespawnPacket
+	 *     168      revive()
+	 *     257      ForgeEventFactory.firePlayerChangedDimensionEvent   &lt;-- here
+	 * </pre>
+	 *
+	 * <p>Both are confirmed in {@code patches/net/minecraft/server/level/ServerPlayer.java.patch}
+	 * as well. The event carries the same {@code ServerPlayer} throughout — a dimension change
+	 * does not clone the player, unlike a respawn — so no "which instance" question arises.
+	 */
+	public static void playerChangedDimension(final Consumer<ServerPlayer> listener) {
+		MinecraftForge.EVENT_BUS.addListener((PlayerEvent.PlayerChangedDimensionEvent event) -> {
+			if (event.getEntity() instanceof ServerPlayer player) {
+				listener.accept(player);
+			}
+		});
+	}
+
+	/**
+	 * Fires when a player's game mode changes.
+	 *
+	 * <p><b>THIS ONE IS PURE BELT, and the honest measurement is that nothing is lost here on
+	 * any node.</b> {@code javap -c} of {@code ServerPlayerGameMode.changeGameModeForPlayer} on
+	 * the 1.20.1 merged jar shows it sending {@code ClientboundPlayerInfoUpdatePacket}
+	 * ({@code UPDATE_GAME_MODE}) plus {@code onUpdateAbilities} and
+	 * {@code updateSleepingPlayerList} — and <b>no {@code ClientboundRespawnPacket}</b>. So the
+	 * client does not rebuild its {@code LocalPlayer} and the skill map is untouched. A
+	 * "switching to creative wiped my skills" report is therefore never this event; it is the
+	 * dimension change that came before it.
+	 *
+	 * <p>It is registered anyway because the guarantee this node needs is "every client-visible
+	 * player-lifecycle transition re-pushes the map", and an invariant that holds only because
+	 * of a vanilla implementation detail is one refactor away from being false. One packet on an
+	 * event a player fires by hand costs nothing.
+	 *
+	 * <p>Fired from {@code ForgeHooks.onChangeGameType}, which {@code ServerPlayer.setGameMode}
+	 * calls at offset 9 — i.e. BEFORE the change is applied, and cancellably. That is fine for a
+	 * resync and would not be for a state write: the value being pushed is the skill map, which
+	 * this event never touches, so pushing it for a change that is subsequently vetoed is
+	 * idempotent rather than wrong.
+	 */
+	public static void playerChangeGameMode(final Consumer<ServerPlayer> listener) {
+		MinecraftForge.EVENT_BUS.addListener((PlayerEvent.PlayerChangeGameModeEvent event) -> {
 			if (event.getEntity() instanceof ServerPlayer player) {
 				listener.accept(player);
 			}

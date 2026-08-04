@@ -193,6 +193,32 @@ final class ForgeSkillStore implements SkillStore {
 		// Replaces AttachmentType.copyOnDeath(). Registered here, with the store it belongs
 		// to, rather than in SkillEvents: it is persistence plumbing, not a skill event.
 		MinecraftForge.EVENT_BUS.addListener(ForgeSkillStore::onPlayerClone);
+
+		// THE RE-SEND BELT. Same rule as the clone listener above — this is sync plumbing, not a
+		// skill event, so it registers with the store and none of it reaches the shared tree.
+		// (That is also what keeps the five Fabric jars instruction-identical: everything here
+		// is inside a `platform/Forge*` file, which their source sets exclude by glob.)
+		//
+		// WHAT IT FIXES. `resyncSkills` is this node's ONLY sync, and until now its only caller
+		// was the join hook — so the client's map was correct exactly once per login. Every
+		// vanilla sender of `ClientboundRespawnPacket` rebuilds the client's `LocalPlayer`, it
+		// gets a fresh empty SkillsHolder from AttachCapabilitiesEvent, and nothing re-sent the
+		// map: the HUD bar and the skills screen (both of which call `SkillManager.get` on the
+		// CLIENT store) read PlayerSkills.EMPTY until the next relog. On this version those
+		// senders are exactly three — `ServerPlayer.changeDimension`, the cross-dimension
+		// `ServerPlayer.teleportTo(ServerLevel, …)` and `PlayerList.respawn` — and the two
+		// listeners below cover all three. Each helper's javadoc carries the R-20 proof that its
+		// event is posted AFTER the packet and after `revive()`.
+		//
+		// Server-side state was never lost: `changeDimension` calls `revive()`, which is
+		// `unsetRemoved(); reviveCaps();`, and we register no invalidation listener. This is a
+		// mirror-only failure and a relog always cured it.
+		ForgeEvents.playerChangedDimension(this::resyncSkills);
+		ForgeEvents.afterRespawn(this::resyncSkills);
+		// Belt on the belt: game mode provably sends no respawn packet, so nothing is lost here
+		// on any node. Registered anyway so the guarantee does not rest on that staying true —
+		// see ForgeEvents#playerChangeGameMode.
+		ForgeEvents.playerChangeGameMode(this::resyncSkills);
 	}
 
 	private static void onRegisterCapabilities(final RegisterCapabilitiesEvent event) {
