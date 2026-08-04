@@ -1,7 +1,7 @@
 package com.specialities.config;
 
 /**
- * Player-editable knobs, persisted to {@code config/specialities.json} and
+ * Player-editable knobs, persisted to {@code config/skill-proficiencies.json} and
  * surfaced through the Mod Menu / Cloth Config screen. Every BALANCE field here
  * is read by {@link com.specialities.skills.Tuning} (or {@code SkillManager}) at
  * runtime, so the skills screen's displayed numbers follow whatever the player
@@ -52,7 +52,7 @@ public final class SpecialitiesConfig {
 	 *
 	 * <p><b>This one knob is CLIENT-LOCAL, unlike every field above it.</b> It is read only by
 	 * {@code client/SkillXpHudBar} and {@code client/SpecialitiesClient}, i.e. only ever on a
-	 * physical client, out of that client's own {@code config/specialities.json}. Nothing in the
+	 * physical client, out of that client's own {@code config/skill-proficiencies.json}. Nothing in the
 	 * mod puts config values on the wire (the three payloads carry skill state and nothing else),
 	 * so a server setting this to {@code false} cannot hide a connected player's bar, and a player
 	 * setting it to {@code false} changes nothing on the server. On a dedicated server the field

@@ -19,7 +19,8 @@ or gate it.
 `com.specialities.Specialities` is the common `ModInitializer`. Its
 `onInitialize()` runs, in order:
 
-1. `ConfigManager.load()` — read `config/specialities.json`.
+1. `ConfigManager.load()` — read `config/skill-proficiencies.json` (renaming a
+   pre-1.7.0 `config/specialities.json` onto that name first, see §Config).
 2. `SkillTypes.pullEntrypoints()` — collect externally-registered skills
    *before* any player state can exist.
 3. `SkillStore.INSTANCE.initialize()` (registers the attachment types) and
@@ -127,7 +128,7 @@ methods, so displayed numbers always match actual behaviour.
 dedicated server, or the integrated server in singleplayer — while that one is
 read only on a physical client. Nothing in the mod puts config on the wire (the
 three payloads carry skill state and nothing else), so each side reads its own
-`config/specialities.json` and a server can neither read nor override a client's
+`config/skill-proficiencies.json` and a server can neither read nor override a client's
 display preference. Keep any future client-only knob on the same footing, and say
 so in its javadoc.
 

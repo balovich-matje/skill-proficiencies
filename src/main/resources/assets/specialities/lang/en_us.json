@@ -61,6 +61,7 @@
 	"screen.specialities.skills.source.alchemy": "Brewing potions at a brewing stand.",
 	"screen.specialities.skills.source.enchanting": "Enchanting items at an enchanting table. Higher level enchants give more.",
 	"toast.specialities.levelup.desc": "Increased %s -> %s",
+	"screen.specialities.title": "Skill Proficiencies",
 	"screen.specialities.skills": "Skills",
 	"screen.specialities.skills.level": "Level %s",
 	"screen.specialities.skills.xp": "XP: %s / %s",

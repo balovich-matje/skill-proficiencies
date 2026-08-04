@@ -73,7 +73,7 @@ public final class ClothConfigScreen {
 		// tooltip says so too, because "I turned it off on the server" is the obvious wrong guess.
 		// This screen exists on the 26.x nodes only (Cloth/Mod Menu are gated >=26.1 and the
 		// client source set excludes com/specialities/client/config below that), so on the five
-		// legacy/loader nodes `showXpHudBar` in config/specialities.json is the whole UI.
+		// legacy/loader nodes the knobs in config/skill-proficiencies.json are the whole UI.
 		ConfigCategory ui = builder.getOrCreateCategory(Component.translatable("config.specialities.category.interface"));
 		ui.addEntry(eb.startBooleanToggle(Component.translatable("config.specialities.showXpHudBar"), config.showXpHudBar)
 				.setDefaultValue(true)

@@ -83,7 +83,7 @@ public class SpecialitiesClient implements ClientModInitializer {
 
 	/**
 	 * THE ONE GATE FOR THE SKILL XP BAR, read live every frame — a client-local display
-	 * preference ({@code config/specialities.json}, key {@code showXpHudBar}), never a synced
+	 * preference ({@code config/skill-proficiencies.json}, key {@code showXpHudBar}), never a synced
 	 * balance knob. See {@code SpecialitiesConfig#showXpHudBar}: nothing in this mod puts config
 	 * on the wire, so a server cannot hide a connected client's bar.
 	 *

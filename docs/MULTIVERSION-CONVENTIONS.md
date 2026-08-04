@@ -546,7 +546,7 @@ Two things to check when adding the next one. **Read the gate inside the per-fra
 at registration**: all four raise paths install a wrapper once and run it every frame, so a value
 captured at init would need a restart to take effect. And **a client-local preference must not
 travel** — see `config/SpecialitiesConfig#showXpHudBar`: nothing in the mod puts config on the
-wire, so each side reads its own `config/specialities.json`, and that fact is what makes it safe
+wire, so each side reads its own `config/skill-proficiencies.json`, and that fact is what makes it safe
 to keep a client-only knob in the same file as the balance knobs rather than adding a second
 config. Say so in the field's javadoc, because the file's name does not.
 

@@ -45,7 +45,7 @@ public interface Platform {
 	/*Platform INSTANCE = new ForgePlatform();
 	*///?}
 
-	/** The instance config directory; the mod writes {@code specialities.json} into it. */
+	/** The instance config directory; the mod writes {@code skill-proficiencies.json} into it. */
 	Path configDir();
 
 	/** True if a mod with this id is loaded. Used for the optional Cloth Config UI. */

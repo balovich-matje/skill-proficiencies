@@ -40,7 +40,9 @@ All bonuses stack **additively** with the matching vanilla enchantments (e.g. a 
 
 ## Config
 
-Settings live in `config/specialities.json`, written on first launch. With **Mod Menu + Cloth Config** installed there is an in-game screen for them; without those (and on the Forge/NeoForge builds, which ship no config screen) edit the file directly.
+Settings live in `config/skill-proficiencies.json`, written on first launch. With **Mod Menu + Cloth Config** installed there is an in-game screen for them; without those (and on the Forge/NeoForge builds, which ship no config screen) edit the file directly.
+
+*Upgrading from 1.6.1 or older?* The file used to be `config/specialities.json`. It is renamed for you on the first launch, settings and all — nothing to copy across.
 
 | Key | Default | What it does |
 | --- | --- | --- |

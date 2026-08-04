@@ -22,7 +22,7 @@ import net.neoforged.fml.loading.FMLPaths;
  *     {@code CONFIGDIR("config")} at {@code :23} and {@code public Path get()} at {@code :89}.
  *     So {@code FMLPaths.CONFIGDIR.get()} is the exact analogue of
  *     {@code FabricLoader.getInstance().getConfigDir()} and resolves to the same
- *     {@code <instance>/config} directory — which keeps {@code config/specialities.json} and
+ *     {@code <instance>/config} directory — which keeps {@code config/skill-proficiencies.json} and
  *     every existing user config file valid.</li>
  * <li>{@code net/neoforged/fml/ModList.java:128} {@code List<IModInfo> getMods()},
  *     {@code :132} {@code boolean isLoaded(String modTarget)}.</li>

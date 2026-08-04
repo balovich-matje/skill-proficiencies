@@ -103,8 +103,15 @@ public class SkillsScreen extends Screen {
 	private final Set<SkillType> expanded = new LinkedHashSet<>();
 	private double scroll;
 
+	// The SCREEN title carries the published mod name; the inventory tab that opens it keeps the
+	// short `screen.specialities.skills` label. GitHub issue #2: with the tab, the screen, the
+	// config file and the Modrinth page all reading differently, nothing pointed a player at the
+	// mod. Two keys, not one, because the tab's width is font-measured — and Archetypes measures
+	// OUR tab with the same key (`client/ArchetypesClient` calls
+	// `BookmarkTab.widthFor(translatable("screen.specialities.skills"))`) to place its own tab
+	// beside it, so widening that label would push their tab off the panel.
 	public SkillsScreen(final @Nullable Screen parent) {
-		super(Component.translatable("screen.specialities.skills"));
+		super(Component.translatable("screen.specialities.title"));
 		this.parent = parent;
 	}
 
