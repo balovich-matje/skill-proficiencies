@@ -5,7 +5,7 @@
 mod.id = "specialities"
 mod.name = "Skill Proficiencies"
 mod.group = "com.specialities"
-mod.version = "1.6.2"
+mod.version = "1.6.3"
 
 deps.fabric_loader = "0.19.3"
 
