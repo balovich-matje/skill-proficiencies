@@ -209,11 +209,23 @@ public final class NeoForgeClientEvents {
 			// org.joml.Matrix3x2fStack of >=1.21.11 — so pushPose/translate/popPose with a z
 			// argument, exactly as the 1.21.1-fabric GuiMixin's shared helper does. The shift
 			// itself is never decided here: SpecialitiesClient.hudShift() is the one shared
-			// implementation for all four raise paths (HUD_SHIFT while the skill XP bar occupies
-			// the row, 0 once the client hides it), and it is read per frame, inside the wrapper
-			// the event installed once, so the toggle needs no re-registration.
+			// implementation for all four raise paths (the configured hudShiftAmount while the
+			// skill XP bar occupies the row, 0 once the client hides it), and it is read per
+			// frame, inside the wrapper the event installed once, so the toggle needs no
+			// re-registration.
+			//
+			// Zero takes the untouched path — the wrapped layer is called with the pose stack
+			// exactly as NeoForge handed it over. That is what makes `hudShiftAmount: 0` a real
+			// compat answer for other HUD mods (GitHub issue #4) instead of a zero translate.
+			int shift = SpecialitiesClient.hudShift();
+
+			if (shift == 0) {
+				inner.render(graphics, deltaTracker);
+				return;
+			}
+
 			graphics.pose().pushPose();
-			graphics.pose().translate(0.0F, (float) -SpecialitiesClient.hudShift(), 0.0F);
+			graphics.pose().translate(0.0F, (float) -shift, 0.0F);
 			inner.render(graphics, deltaTracker);
 			graphics.pose().popPose();
 		};

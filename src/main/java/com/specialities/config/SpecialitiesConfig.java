@@ -60,6 +60,36 @@ public final class SpecialitiesConfig {
 	 */
 	public boolean showXpHudBar = true;
 
+	/**
+	 * How many pixels the vanilla bottom HUD is raised while the skill XP bar is shown. 7 is the
+	 * bar's own height plus its gap and is what every release up to 1.6.1 hardcoded.
+	 *
+	 * <p><b>0 means the mod never translates the vanilla HUD at all</b> — not "translate by zero":
+	 * every raise path skips its push/translate/pop entirely, so nothing this mod does can
+	 * interfere with another mod's matrix. That is the point of the knob. GitHub issue #4: mods
+	 * that move the HUD themselves (Raised, Nostalgic Tweaks, Melancholic Hunger) and this mod
+	 * both shift the same rows, and the shifts add up. At 0 the skill bar still draws, in the slot
+	 * the vanilla XP bar occupies — the two OVERLAP by design, which is the trade being opted
+	 * into; {@link #hudBarYOffset} is how you move ours out of the way instead.
+	 *
+	 * <p>Client-local like {@link #showXpHudBar}, and for the same reason — see that field's note.
+	 */
+	public int hudShiftAmount = 7;
+
+	/**
+	 * Extra pixels to move the skill XP bar UP from the vanilla XP bar's slot. 0 keeps the
+	 * position every release up to 1.6.1 had; negative moves it down.
+	 *
+	 * <p>Also GitHub issue #4, and it is the half {@link #hudShiftAmount} cannot fix. The bar is
+	 * anchored to the bottom of the screen (the vanilla XP bar's own y), so a mod that RAISES the
+	 * hotbar leaves our bar behind, drawn across the hotbar's item slots — which is what the
+	 * issue's screenshot shows. Nothing tells us where another mod put the hotbar, so this is the
+	 * manual answer: nudge the bar until it sits where you want it.
+	 *
+	 * <p>Client-local like {@link #showXpHudBar}, and for the same reason — see that field's note.
+	 */
+	public int hudBarYOffset = 0;
+
 	/** Clamp every field into a sane range so a hand-edited file can't break the math (e.g. divide-by-zero). */
 	public void sanitize() {
 		combatDamageMaxBonus = clamp(combatDamageMaxBonus, 0.0, 5.0);
@@ -67,6 +97,8 @@ public final class SpecialitiesConfig {
 		miningSpeedMaxBonus = clamp(miningSpeedMaxBonus, 0.0, 10.0);
 		xpRateMultiplier = clamp(xpRateMultiplier, 0.0, 100.0);
 		luckLevelsPerBonus = (int) clamp(luckLevelsPerBonus, 1, 100);
+		hudShiftAmount = (int) clamp(hudShiftAmount, 0, 32);
+		hudBarYOffset = (int) clamp(hudBarYOffset, -64, 64);
 	}
 
 	private static double clamp(final double value, final double lo, final double hi) {

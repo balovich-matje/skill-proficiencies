@@ -89,14 +89,24 @@ import net.minecraft.world.entity.PlayerRideableJumping;
 @Mixin(Gui.class)
 public abstract class GuiMixin {
 	// SHARED — one implementation for all five wrapped elements. The shift AMOUNT is decided in
-	// SpecialitiesClient.hudShift(), shared with the other three raise paths: HUD_SHIFT while the
-	// skill XP bar occupies the row, 0 once the client's showXpHudBar hides it, so no gap is left
-	// above the hotbar. Read per call, so the toggle applies on the next frame.
+	// SpecialitiesClient.hudShift(), shared with the other three raise paths: the configured
+	// hudShiftAmount while the skill XP bar occupies the row, 0 once the client's showXpHudBar
+	// hides it, so no gap is left above the hotbar. Read per call, so the toggle applies on the
+	// next frame. A shift of 0 skips pushPose/translate/popPose outright rather than translating
+	// by zero — `hudShiftAmount: 0` is the issue-#4 compat escape and has to mean the pose stack
+	// is never touched.
 	@Unique
 	private void specialities$shifted(final GuiGraphics graphics, final Operation<Void> original,
 			final Object... args) {
+		int shift = SpecialitiesClient.hudShift();
+
+		if (shift == 0) {
+			original.call(args);
+			return;
+		}
+
 		graphics.pose().pushPose();
-		graphics.pose().translate(0.0F, (float) -SpecialitiesClient.hudShift(), 0.0F);
+		graphics.pose().translate(0.0F, (float) -shift, 0.0F);
 		original.call(args);
 		graphics.pose().popPose();
 	}
@@ -158,12 +168,19 @@ import net.minecraft.world.entity.PlayerRideableJumping;
 @Mixin(Gui.class)
 public abstract class GuiMixin {
 	// SHARED — one implementation for all four wrapped elements. Shift amount from
-	// SpecialitiesClient.hudShift(), as in the >=1.21 arm above.
+	// SpecialitiesClient.hudShift(), and the same skip-at-zero, as in the >=1.21 arm above.
 	@Unique
 	private void specialities$shifted(final GuiGraphics graphics, final Operation<Void> original,
 			final Object... args) {
+		int shift = SpecialitiesClient.hudShift();
+
+		if (shift == 0) {
+			original.call(args);
+			return;
+		}
+
 		graphics.pose().pushPose();
-		graphics.pose().translate(0.0F, (float) -SpecialitiesClient.hudShift(), 0.0F);
+		graphics.pose().translate(0.0F, (float) -shift, 0.0F);
 		original.call(args);
 		graphics.pose().popPose();
 	}

@@ -52,10 +52,14 @@ Settings live in `config/skill-proficiencies.json`, written on first launch. Wit
 | `xpRateMultiplier` | `1.0` | Multiplier on every skill XP gain. `0.0` disables gains entirely. |
 | `luckLevelsPerBonus` | `20` | Skill levels needed per +1 passive Fortune/Looting. |
 | `showXpHudBar` | `true` | Draw the skill XP bar above the hotbar. |
+| `hudShiftAmount` | `7` | Pixels the vanilla HUD is raised while the skill bar shows. `0` = never move the vanilla HUD. |
+| `hudBarYOffset` | `0` | Pixels to move the skill bar up from the vanilla XP bar's slot. Negative moves it down. |
 
 The five balance keys are read wherever the skill logic runs — the server's copy of the file is the one that counts in multiplayer.
 
 **`showXpHudBar` is the exception: it is yours alone.** It is read only by your own client, out of your own file, and is never sent either way — a server cannot hide your bar and turning it off changes nothing for anyone else. Off also drops the raise the mod applies to the vanilla XP bar, hearts, food and armor, so they go back where vanilla draws them; level-up toasts, the skills screen and the stealth vignette are unaffected. This holds with **Archetypes** installed too — since Skill Proficiencies 1.6.1 and Archetypes 1.2.0 its mana and banked-hunger rows follow the raise instead of assuming it.
+
+**Running another HUD mod?** `hudShiftAmount` and `hudBarYOffset` are yours alone as well, and they exist for exactly that. Mods like **Raised**, **Nostalgic Tweaks** and **Melancholic Hunger** move the same rows this mod raises, and the two shifts add up. Set `hudShiftAmount` to `0` and this mod stops moving the vanilla HUD entirely — not "moves it less": no raise is applied anywhere. The skill bar then sits in the vanilla XP bar's slot and the two overlap, so use `hudBarYOffset` to put the skill bar somewhere free (positive is up). If the other mod raised your hotbar and the skill bar is drawing across your items, that offset is the knob to reach for.
 
 ## Versions
 

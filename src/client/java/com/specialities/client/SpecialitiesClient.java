@@ -76,8 +76,11 @@ public class SpecialitiesClient implements ClientModInitializer {
 	 * over the vanilla XP bar's original position.
 	 *
 	 * <p>Published constant, part of the Archetypes collision contract
-	 * ({@code ../archetypes/notes/design.md}). It is the SIZE of the raise and never moves;
-	 * whether the raise applies on a given frame is {@link #hudShift()}.
+	 * ({@code ../archetypes/notes/design.md}). It is the DEFAULT size of the raise and never
+	 * moves; how far the raise actually goes on a given frame is {@link #hudShift()}, which reads
+	 * {@code hudShiftAmount} out of the client's config since 1.7.0 (GitHub issue #4). The
+	 * contract survives that: Archetypes >=1.2.0 reads {@link #hudShift()} live per frame rather
+	 * than this constant, so its rows follow whatever the player set.
 	 */
 	public static final int HUD_SHIFT = 7;
 
@@ -98,9 +101,17 @@ public class SpecialitiesClient implements ClientModInitializer {
 	}
 
 	/**
-	 * How far to raise the vanilla bottom HUD THIS FRAME: {@link #HUD_SHIFT} while the skill XP
-	 * bar occupies that row, {@code 0} when it does not — otherwise hiding the bar would leave a
-	 * seven-pixel gap of nothing above the hotbar.
+	 * How far to raise the vanilla bottom HUD THIS FRAME: the configured {@code hudShiftAmount}
+	 * ({@link #HUD_SHIFT} by default) while the skill XP bar occupies that row, {@code 0} when it
+	 * does not — otherwise hiding the bar would leave a seven-pixel gap of nothing above the
+	 * hotbar.
+	 *
+	 * <p><b>{@code 0} is a real answer, not just a small one</b> (GitHub issue #4): every raise
+	 * path checks for it and skips its push/translate/pop entirely, so with
+	 * {@code hudShiftAmount: 0} this mod performs no pose manipulation anywhere on any of the
+	 * seven nodes and cannot fight a HUD mod that moves the same rows. The skill bar keeps
+	 * drawing where it always did, overlapping the vanilla XP bar; {@code hudBarYOffset} is the
+	 * knob for moving it clear.
 	 *
 	 * <p>The four raise implementations (26.x/1.21.11 {@code HudElementRegistry.replaceElement}
 	 * via {@link #raised}, {@code GuiMixin.specialities$shifted}, {@code NeoForgeClientEvents
@@ -114,7 +125,7 @@ public class SpecialitiesClient implements ClientModInitializer {
 	 * on presence, so its rows now follow the toggle down and nothing needs stranding.
 	 */
 	public static int hudShift() {
-		return hudBarVisible() ? HUD_SHIFT : 0;
+		return hudBarVisible() ? ConfigManager.get().hudShiftAmount : 0;
 	}
 
 	//? if fabric {
@@ -298,14 +309,25 @@ public class SpecialitiesClient implements ClientModInitializer {
 	// The wrapper is installed once at init and the shift is read INSIDE the returned lambda, so
 	// hudShift() is evaluated per frame and the toggle takes effect immediately — no re-register,
 	// no restart. Same property holds for the other three raise paths.
+	// A shift of 0 takes the untouched path — no pushMatrix, no translate, no popMatrix — so
+	// `hudShiftAmount: 0` really is "this mod never moves the vanilla HUD" and not "moves it by
+	// nothing". Same early-out in the other three raise paths (GuiMixin, NeoForgeClientEvents,
+	// ForgeGuiMixin); it is the one behaviour a compat report can be told to rely on.
 	//? if >=26.1 {
 	private static HudElement raised(final HudElement element) {
 		// The lambda's parameter types are inferred from HudElement, so only the
 		// delegating call names the hook: extractRenderState on 26.x, render below.
 		// pose() is org.joml.Matrix3x2fStack on both sides.
 		return (graphics, deltaTracker) -> {
+			int shift = hudShift();
+
+			if (shift == 0) {
+				element.extractRenderState(graphics, deltaTracker);
+				return;
+			}
+
 			graphics.pose().pushMatrix();
-			graphics.pose().translate(0.0F, (float) -hudShift());
+			graphics.pose().translate(0.0F, (float) -shift);
 			element.extractRenderState(graphics, deltaTracker);
 			graphics.pose().popMatrix();
 		};
@@ -313,8 +335,15 @@ public class SpecialitiesClient implements ClientModInitializer {
 	//?} elif >=1.21.11 {
 	/*private static HudElement raised(final HudElement element) {
 		return (graphics, deltaTracker) -> {
+			int shift = hudShift();
+
+			if (shift == 0) {
+				element.render(graphics, deltaTracker);
+				return;
+			}
+
 			graphics.pose().pushMatrix();
-			graphics.pose().translate(0.0F, (float) -hudShift());
+			graphics.pose().translate(0.0F, (float) -shift);
 			element.render(graphics, deltaTracker);
 			graphics.pose().popMatrix();
 		};

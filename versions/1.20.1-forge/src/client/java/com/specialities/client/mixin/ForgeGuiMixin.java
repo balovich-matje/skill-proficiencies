@@ -125,15 +125,29 @@ public abstract class ForgeGuiMixin {
 	/**
 	 * SHARED — one implementation of the shift for all seven wrapped elements (§5a). The AMOUNT
 	 * comes from {@code SpecialitiesClient.hudShift()}, the same shared decision the other three
-	 * raise paths read: {@code HUD_SHIFT} while the skill XP bar occupies the row, {@code 0} once
-	 * the client's {@code showXpHudBar} hides it, so hiding the bar does not leave seven pixels of
-	 * nothing above the hotbar. Read per call, not cached, so the toggle applies on the next frame.
+	 * raise paths read: the configured {@code hudShiftAmount} while the skill XP bar occupies the
+	 * row, {@code 0} once the client's {@code showXpHudBar} hides it, so hiding the bar does not
+	 * leave seven pixels of nothing above the hotbar. Read per call, not cached, so the toggle
+	 * applies on the next frame.
+	 *
+	 * <p>A shift of {@code 0} calls the original with the pose stack untouched — no push, no
+	 * translate, no pop. {@code hudShiftAmount: 0} is the issue-#4 compat escape for players
+	 * running another HUD-moving mod, and it has to mean this mod performs no pose manipulation
+	 * at all; on this node that also keeps us out of {@code ForgeGui}'s own
+	 * {@code leftHeight}/{@code rightHeight} bookkeeping the same way it always did.
 	 */
 	@Unique
 	private void specialities$shifted(final GuiGraphics graphics, final Operation<Void> original,
 			final Object... args) {
+		int shift = SpecialitiesClient.hudShift();
+
+		if (shift == 0) {
+			original.call(args);
+			return;
+		}
+
 		graphics.pose().pushPose();
-		graphics.pose().translate(0.0F, (float) -SpecialitiesClient.hudShift(), 0.0F);
+		graphics.pose().translate(0.0F, (float) -shift, 0.0F);
 		original.call(args);
 		graphics.pose().popPose();
 	}

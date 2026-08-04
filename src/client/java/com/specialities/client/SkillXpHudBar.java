@@ -1,5 +1,6 @@
 package com.specialities.client;
 
+import com.specialities.config.ConfigManager;
 import com.specialities.skills.PlayerSkills;
 import com.specialities.api.SkillType;
 import com.specialities.skills.SkillCategories;
@@ -141,7 +142,12 @@ public final class SkillXpHudBar {
 		}
 
 		int left = (graphics.guiWidth() - BAR_WIDTH) / 2;
-		int top = graphics.guiHeight() - BOTTOM_OFFSET;
+		// `hudBarYOffset` is the issue-#4 knob for the half `hudShiftAmount` cannot reach: this
+		// bar is anchored to the bottom of the screen, so a mod that RAISES the hotbar leaves it
+		// behind, drawn across the item slots. Positive moves the bar up. Everything else in this
+		// method — fill, level number, converging icons — is measured from `top`, so one term
+		// here moves the whole element.
+		int top = graphics.guiHeight() - BOTTOM_OFFSET - ConfigManager.get().hudBarYOffset;
 
 		// Bar background + fill.
 		//? if >=1.21.11 {

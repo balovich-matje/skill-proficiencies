@@ -123,8 +123,8 @@ applied in `SkillManager.addXp`), so player config edits take effect without
 touching the formulas. The skills screen reads the same `Tuning`
 methods, so displayed numbers always match actual behaviour.
 
-`SpecialitiesConfig` carries one field that is **not** a balance knob:
-`showXpHudBar` (§5). Balance knobs are read wherever the skill logic runs — the
+`SpecialitiesConfig` carries three fields that are **not** balance knobs:
+`showXpHudBar`, `hudShiftAmount` and `hudBarYOffset` (§5). Balance knobs are read wherever the skill logic runs — the
 dedicated server, or the integrated server in singleplayer — while that one is
 read only on a physical client. Nothing in the mod puts config on the wire (the
 three payloads carry skill state and nothing else), so each side reads its own
@@ -390,7 +390,9 @@ All client rendering is registered in `SpecialitiesClient.onInitializeClient()`.
 health, armor, food, air, mount health) by `HUD_SHIFT` pixels via
 `HudElementRegistry.replaceElement`, and attaches the skill bar after
 `VanillaHudElements.HOTBAR` (not the experience-level element, which vanilla
-skips at 0 XP). It is a stable value other HUD-adjacent mods can align to.
+skips at 0 XP). It is a stable value other HUD-adjacent mods can align to. Since
+1.7.0 it is the DEFAULT of the `hudShiftAmount` config knob rather than the
+literal raise — see "Raise coverage" and "The compat knobs" below.
 
 ### Raise coverage per node — the seven-element set, audited (GitHub issue #3)
 
@@ -438,6 +440,36 @@ exactly two shared places, never per node:
   exist separately only because the pose API and the hook shape differ per node;
   the decision itself has one implementation. It returns `0` when the bar is
   hidden, so nothing is left floating seven pixels above the hotbar.
+
+### The compat knobs, and why `0` is a branch and not a value (GitHub issue #4)
+
+`hudShiftAmount` (default `7`) and `hudBarYOffset` (default `0`) are client-local,
+same footing as `showXpHudBar`. They exist because this mod is not the only one
+that moves the bottom HUD: with Raised / Nostalgic Tweaks / Melancholic Hunger the
+two shifts compose, and the reported screenshot showed the more specific failure —
+another mod raised the HOTBAR, and the skill bar, which is anchored to the bottom
+of the screen at the vanilla XP bar's `guiHeight - 29`, was left drawing across the
+item slots.
+
+- `hudShiftAmount` feeds `SpecialitiesClient.hudShift()`, so all four raise paths
+  pick it up with no per-node change. **At `0` each path skips its
+  push/translate/pop entirely** rather than translating by zero — the early-out is
+  in the same shared helper the shift is, one per path. That is a promise worth
+  keeping literal: a compat report can be answered with "set it to 0 and we touch
+  no matrix anywhere", and that is verifiable by reading four methods.
+- `hudBarYOffset` is the half the shift knob cannot reach, and it is deliberately
+  manual: nothing tells us where another mod put the hotbar. It is one term added
+  to `top` in `SkillXpHudBar.render`, and the fill, the level number and the
+  converging icons are all measured from `top`, so the whole element moves.
+
+**Draw order at `hudShiftAmount = 0` is left exactly as the Stage-6 in-game pass
+verified it, per node** — the anchors are not touched. So the skill bar draws over
+the vanilla XP bar on `1.21.1-fabric` / `1.20.1-fabric` / `1.20.1-forge` (their
+`TAIL` inject is after the whole HUD) and under it on the four element/layer nodes
+(the bar is attached after `HOTBAR`, and the XP bar's element comes later in the
+list). Re-anchoring for uniformity would move a draw order that has been checked
+in-game on five instances, to fix an overlap the player has explicitly opted into
+and can resolve with `hudBarYOffset`. Not worth it.
 
 **Archetypes carve-out — RETIRED 1.6.1 (2026-08-01).** `hudShift()` used to keep
 returning `HUD_SHIFT` whenever `isModLoaded("archetypes")`, because Archetypes

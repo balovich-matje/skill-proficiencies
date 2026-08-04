@@ -80,6 +80,21 @@ public final class ClothConfigScreen {
 				.setTooltip(Component.translatable("config.specialities.showXpHudBar.tooltip"))
 				.setSaveConsumer(v -> config.showXpHudBar = v)
 				.build());
+		// The two issue-#4 compat knobs. Ranges match SpecialitiesConfig.sanitize() exactly — Cloth
+		// clamps the widget, sanitize() clamps a hand-edited file, and the two must not disagree
+		// or the screen would silently show a value the mod never uses.
+		ui.addEntry(eb.startIntField(Component.translatable("config.specialities.hudShiftAmount"), config.hudShiftAmount)
+				.setDefaultValue(7)
+				.setMin(0).setMax(32)
+				.setTooltip(Component.translatable("config.specialities.hudShiftAmount.tooltip"))
+				.setSaveConsumer(v -> config.hudShiftAmount = v)
+				.build());
+		ui.addEntry(eb.startIntField(Component.translatable("config.specialities.hudBarYOffset"), config.hudBarYOffset)
+				.setDefaultValue(0)
+				.setMin(-64).setMax(64)
+				.setTooltip(Component.translatable("config.specialities.hudBarYOffset.tooltip"))
+				.setSaveConsumer(v -> config.hudBarYOffset = v)
+				.build());
 
 		return builder.build();
 	}
