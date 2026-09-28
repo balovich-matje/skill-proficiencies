@@ -264,13 +264,14 @@ public class SpecialitiesClient implements ClientModInitializer {
 			if (screen instanceof InventoryScreen) {
 				// Survival inventory: a bookmark on the top edge, clear of
 				// the effect list vanilla draws to the panel's right. The
-				// recipe book shifts leftPos without re-running init, so it
-				// re-anchors every tick.
+				// recipe book shifts leftPos without re-running init, so the
+				// tab re-anchors itself every FRAME, inside its own draw
+				// (BookmarkTab.anchorEachFrame, GitHub issue #5) — no tick hook.
 				// 26.2 moved screen management off Minecraft onto the Gui object.
 				BookmarkTab tab = new BookmarkTab(Component.translatable("screen.specialities.skills"),
 						/*? if >=26.2 {*/() -> client.gui.setScreen(new SkillsScreen(screen)));
 						/*?} else *///() -> client.setScreen(new SkillsScreen(screen)));
-				anchorTab((AbstractContainerScreen<?>) screen, tab);
+				tab.anchorEachFrame(() -> anchorTab((AbstractContainerScreen<?>) screen, tab));
 				// fabric-screen-api-v1 renamed the accessor: getButtons below 26.1. The loader
 				// helper adds the widget to the screen's own renderable+event lists; it is the
 				// one call here with no vanilla equivalent, since `Screen.addRenderableWidget`
@@ -283,17 +284,6 @@ public class SpecialitiesClient implements ClientModInitializer {
 				/*NeoForgeClientEvents.addWidget(screen, tab);
 				*///?} elif forge {
 				/*ForgeClientEvents.addWidget(screen, tab);
-				*///?}
-
-				//? if fabric {
-				ScreenEvents.afterTick(screen).register(
-						s -> anchorTab((AbstractContainerScreen<?>) s, tab));
-				//?} elif neoforge {
-				/*NeoForgeClientEvents.afterScreenTick(screen,
-						s -> anchorTab((AbstractContainerScreen<?>) s, tab));
-				*///?} elif forge {
-				/*ForgeClientEvents.afterScreenTick(screen,
-						s -> anchorTab((AbstractContainerScreen<?>) s, tab));
 				*///?}
 			} else if (screen instanceof CreativeModeInventoryScreen) {
 				// Creative keeps the compact square to the panel's right:
