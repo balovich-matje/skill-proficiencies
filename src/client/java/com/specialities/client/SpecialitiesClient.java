@@ -47,14 +47,10 @@ import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement;
 //?}
 
-// Needed wherever the receiver handler does not get a context object that already carries the
-// client: below 1.20.5 on Fabric, and on both loader-axis loaders (their sink consumers take
-// the payload and nothing else). `fabric &&` scopes the fabric-api boundary to Fabric; it is
-// not a new one.
-//? if fabric && >=1.20.5 {
-//?} else {
-/*import net.minecraft.client.Minecraft;
-*///?}
+// Unconditional since GitHub issue #8: `hudHidden()` reads the F1 state through `Minecraft` on
+// every node. It was a conditional import until then — needed only where a payload receiver gets
+// no context object carrying the client (below 1.20.5 on Fabric, and both loader-axis loaders).
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -98,6 +94,38 @@ public class SpecialitiesClient implements ClientModInitializer {
 	 */
 	public static boolean hudBarVisible() {
 		return ConfigManager.get().showXpHudBar;
+	}
+
+	/**
+	 * Whether the player has hidden the HUD with F1 THIS FRAME (GitHub issue #8). Read by the two
+	 * shared draw funnels, {@code SkillXpHudBar.render} and {@code StealthVignette.render}, so no
+	 * per-node draw hook needs to know about it.
+	 *
+	 * <p>Measured per node, which draw paths run while the HUD is hidden:
+	 * <ul>
+	 * <li>26.x / 1.21.11 Fabric — NONE: vanilla's {@code Gui}/{@code Hud} wraps HOTBAR and the
+	 *     camera overlays in its hidden check, and fabric-rendering-v1's {@code HudElementRegistry}
+	 *     draws an attached element inside the wrapped vanilla call, so both mod elements were
+	 *     already skipped. The check is redundant there and costs one field read.</li>
+	 * <li>1.21.1 / 1.20.1 Fabric — {@code GuiMixin}'s TAIL inject on {@code Gui.render} runs
+	 *     after the gated vanilla layers, unconditionally.</li>
+	 * <li>1.21.1 NeoForge — {@code registerAbove} inserts the two layers into the FLAT
+	 *     {@code GuiLayerManager} list; only vanilla's own two sub-managers carry the
+	 *     {@code !hideGui} supplier, so a mod layer is never gated.</li>
+	 * <li>1.20.1 Forge — {@code ForgeGuiMixin}'s TAIL inject on {@code ForgeGui.render}; Forge
+	 *     gates each {@code VanillaGuiOverlay} individually, nothing gates a TAIL.</li>
+	 * </ul>
+	 *
+	 * <p>26.2 moved the toggle off {@code Options.hideGui} (the field is gone) onto
+	 * {@code Hud.isHidden()}, reached through the {@code Gui} object — the same 26.2 restructure
+	 * as the {@code >=26.2} {@code gui.setScreen} row.
+	 */
+	public static boolean hudHidden() {
+		//? if >=26.2 {
+		return Minecraft.getInstance().gui.hud.isHidden();
+		//?} else {
+		/*return Minecraft.getInstance().options.hideGui;
+		*///?}
 	}
 
 	/**

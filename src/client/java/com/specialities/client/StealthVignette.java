@@ -55,6 +55,21 @@ public final class StealthVignette {
 	private static long flashStartMs = Long.MIN_VALUE;
 	private static long lastFrameMs = Util.getMillis();
 
+	// Whether vanilla's own vignette disappears with F1 on this version. MEASURED on both sides of
+	// the fork, by javap of the vanilla Gui: 1.21.1 builds its camera-overlay layers (vignette
+	// included) into a LayeredDraw added with a `!options.hideGui` supplier, and 26.1/1.21.11
+	// (hideGui) and 26.2 (Hud.isHidden) call the camera overlays inside the same hidden check;
+	// 1.20.1 calls renderVignette at offset 48 of Gui.render, before the first hideGui read, and
+	// LexForge's VIGNETTE overlay has no hideGui check either. The fork sits on `>=1.21` because
+	// that is the row this class's render signature already forks on (DeltaTracker, i.e. the
+	// LayeredDraw.Layer shape); no node exists between 1.20.1 and 1.21.1 to pin it tighter. On
+	// 26.x/1.21.11 the check is redundant — the Fabric path already skips this call when hidden.
+	//? if >=1.21 {
+	private static final boolean HIDES_WITH_HUD = true;
+	//?} else {
+	/*private static final boolean HIDES_WITH_HUD = false;
+	*///?}
+
 	private StealthVignette() {
 	}
 
@@ -75,6 +90,12 @@ public final class StealthVignette {
 	*///?} else {
 	/*public static void render(final GuiGraphics graphics, final float tickDelta) {
 	*///?}
+		// F1 (GitHub issue #8): this overlay follows VANILLA's vignette, which is hidden by F1 on
+		// some versions and not on others — so it hides only where vanilla's does.
+		if (HIDES_WITH_HUD && SpecialitiesClient.hudHidden()) {
+			return;
+		}
+
 		long now = Util.getMillis();
 		float dt = Math.min((now - lastFrameMs) / 1000.0F, 0.1F);
 		lastFrameMs = now;

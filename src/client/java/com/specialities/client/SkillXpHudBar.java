@@ -101,7 +101,12 @@ public final class SkillXpHudBar {
 		// hides the bar on all seven, and no draw hook is forked to add a check. The matching
 		// HUD_SHIFT decision is SpecialitiesClient.hudShift(); it is read by the four raise
 		// paths, not from here, because they run whether or not this method draws anything.
-		if (!SpecialitiesClient.hudBarVisible()) {
+		// F1 (GitHub issue #8) is gated here for the same reason, and NOT folded into
+		// hudBarVisible(): that one also decides hudShift(), which is a config decision, while F1
+		// is a per-frame view state. Four of the seven nodes reach this line with the HUD hidden
+		// (SpecialitiesClient.hudHidden() lists which); the converging icons are drawn below, so
+		// returning here hides them with the bar.
+		if (!SpecialitiesClient.hudBarVisible() || SpecialitiesClient.hudHidden()) {
 			return;
 		}
 
