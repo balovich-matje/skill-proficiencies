@@ -24,8 +24,23 @@ import net.minecraft.world.item.ItemStack;
 
 /**
  * Smithing: crafting tools/weapons/armor grants XP proportional to the value
- * of consumed materials, and resourcefulness returns some of them. Runs at
- * HEAD so the crafting grid still holds the about-to-be-consumed ingredients.
+ * of consumed materials, and resourcefulness returns some of them.
+ *
+ * <p>Hooked at HEAD of {@code checkTakeAchievements}, NOT {@code onTake} (GitHub issue #9).
+ * On a SHIFT-click, {@code CraftingMenu}/{@code InventoryMenu.quickMoveStack} moves the result
+ * into the inventory first and then calls {@code onTake(player, drained)} with the slot's own,
+ * already-emptied stack — so the old {@code onTake} hook read an empty stack, failed
+ * {@code isSmithingResult}, and every shift-click craft paid no smithing XP on every node.
+ * {@code checkTakeAchievements} is reached on every take path with the real crafted stack
+ * (shift-click: from {@code onQuickCraft(copy, moved)}, BEFORE {@code onTake}; click / drop /
+ * swap: as the first statement of {@code onTake}), and in both cases the grid still holds the
+ * about-to-be-consumed ingredients, because {@code onTake} consumes them after that call.
+ *
+ * <p>{@code removeCount > 0} makes it fire once per craft: vanilla zeroes the field at the end
+ * of {@code checkTakeAchievements}, so the second call on the shift-click path (the one from
+ * {@code onTake}) sees 0. Method, descriptor and all three fields are identical in every
+ * target jar, NeoForge's and LexForge's patched copies included (their additions sit inside
+ * the method body, after this HEAD inject). No state is held across calls.
  */
 @Mixin(ResultSlot.class)
 public abstract class ResultSlotMixin {
@@ -33,10 +48,17 @@ public abstract class ResultSlotMixin {
 	@Final
 	private CraftingContainer craftSlots;
 
-	@Inject(method = "onTake", at = @At("HEAD"))
-	private void specialities$smithing(final Player player, final ItemStack carried, final CallbackInfo ci) {
-		if (!(player instanceof ServerPlayer serverPlayer) || serverPlayer.isCreative()
-				|| !Artisan.isSmithingResult(carried)) {
+	@Shadow
+	@Final
+	private Player player;
+
+	@Shadow
+	private int removeCount;
+
+	@Inject(method = "checkTakeAchievements", at = @At("HEAD"))
+	private void specialities$smithing(final ItemStack crafted, final CallbackInfo ci) {
+		if (this.removeCount <= 0 || !(this.player instanceof ServerPlayer serverPlayer) || serverPlayer.isCreative()
+				|| crafted.isEmpty() || !Artisan.isSmithingResult(crafted)) {
 			return;
 		}
 

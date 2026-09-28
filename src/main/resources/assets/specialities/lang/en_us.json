@@ -57,7 +57,7 @@
 	"screen.specialities.skills.source.acrobatics": "Taking fall damage.",
 	"screen.specialities.skills.source.athletics": "Sprinting and jumping.",
 	"screen.specialities.skills.source.sneaking": "Sneaking near hostile mobs that haven't noticed you.",
-	"screen.specialities.skills.source.smithing": "Crafting tools, weapons and armor, and smelting metal. Rarer materials give much more.",
+	"screen.specialities.skills.source.smithing": "Crafting tools, weapons and armor. Rarer materials give much more. Smelting gives no XP; it rolls bonus ingots instead.",
 	"screen.specialities.skills.source.alchemy": "Brewing potions at a brewing stand.",
 	"screen.specialities.skills.source.enchanting": "Enchanting items at an enchanting table. Higher level enchants give more.",
 	"toast.specialities.levelup.desc": "Increased %s -> %s",
