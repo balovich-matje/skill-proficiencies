@@ -32,9 +32,31 @@ final class BookmarkTab extends AbstractWidget {
 
 	private final Runnable onPress;
 
+	/** See {@link #anchorEachFrame}. A no-op until the owner installs one. */
+	private Runnable anchor = () -> {
+	};
+
 	BookmarkTab(final Component label, final Runnable onPress) {
 		super(0, 0, widthFor(label), HEIGHT, label);
 		this.onPress = onPress;
+	}
+
+	/**
+	 * Positions the tab NOW and again at the top of every draw, from the same frame's screen
+	 * state the panel itself is drawn from (GitHub issue #5).
+	 *
+	 * <p>The recipe book moves {@code AbstractContainerScreen.leftPos} from its button's click
+	 * handler without re-running {@code init()}, so a position computed once goes stale. This used
+	 * to be answered with a per-TICK re-anchor, which every loader has to re-root (Fabric's
+	 * {@code ScreenEvents.afterTick}, a {@code ClientTickEvent} pump on both loaders) — and on
+	 * 1.21.1 NeoForge the tab was reported staying put when the book opened. Anchoring inside
+	 * the draw hook depends on no event at all: the draw runs once per frame on every node, and
+	 * whatever {@code leftPos} the panel is drawn at this frame is the one the tab reads. Clicks are
+	 * hit-tested against the position of the last drawn frame, i.e. where the player sees it.
+	 */
+	void anchorEachFrame(final Runnable anchor) {
+		this.anchor = anchor;
+		anchor.run();
 	}
 
 	/**
@@ -71,6 +93,8 @@ final class BookmarkTab extends AbstractWidget {
 	/*protected void renderWidget(final GuiGraphics graphics, final int mouseX,
 			final int mouseY, final float partialTick) {
 	*///?}
+		this.anchor.run();
+
 		int x = this.getX();
 		int y = this.getY();
 		int w = this.getWidth();

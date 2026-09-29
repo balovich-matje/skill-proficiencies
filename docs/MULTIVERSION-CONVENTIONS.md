@@ -82,7 +82,7 @@ boundary (`>=26` vs `>=26.1`) is the most likely silent-divergence bug in this p
 
 | Predicate | True for | Boundary it encodes |
 |---|---|---|
-| `>=26.2` | 26.2 | `BlockItemTags`; `advancements.triggers`; `Minecraft.gui.setScreen`/`toastManager()` |
+| `>=26.2` | 26.2 | `BlockItemTags`; `advancements.triggers`; `Minecraft.gui.setScreen`/`toastManager()`; `Minecraft.gui.hud.isHidden()` (F1 state; `Options.hideGui` is gone — below: that field) |
 | `>=26.1` | 26.2, 26.1 | Java 25; Cloth/ModMenu artifacts; `ItemInstance` (the `Block.getDrops` tool param and the matching `EnchantmentHelper.getItemEnchantmentLevel` overload); the extract-vs-immediate render hooks (`GuiGraphicsExtractor`, `Screen`/`AbstractWidget`/`Toast`/`HudElement` `extract*` vs `render*`, `text()` vs `drawString()`, `fakeItem()` vs `renderFakeItem()`); **fabric-api:** `PayloadTypeRegistry.clientboundPlay()/serverboundPlay()` (vs `playS2C()/playC2S()`), `creativetab.v1.CreativeModeTabEvents` (vs `itemgroup.v1.ItemGroupEvents`), `Screens.getWidgets` (vs `getButtons`) |
 | `>=1.21.11` | 26.x, 1.21.11 | `Identifier`; **`net.minecraft.util.Util`**; `HudElementRegistry`/`VanillaHudElements`/`HudElement` (the whole `client.rendering.v1.hud` package); `.projectile.arrow` package; `ItemTags.SPEARS`; **`Items.IRON_SPEAR`**; `getAtlasManager`; `AtlasIds`; `getFieldOfViewModifier(ZF)F`; `MouseButtonEvent`; `pose()` returning `Matrix3x2fStack`; **`PermissionCheck.Require`** / the `net.minecraft.server.permissions` stack; copper armor; `advancements.criterion` (vs `critereon` below) — **added in Stage 4a:** `net.minecraft.util.ARGB` (vs `FastColor.ARGB32`); `RenderPipelines`; the 3-arg `Toast.render` interface shape and `ToastManager` (vs `ToastComponent` + a `Visibility render(GuiGraphics, ToastComponent, long)` that draws *and* returns visibility, with no `getSoundEvent()`); `Minecraft.getToastManager()` (vs `getToasts()`); `client.input.MouseButtonEvent` in widget/screen click signatures (vs `onClick(double,double)` / `mouseClicked(double,double,int)`); `setTooltipForNextFrame` (vs `renderTooltip(Font,List,Optional,int,int)`); `Item$Properties.setId`; jspecify-vs-jetbrains `@Nullable` (§5e-bis); `ServerPlayer.jumpFromGround` (it is on `Player` below, and runs on both sides there); `EnchantmentHelper.getComponentType` being **public** (private on 1.21.1); `client.renderer.item.properties.numeric.UseDuration` + `net.minecraft.world.entity.ItemOwner` |
 | `>=1.21.2` | 26.x, 1.21.11 | `LivingEntity.hurtServer` (this is §3.2's worked example, and it had **never actually landed** until Stage 4a); `InteractionResult` returns (`Item.use` returns `InteractionResultHolder<ItemStack>` below); `Equippable` / the `minecraft:equippable` component (below: `net.minecraft.world.item.Equipable`, implemented by both `ArmorItem` and `ElytraItem`); `MobEffects.SPEED` (the rename of `MOVEMENT_SPEED`) |
@@ -541,6 +541,14 @@ worked example. The HUD has FOUR entry points per concern across the seven nodes
   stop naming the `HUD_SHIFT` constant and read that method instead. They stay four
   implementations because the pose API (`Matrix3x2fStack` vs `PoseStack`) and the hook shape
   differ per node — but the DECISION has one implementation, which is the property that matters.
+
+**F1 (hide HUD) is gated at the same two funnels, and is NOT part of `hudBarVisible()`** (GitHub
+issue #8). `SpecialitiesClient.hudHidden()` is the one read; `SkillXpHudBar.render` returns on it
+everywhere, `StealthVignette.render` only on `>=1.21`, because it follows VANILLA's vignette and
+that one ignores F1 on 1.20.1 (measured). Four draw paths reach the funnels while hidden — both
+`GuiMixin` TAILs, NeoForge's flat `registerAbove` layers (only vanilla's own sub-managers carry the
+`!hideGui` supplier) and `ForgeGuiMixin`'s TAIL; the `HudElementRegistry` path is already skipped by
+vanilla. Kept out of `hudBarVisible()` because that also decides `hudShift()`, a config decision.
 
 Two things to check when adding the next one. **Read the gate inside the per-frame callback, not
 at registration**: all four raise paths install a wrapper once and run it every frame, so a value
