@@ -392,7 +392,7 @@ public class SkillsScreen extends Screen {
 
 		int intoLevel = skills.totalXp(skill) - Tuning.totalXpForLevel(level);
 		int needed = Tuning.xpToNext(level);
-		float progress = level >= Tuning.MAX_LEVEL ? 1.0F : Math.min(1.0F, intoLevel / (float) needed);
+		float progress = level >= Tuning.maxLevel() ? 1.0F : Math.min(1.0F, intoLevel / (float) needed);
 		int fill = (int) ((barRight - barLeft - 2) * progress);
 
 		if (fill > 0) {
@@ -532,7 +532,12 @@ public class SkillsScreen extends Screen {
 		List<Component> lines = new ArrayList<>();
 		lines.add(skill.displayName().copy().append(" — ").append(Component.translatable("screen.specialities.skills.level", level)));
 
-		if (level >= Tuning.MAX_LEVEL) {
+		// Every "is this the top" test on this screen reads the EFFECTIVE cap (the server's,
+		// synced — skills/LevelCap), so MAX shows at 100 normally and at the extended cap
+		// when that is on.
+		int maxLevel = Tuning.maxLevel();
+
+		if (level >= maxLevel) {
 			lines.add(Component.translatable("screen.specialities.skills.max"));
 		} else {
 			int intoLevel = skills.totalXp(skill) - Tuning.totalXpForLevel(level);
@@ -577,8 +582,9 @@ public class SkillsScreen extends Screen {
 				lines.add(Component.translatable("tooltip.specialities.attack_recovery", recovery));
 				lines.add(Component.translatable("tooltip.specialities.sweeping", sweeping));
 
-				if (level < Tuning.MAX_LEVEL) {
-					lines.add(Component.translatable("tooltip.specialities.next_sweep", (sweeping + 1) * Tuning.SWEEP_BREAKPOINT));
+				int nextSweep = (sweeping + 1) * Tuning.SWEEP_BREAKPOINT;
+				if (nextSweep <= maxLevel) {
+					lines.add(Component.translatable("tooltip.specialities.next_sweep", nextSweep));
 				}
 			}
 			case ARCHERY -> {
@@ -587,13 +593,16 @@ public class SkillsScreen extends Screen {
 				lines.add(Component.translatable("tooltip.specialities.draw_speed", draw));
 				lines.add(Component.translatable("tooltip.specialities.ricochet", ricochets));
 
-				if (ricochets < 2) {
-					lines.add(Component.translatable("tooltip.specialities.next_ricochet", ricochets == 0 ? 50 : 100));
+				int nextRicochet = (ricochets + 1) * Tuning.MILESTONE_STEP;
+				if (nextRicochet <= maxLevel) {
+					lines.add(Component.translatable("tooltip.specialities.next_ricochet", nextRicochet));
 				}
 			}
 			case FISHING -> {
 				lines.add(Component.translatable("tooltip.specialities.sea_luck", luck));
-				lines.add(Component.translatable("tooltip.specialities.lure", Tuning.lureBonus(level)));
+				// The bonus as it lands on an unenchanted rod; the tooltip string names the Lure V
+				// total cap that keeps fish biting (Tuning.MAX_TOTAL_LURE).
+				lines.add(Component.translatable("tooltip.specialities.lure", Tuning.lureLevelsWithBonus(0, level)));
 			}
 			case DEFENCE -> {
 				lines.add(Component.translatable("tooltip.specialities.hearts", Tuning.maxHealthBonus(level) / 2));
@@ -606,7 +615,10 @@ public class SkillsScreen extends Screen {
 			case ATHLETICS -> {
 				int hunger = Math.round((1.0F - Tuning.recoveryTimeMultiplier(level)) * 100.0F);
 				lines.add(Component.translatable("tooltip.specialities.sprint_hunger", hunger));
-				lines.add(Component.translatable("tooltip.specialities.swiftness", Tuning.swiftnessTier(level)));
+				// The tier the sprint-speed cap still lets through (tier IV = +80%, level 200).
+				int maxTier = Math.round(Tuning.SPRINT_SPEED_CAP / Tuning.SWIFTNESS_PER_TIER);
+				lines.add(Component.translatable("tooltip.specialities.swiftness",
+						Math.min(Tuning.swiftnessTier(level), maxTier)));
 			}
 			case SNEAKING -> {
 				int detection = Math.round((1.0F - Tuning.sneakVisibilityMultiplier(level, 0)) * 100.0F);
@@ -617,11 +629,24 @@ public class SkillsScreen extends Screen {
 						String.format("%.2f", Tuning.stealthCritRangedMultiplier(level))));
 			}
 			case SMITHING -> {
-				lines.add(Component.translatable("tooltip.specialities.resourcefulness", level));
+				// The first material's chance (the old readout was the level itself, which is
+				// the same number up to 100 and would read "200%" past it); from 200 up the
+				// second line says how many more are certain.
+				lines.add(Component.translatable("tooltip.specialities.resourcefulness",
+						Math.round(Tuning.smithingReturnChance(level, 1) * 100.0F)));
+				int guaranteed = 0;
+				while (guaranteed < 30 && Tuning.smithingReturnChance(level, guaranteed + 1) >= 1.0F) {
+					guaranteed++;
+				}
+				if (guaranteed > 1) {
+					lines.add(Component.translatable("tooltip.specialities.resourcefulness_guaranteed", guaranteed));
+				}
+				// Effective shares, not raw band widths: past level 250 the bands overflow 100%
+				// and the higher tiers crowd the lower ones out (Tuning.smeltShare).
 				lines.add(Component.translatable("tooltip.specialities.smelt_multicraft",
-						Math.round(Tuning.smeltChanceX2(level) * 100.0F),
-						Math.round(Tuning.smeltChanceX4(level) * 100.0F),
-						Math.round(Tuning.smeltChanceX8(level) * 100.0F)));
+						Math.round(Tuning.smeltShare(level, 2) * 100.0F),
+						Math.round(Tuning.smeltShare(level, 4) * 100.0F),
+						Math.round(Tuning.smeltShare(level, 8) * 100.0F)));
 			}
 			case ALCHEMY -> lines.add(Component.translatable("tooltip.specialities.brew_return",
 					Math.round(Tuning.alchemyReturnChance(level) * 100.0F)));
@@ -637,8 +662,9 @@ public class SkillsScreen extends Screen {
 			case MINING, WOODCUTTING, HARVESTING, EXCAVATION, COMBAT, FISHING -> true;
 			default -> false;
 		};
-		if (usesLuck && level < Tuning.MAX_LEVEL && luck < Tuning.MAX_LEVEL / Tuning.luckBreakpoint()) {
-			lines.add(Component.translatable("tooltip.specialities.next_luck", (luck + 1) * Tuning.luckBreakpoint()));
+		int nextLuck = (luck + 1) * Tuning.luckBreakpoint();
+		if (usesLuck && nextLuck <= maxLevel) {
+			lines.add(Component.translatable("tooltip.specialities.next_luck", nextLuck));
 		}
 
 		return lines;

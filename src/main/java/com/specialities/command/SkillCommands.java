@@ -12,6 +12,7 @@ import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 
 import com.specialities.api.SkillType;
+import com.specialities.skills.LevelCap;
 import com.specialities.skills.PlayerSkills;
 import com.specialities.skills.SkillManager;
 import com.specialities.skills.SkillTypes;
@@ -58,6 +59,12 @@ import net.minecraft.server.permissions.Permissions;
  * <p>Targets default to the caller; the explicit player argument exists so the
  * commands are usable from the server console and from command blocks, which
  * have no caller of their own.
+ *
+ * <p>Levels are bounded by the EFFECTIVE cap ({@link Tuning#maxLevel()}), read when
+ * the command runs, not when it is registered — the argument accepts up to
+ * {@link LevelCap#ABSOLUTE_MAX} and {@code set} reports the level actually reached.
+ * {@code max} only ever raises: a skill stored above the cap (extended levels
+ * turned off since) is left alone rather than pulled down.
  */
 public final class SkillCommands {
 	/** Level 2 ("gamemasters"), the vanilla cheat-command tier. */
@@ -108,20 +115,19 @@ public final class SkillCommands {
 				.then(Commands.literal("set")
 						.then(Commands.argument("skill", StringArgumentType.word())
 								.suggests(SKILL_SUGGESTIONS)
-								.then(Commands.argument("level", IntegerArgumentType.integer(0, Tuning.MAX_LEVEL))
+								.then(Commands.argument("level", IntegerArgumentType.integer(0, LevelCap.ABSOLUTE_MAX))
 										.executes(context -> setLevel(context, self(context)))
 										.then(Commands.argument("targets", EntityArgument.players())
 												.executes(context -> setLevel(context,
 														EntityArgument.getPlayers(context, "targets")))))))
 				.then(Commands.literal("max")
-						.executes(context -> setAll(context, self(context), Tuning.MAX_LEVEL))
+						.executes(context -> maxAll(context, self(context)))
 						.then(Commands.argument("targets", EntityArgument.players())
-								.executes(context -> setAll(context, EntityArgument.getPlayers(context, "targets"),
-										Tuning.MAX_LEVEL))))
+								.executes(context -> maxAll(context, EntityArgument.getPlayers(context, "targets")))))
 				.then(Commands.literal("reset")
-						.executes(context -> setAll(context, self(context), 0))
+						.executes(context -> resetAll(context, self(context)))
 						.then(Commands.argument("targets", EntityArgument.players())
-								.executes(context -> setAll(context, EntityArgument.getPlayers(context, "targets"), 0))))
+								.executes(context -> resetAll(context, EntityArgument.getPlayers(context, "targets")))))
 				.then(Commands.literal("show")
 						.executes(context -> show(context, self(context)))
 						.then(Commands.argument("targets", EntityArgument.players())
@@ -140,19 +146,25 @@ public final class SkillCommands {
 
 		for (ServerPlayer player : targets) {
 			SkillManager.setLevel(player, skill, level);
+			// The level actually reached, which is the request clamped to the effective cap.
+			int reached = SkillManager.get(player).level(skill);
 			context.getSource().sendSuccess(() -> Component.translatable("commands.specialities.set",
-					skill.displayName(), level, player.getDisplayName()), true);
+					skill.displayName(), reached, player.getDisplayName()), true);
 		}
 
 		return targets.size();
 	}
 
-	/** Backs both {@code max} (level = {@link Tuning#MAX_LEVEL}) and {@code reset} (level = 0). */
-	private static int setAll(final CommandContext<CommandSourceStack> context, final Collection<ServerPlayer> targets,
-			final int level) {
+	/**
+	 * {@code max}: every skill to the effective cap. Goes through {@link SkillManager#addLevels},
+	 * which only ever raises, so a total stored above the cap is never pulled down.
+	 */
+	private static int maxAll(final CommandContext<CommandSourceStack> context, final Collection<ServerPlayer> targets) {
+		int level = Tuning.maxLevel();
+
 		for (ServerPlayer player : targets) {
 			for (SkillType skill : SkillTypes.all()) {
-				SkillManager.setLevel(player, skill, level);
+				SkillManager.addLevels(player, skill, level);
 			}
 
 			context.getSource().sendSuccess(() -> Component.translatable("commands.specialities.set_all",
@@ -162,11 +174,25 @@ public final class SkillCommands {
 		return targets.size();
 	}
 
+	/** {@code reset}: every skill to 0. */
+	private static int resetAll(final CommandContext<CommandSourceStack> context, final Collection<ServerPlayer> targets) {
+		for (ServerPlayer player : targets) {
+			for (SkillType skill : SkillTypes.all()) {
+				SkillManager.setLevel(player, skill, 0);
+			}
+
+			context.getSource().sendSuccess(() -> Component.translatable("commands.specialities.set_all",
+					0, player.getDisplayName()), true);
+		}
+
+		return targets.size();
+	}
+
 	private static int show(final CommandContext<CommandSourceStack> context, final Collection<ServerPlayer> targets) {
 		for (ServerPlayer player : targets) {
 			PlayerSkills skills = SkillManager.get(player);
-			context.getSource().sendSuccess(
-					() -> Component.translatable("commands.specialities.show.header", player.getDisplayName()), false);
+			context.getSource().sendSuccess(() -> Component.translatable("commands.specialities.show.header",
+					player.getDisplayName(), Tuning.maxLevel()), false);
 
 			for (SkillType skill : SkillTypes.all()) {
 				context.getSource().sendSuccess(() -> Component.translatable("commands.specialities.show.entry",

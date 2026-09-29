@@ -169,7 +169,13 @@ public abstract class BlockMixin {
 			if (drop.is(ItemTags.LOGS)) {
 				// Vanilla ore-fortune distribution: multiplier in [1, fortune + 1].
 				int extra = Math.max(0, level.getRandom().nextInt(totalFortune + 2) - 1);
-				drop.grow(drop.getCount() * extra);
+				// CLAMP: one stack at most. Loot-table drops are split into legal stacks by
+				// vanilla's own stack splitter, but this grow() is ours and nothing splits it —
+				// and an over-size stack is not merely cosmetic (1.20.5+ item codecs reject a
+				// count above 99, so the dropped entity fails to save). Binds only when total
+				// fortune reaches 64, i.e. never at the default 20 levels per bonus below the
+				// 999 hard cap; only with luckLevelsPerBonus <= 16.
+				drop.setCount(Math.min(drop.getMaxStackSize(), drop.getCount() * (1 + extra)));
 			}
 		}
 	}

@@ -294,7 +294,8 @@ public final class SkillXpHudBar {
 	}
 
 	private static float progressWithin(final int totalXp, final int level) {
-		if (level >= Tuning.MAX_LEVEL) {
+		// The EFFECTIVE cap — the server's, synced (skills/LevelCap) — not the standard 100.
+		if (level >= Tuning.maxLevel()) {
 			return 1.0F;
 		}
 

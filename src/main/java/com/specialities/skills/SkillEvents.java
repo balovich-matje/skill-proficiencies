@@ -166,8 +166,12 @@ public final class SkillEvents {
 			*///?}
 		});
 
+		// Every join arm starts with LevelCap.onPlayerJoin: it re-asserts this server's level cap
+		// and sends it to the client, and it must run BEFORE the defence passives, which read the
+		// player's level through that cap.
 		//? if fabric && >=1.20.5 {
 		ServerPlayerEvents.JOIN.register(player -> {
+			LevelCap.onPlayerJoin(player);
 			DefencePassives.apply(player);
 			// No-op on every node registered today — fabric-api syncs the skills
 			// attachment itself. Mandatory on the nodes that cannot (design R-03),
@@ -186,6 +190,7 @@ public final class SkillEvents {
 		// on ServerGamePacketListenerImpl. resyncSkills is NOT a no-op on this node — it is
 		// the only thing that ever gives the client its skill map (design R-03).
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+			LevelCap.onPlayerJoin(handler.player);
 			DefencePassives.apply(handler.player);
 			SkillStore.INSTANCE.resyncSkills(handler.player);
 		});
@@ -234,6 +239,7 @@ public final class SkillEvents {
 	//? if fabric {
 	//?} else {
 	/*public static void onPlayerJoin(final ServerPlayer player) {
+		LevelCap.onPlayerJoin(player);
 		DefencePassives.apply(player);
 		// NOT a no-op on either loader: NeoForge attachment sync is not proven to push on
 		// login (Phase B prep Q2) and Forge capabilities have no sync at all, so this is

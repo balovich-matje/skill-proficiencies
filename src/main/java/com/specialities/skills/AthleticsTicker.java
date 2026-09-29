@@ -61,7 +61,7 @@ public final class AthleticsTicker {
 
 			updateSpeedModifier(player, level, sprinting);
 
-			if (sprinting && !player.isCreative() && level < Tuning.MAX_LEVEL) {
+			if (sprinting && !player.isCreative() && level < Tuning.maxLevel()) {
 				int ticks = sprintTicks.merge(player.getUUID(), 1, Integer::sum);
 
 				if (ticks >= Tuning.SPRINT_XP_INTERVAL_TICKS) {
