@@ -1,5 +1,6 @@
 package com.specialities.platform;
 
+import com.specialities.LevelCapPayload;
 import com.specialities.SkillUpdatePayload;
 //? if >=1.20.5 {
 //?} else {
@@ -42,13 +43,16 @@ final class FabricNet implements Net {
 		//? if >=26.1 {
 		PayloadTypeRegistry.clientboundPlay().register(SkillUpdatePayload.TYPE, SkillUpdatePayload.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(StealthStatePayload.TYPE, StealthStatePayload.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(LevelCapPayload.TYPE, LevelCapPayload.CODEC);
 		//?} elif >=1.20.5 {
 		/*PayloadTypeRegistry.playS2C().register(SkillUpdatePayload.TYPE, SkillUpdatePayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(StealthStatePayload.TYPE, StealthStatePayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(LevelCapPayload.TYPE, LevelCapPayload.CODEC);
 		*///?} else {
 		/*SkillUpdatePayload.TYPE.getId();
 		StealthStatePayload.TYPE.getId();
 		SkillsFullPayload.TYPE.getId();
+		LevelCapPayload.TYPE.getId();
 		*///?}
 	}
 
@@ -62,6 +66,11 @@ final class FabricNet implements Net {
 	@Override
 	public void sendStealthState(final ServerPlayer player, final int state) {
 		ServerPlayNetworking.send(player, new StealthStatePayload(state));
+	}
+
+	@Override
+	public void sendLevelCap(final ServerPlayer player, final int maxLevel) {
+		ServerPlayNetworking.send(player, new LevelCapPayload(maxLevel));
 	}
 
 	//? if >=1.20.5 {

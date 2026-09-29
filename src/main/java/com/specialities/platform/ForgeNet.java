@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
 
+import com.specialities.LevelCapPayload;
 import com.specialities.SkillUpdatePayload;
 import com.specialities.SkillsFullPayload;
 import com.specialities.Specialities;
@@ -66,7 +67,8 @@ import net.minecraft.server.level.ServerPlayer;
  * can start. See {@link Net}'s javadoc.
  *
  * <p><b>Message indices are frozen</b> the day this node ships: 0 = skill update, 1 = stealth
- * state, 2 = skills full. {@code IndexedMessageCodec} writes the index as the discriminator
+ * state, 2 = skills full, 3 = level cap (appended for GitHub issue #6 — new indices only ever go
+ * on the END). {@code IndexedMessageCodec} writes the index as the discriminator
  * byte, so reordering them silently mis-decodes. The BODY bytes match every other node's
  * payload exactly, but the FRAME does not — a Forge channel prefixes its own channel name and
  * index — and that is fine: {@link Net}'s contract freezes the ids and the field order, and a
@@ -85,6 +87,7 @@ final class ForgeNet implements Net {
 	private static final int INDEX_SKILL_UPDATE = 0;
 	private static final int INDEX_STEALTH_STATE = 1;
 	private static final int INDEX_SKILLS_FULL = 2;
+	private static final int INDEX_LEVEL_CAP = 3;
 
 	// Written once from the client entrypoint, read from the network thread, so volatile. The
 	// no-op defaults are what a dedicated server keeps: it registers the same three message
@@ -92,6 +95,7 @@ final class ForgeNet implements Net {
 	private static volatile Consumer<SkillUpdatePayload> skillUpdateSink = payload -> { };
 	private static volatile Consumer<StealthStatePayload> stealthStateSink = payload -> { };
 	private static volatile Consumer<SkillsFullPayload> skillsFullSink = payload -> { };
+	private static volatile Consumer<LevelCapPayload> levelCapSink = payload -> { };
 
 	@Override
 	public void registerClientbound() {
@@ -115,15 +119,24 @@ final class ForgeNet implements Net {
 					context.get().enqueueWork(() -> skillsFullSink.accept(payload));
 					context.get().setPacketHandled(true);
 				});
+
+		CHANNEL.registerMessage(INDEX_LEVEL_CAP, LevelCapPayload.class,
+				ForgeNet::writeLevelCap, ForgeNet::readLevelCap,
+				(payload, context) -> {
+					context.get().enqueueWork(() -> levelCapSink.accept(payload));
+					context.get().setPacketHandled(true);
+				});
 	}
 
 	@Override
 	public void clientReceivers(final Consumer<SkillUpdatePayload> onSkillUpdate,
 			final Consumer<StealthStatePayload> onStealthState,
-			final Consumer<SkillsFullPayload> onSkillsFull) {
+			final Consumer<SkillsFullPayload> onSkillsFull,
+			final Consumer<LevelCapPayload> onLevelCap) {
 		skillUpdateSink = onSkillUpdate;
 		stealthStateSink = onStealthState;
 		skillsFullSink = onSkillsFull;
+		levelCapSink = onLevelCap;
 	}
 
 	@Override
@@ -143,12 +156,18 @@ final class ForgeNet implements Net {
 		CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), new SkillsFullPayload(skills));
 	}
 
+	@Override
+	public void sendLevelCap(final ServerPlayer player, final int maxLevel) {
+		CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), new LevelCapPayload(maxLevel));
+	}
+
 	// ---------------------------------------------------------------------------------
 	// Codecs. The field order is FROZEN by the Net contract and the body bytes match every
 	// other node's payload exactly:
 	//   skill_update  = utf, varint, varint, varint, varint
 	//   stealth_state = varint
 	//   skills_full   = varint count, then count * (utf, varint)
+	//   level_cap     = varint
 	// The other copy of each is the payload record's own `<1.20.5` Fabric arm; these two are
 	// the only two, and both are named in the record's javadoc.
 	// ---------------------------------------------------------------------------------
@@ -180,6 +199,14 @@ final class ForgeNet implements Net {
 			buf.writeUtf(id);
 			buf.writeVarInt(total);
 		});
+	}
+
+	private static void writeLevelCap(final LevelCapPayload payload, final FriendlyByteBuf buf) {
+		buf.writeVarInt(payload.maxLevel());
+	}
+
+	private static LevelCapPayload readLevelCap(final FriendlyByteBuf buf) {
+		return new LevelCapPayload(buf.readVarInt());
 	}
 
 	private static SkillsFullPayload readSkillsFull(final FriendlyByteBuf buf) {

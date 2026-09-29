@@ -63,7 +63,7 @@ public final class SneakingTicker {
 			// unaware hostiles and below the level cap.
 			boolean awardTurn = Boolean.TRUE.equals(xpParity.merge(player.getUUID(), true, (a, b) -> !a));
 			if (!awardTurn || detected || unaware.isEmpty()
-					|| SkillManager.get(player).level(Skill.SNEAKING) >= Tuning.MAX_LEVEL) {
+					|| SkillManager.get(player).level(Skill.SNEAKING) >= Tuning.maxLevel()) {
 				continue;
 			}
 

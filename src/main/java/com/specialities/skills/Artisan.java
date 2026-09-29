@@ -98,10 +98,14 @@ public final class Artisan {
 		*///?}
 	}
 
-	/** Number of bonus materials returned by smithing resourcefulness. */
-	public static int rollSmithingReturns(final RandomSource random, final int level) {
+	/**
+	 * Number of bonus materials returned by smithing resourcefulness; past level 100 never
+	 * more than the {@code ingredientsConsumed} the craft took ({@link Tuning#maxSmithingReturns}).
+	 */
+	public static int rollSmithingReturns(final RandomSource random, final int level, final int ingredientsConsumed) {
+		int cap = Tuning.maxSmithingReturns(ingredientsConsumed, level);
 		int returned = 0;
-		while (random.nextFloat() < Tuning.smithingReturnChance(level, returned + 1)) {
+		while (returned < cap && random.nextFloat() < Tuning.smithingReturnChance(level, returned + 1)) {
 			returned++;
 		}
 

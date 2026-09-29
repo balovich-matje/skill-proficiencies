@@ -89,7 +89,10 @@ public abstract class EnchantmentHelperMixin {
 		return original + Tuning.luckBonus(SkillManager.get(player).level(Skill.FISHING));
 	}
 
-	/** Fishing passive: +1 Lure at 50, +2 at 100 (each lure level = 5s wait reduction). */
+	/**
+	 * Fishing passive: +1 Lure per 50 levels (each lure level = 5s wait reduction), total
+	 * capped at Lure V so fish still bite — see {@link Tuning#lureSecondsWithBonus}.
+	 */
 	@ModifyReturnValue(method = "getFishingTimeReduction", at = @At("RETURN"))
 	private static float specialities$fishingLure(final float original, final ServerLevel serverLevel,
 			final ItemStack rod, final Entity fisher) {
@@ -97,7 +100,7 @@ public abstract class EnchantmentHelperMixin {
 			return original;
 		}
 
-		return original + 5.0F * Tuning.lureBonus(SkillManager.get(player).level(Skill.FISHING));
+		return Tuning.lureSecondsWithBonus(original, SkillManager.get(player).level(Skill.FISHING));
 	}
 
 	/** Acrobatics: extra fall-damage protection points on top of Feather Falling. */

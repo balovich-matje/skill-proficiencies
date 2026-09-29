@@ -2,6 +2,7 @@ package com.specialities.platform;
 
 import java.util.function.Consumer;
 
+import com.specialities.LevelCapPayload;
 import com.specialities.SkillUpdatePayload;
 import com.specialities.StealthStatePayload;
 
@@ -85,6 +86,9 @@ final class NeoForgeNet implements Net {
 	private static volatile Consumer<StealthStatePayload> stealthStateSink = payload -> {
 	};
 
+	private static volatile Consumer<LevelCapPayload> levelCapSink = payload -> {
+	};
+
 	@Override
 	public void registerClientbound() {
 		SpecialitiesNeoForge.modEventBus().addListener(RegisterPayloadHandlersEvent.class,
@@ -93,9 +97,11 @@ final class NeoForgeNet implements Net {
 
 	@Override
 	public void clientReceivers(final Consumer<SkillUpdatePayload> onSkillUpdate,
-			final Consumer<StealthStatePayload> onStealthState) {
+			final Consumer<StealthStatePayload> onStealthState,
+			final Consumer<LevelCapPayload> onLevelCap) {
 		skillUpdateSink = onSkillUpdate;
 		stealthStateSink = onStealthState;
+		levelCapSink = onLevelCap;
 	}
 
 	private static void onRegisterPayloads(final RegisterPayloadHandlersEvent event) {
@@ -111,6 +117,11 @@ final class NeoForgeNet implements Net {
 				(payload, context) -> skillUpdateSink.accept(payload));
 		registrar.playToClient(StealthStatePayload.TYPE, StealthStatePayload.CODEC,
 				(payload, context) -> stealthStateSink.accept(payload));
+		// GitHub issue #6. A new payload, not a changed one, so PROTOCOL stays "1": NeoForge
+		// negotiates the channel SET at login, so a client without this payload is told so
+		// there instead of mis-decoding anything.
+		registrar.playToClient(LevelCapPayload.TYPE, LevelCapPayload.CODEC,
+				(payload, context) -> levelCapSink.accept(payload));
 	}
 
 	@Override
@@ -123,6 +134,11 @@ final class NeoForgeNet implements Net {
 	@Override
 	public void sendStealthState(final ServerPlayer player, final int state) {
 		PacketDistributor.sendToPlayer(player, new StealthStatePayload(state));
+	}
+
+	@Override
+	public void sendLevelCap(final ServerPlayer player, final int maxLevel) {
+		PacketDistributor.sendToPlayer(player, new LevelCapPayload(maxLevel));
 	}
 
 	// NOTE: sendSkillsFull is NOT implemented and must not be. It is gated

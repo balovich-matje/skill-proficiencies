@@ -4,6 +4,7 @@ import com.specialities.command.SkillCommands;
 import com.specialities.config.ConfigManager;
 import com.specialities.platform.Net;
 import com.specialities.platform.SkillStore;
+import com.specialities.skills.LevelCap;
 import com.specialities.skills.SkillEvents;
 import com.specialities.skills.SkillTypes;
 
@@ -54,6 +55,9 @@ public class Specialities implements ModInitializer {
 	//?}
 	public void onInitialize() {
 		ConfigManager.load();
+		// The effective level cap starts at this side's own config: the whole answer on a
+		// dedicated server, and the right default on a client until a server says otherwise.
+		LevelCap.applyConfig();
 		// Other mods' skills come in before anything can touch player state.
 		SkillTypes.pullEntrypoints();
 		SkillStore.INSTANCE.initialize();

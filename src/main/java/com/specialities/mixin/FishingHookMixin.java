@@ -77,7 +77,9 @@ public abstract class FishingHookMixin {
 		return original + Tuning.luckBonus(SkillManager.get(player).level(Skill.FISHING));
 	}
 
-	// Fishing passive: +1 Lure at 50, +2 at 100 (each lure level = 5s wait reduction).
+	// Fishing passive: +1 Lure per 50 levels (each lure level = 5s wait reduction), total
+	// capped at Lure V so fish still bite — Tuning.lureLevelsWithBonus, same clamp as the
+	// seconds form EnchantmentHelperMixin uses above 1.21.
 	@ModifyExpressionValue(
 			method = "catchingFish",
 			at = @At(value = "FIELD", target = "Lnet/minecraft/world/entity/projectile/FishingHook;lureSpeed:I"))
@@ -88,7 +90,7 @@ public abstract class FishingHookMixin {
 			return original;
 		}
 
-		return original + Tuning.lureBonus(SkillManager.get(player).level(Skill.FISHING));
+		return Tuning.lureLevelsWithBonus(original, SkillManager.get(player).level(Skill.FISHING));
 	}
 	*///?}
 }

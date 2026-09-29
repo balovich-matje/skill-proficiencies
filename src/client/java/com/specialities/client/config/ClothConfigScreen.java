@@ -2,12 +2,15 @@ package com.specialities.client.config;
 
 import com.specialities.config.ConfigManager;
 import com.specialities.config.SpecialitiesConfig;
+import com.specialities.skills.LevelCap;
 
 import me.shedaniel.clothconfig2.api.ConfigBuilder;
 import me.shedaniel.clothconfig2.api.ConfigCategory;
 import me.shedaniel.clothconfig2.api.ConfigEntryBuilder;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.server.IntegratedServer;
 import net.minecraft.network.chat.Component;
 
 /**
@@ -28,7 +31,7 @@ public final class ClothConfigScreen {
 		ConfigBuilder builder = ConfigBuilder.create()
 				.setParentScreen(parent)
 				.setTitle(Component.translatable("config.specialities.title"))
-				.setSavingRunnable(ConfigManager::save);
+				.setSavingRunnable(ClothConfigScreen::save);
 
 		ConfigEntryBuilder eb = builder.entryBuilder();
 
@@ -58,6 +61,19 @@ public final class ClothConfigScreen {
 				.setMin(1).setMax(100)
 				.setTooltip(Component.translatable("config.specialities.luckLevelsPerBonus.tooltip"))
 				.setSaveConsumer(v -> config.luckLevelsPerBonus = v)
+				.build());
+		// GitHub issue #6. Ranges match SpecialitiesConfig.sanitize() exactly, for the same reason
+		// the two HUD knobs below say so.
+		skills.addEntry(eb.startBooleanToggle(Component.translatable("config.specialities.extendedLevels"), config.extendedLevels)
+				.setDefaultValue(false)
+				.setTooltip(Component.translatable("config.specialities.extendedLevels.tooltip"))
+				.setSaveConsumer(v -> config.extendedLevels = v)
+				.build());
+		skills.addEntry(eb.startIntField(Component.translatable("config.specialities.extendedMaxLevel"), config.extendedMaxLevel)
+				.setDefaultValue(LevelCap.ABSOLUTE_MAX)
+				.setMin(LevelCap.EXTENDED_MIN).setMax(LevelCap.ABSOLUTE_MAX)
+				.setTooltip(Component.translatable("config.specialities.extendedMaxLevel.tooltip"))
+				.setSaveConsumer(v -> config.extendedMaxLevel = v)
 				.build());
 
 		ConfigCategory general = builder.getOrCreateCategory(Component.translatable("config.specialities.category.general"));
@@ -97,5 +113,30 @@ public final class ClothConfigScreen {
 				.build());
 
 		return builder.build();
+	}
+
+	/**
+	 * Persist, then settle the level cap. The cap is the SERVER's setting (skills/LevelCap), so
+	 * what an edit here may touch depends on where this client is:
+	 *
+	 * <ul>
+	 * <li>in its own singleplayer/LAN world — the integrated server adopts the new cap on its
+	 *     own thread and resends it to every player, guests included;</li>
+	 * <li>at the title screen — adopt it directly (the next world's join re-asserts it anyway);</li>
+	 * <li>on a REMOTE server — do not touch it: that server's cap stays in force, and this
+	 *     file's value applies the next time this client hosts a world.</li>
+	 * </ul>
+	 */
+	private static void save() {
+		ConfigManager.save();
+
+		Minecraft minecraft = Minecraft.getInstance();
+		IntegratedServer server = minecraft.getSingleplayerServer();
+
+		if (server != null) {
+			server.execute(() -> LevelCap.applyConfigAndResync(server));
+		} else if (minecraft.getConnection() == null) {
+			LevelCap.applyConfig();
+		}
 	}
 }

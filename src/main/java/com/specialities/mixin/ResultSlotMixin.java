@@ -59,7 +59,7 @@ public abstract class ResultSlotMixin {
 
 		int level = SkillManager.get(serverPlayer).level(Skill.SMITHING);
 		RandomSource random = serverPlayer.getRandom();
-		int returns = Artisan.rollSmithingReturns(random, level);
+		int returns = Artisan.rollSmithingReturns(random, level, consumed.size());
 
 		for (int i = 0; i < returns; i++) {
 			Item material = consumed.get(random.nextInt(consumed.size()));

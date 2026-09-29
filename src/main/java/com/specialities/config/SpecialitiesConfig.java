@@ -1,5 +1,7 @@
 package com.specialities.config;
 
+import com.specialities.skills.LevelCap;
+
 /**
  * Player-editable knobs, persisted to {@code config/skill-proficiencies.json} and
  * surfaced through the Mod Menu / Cloth Config screen. Every BALANCE field here
@@ -10,8 +12,9 @@ package com.specialities.config;
  * <p>Two kinds of field live in this one file, and the difference matters:
  * the balance knobs are read wherever the skill logic runs (the server, or the
  * integrated server in singleplayer), while {@link #showXpHudBar} is read only
- * on a physical client, out of that client's own copy of the file. Nothing here
- * is ever synced — see that field's note.
+ * on a physical client, out of that client's own copy of the file. The one value
+ * that IS synced is the effective level cap ({@link #extendedLevels} /
+ * {@link #extendedMaxLevel}) — see those fields' notes.
  *
  * <p>Defaults are the 1.3.0 rebalance. To restore the 1.2.0 feel set
  * {@code combatDamageMaxBonus = 1.0} and {@code attackSpeedMaxReduction = 0.5}.
@@ -46,6 +49,27 @@ public final class SpecialitiesConfig {
 	public int luckLevelsPerBonus = 20;
 
 	/**
+	 * Let skills level past 100, up to {@link #extendedMaxLevel} (GitHub issue #6). OFF by
+	 * default. Every bonus keeps its level-0..100 formula past 100 — a linear bonus at 200 is
+	 * twice its level-100 value — except the few that would stop making sense, which
+	 * {@link com.specialities.skills.Tuning} clamps and documents one by one.
+	 *
+	 * <p><b>SERVER-authoritative, unlike {@link #showXpHudBar}:</b> the server's value is sent
+	 * to every client on join ({@code specialities:level_cap}), and a client's own copy of this
+	 * field is used only in its own singleplayer/LAN worlds.
+	 *
+	 * <p>Turning it OFF never deletes XP: skills above 100 read as 100 (bonuses and display)
+	 * while the stored XP is kept, so turning it back ON restores their levels.
+	 */
+	public boolean extendedLevels = false;
+
+	/**
+	 * The level cap while {@link #extendedLevels} is on. 101..999 — three digits is what the
+	 * HUD bar, skills screen and toast are laid out for. Ignored while the toggle is off.
+	 */
+	public int extendedMaxLevel = 999;
+
+	/**
 	 * Draw the skill XP bar above the hotbar. {@code false} hides the bar and, with it, the
 	 * {@code HUD_SHIFT} raise of the vanilla bottom HUD; toasts, the skills screen and the
 	 * stealth vignette are unaffected.
@@ -53,8 +77,8 @@ public final class SpecialitiesConfig {
 	 * <p><b>This one knob is CLIENT-LOCAL, unlike every field above it.</b> It is read only by
 	 * {@code client/SkillXpHudBar} and {@code client/SpecialitiesClient}, i.e. only ever on a
 	 * physical client, out of that client's own {@code config/skill-proficiencies.json}. Nothing in the
-	 * mod puts config values on the wire (the three payloads carry skill state and nothing else),
-	 * so a server setting this to {@code false} cannot hide a connected player's bar, and a player
+	 * mod puts THIS value on the wire (the only config-derived number that travels is the level
+	 * cap), so a server setting this to {@code false} cannot hide a connected player's bar, and a player
 	 * setting it to {@code false} changes nothing on the server. On a dedicated server the field
 	 * is written to the file and then ignored.
 	 */
@@ -97,6 +121,7 @@ public final class SpecialitiesConfig {
 		miningSpeedMaxBonus = clamp(miningSpeedMaxBonus, 0.0, 10.0);
 		xpRateMultiplier = clamp(xpRateMultiplier, 0.0, 100.0);
 		luckLevelsPerBonus = (int) clamp(luckLevelsPerBonus, 1, 100);
+		extendedMaxLevel = (int) clamp(extendedMaxLevel, LevelCap.EXTENDED_MIN, LevelCap.ABSOLUTE_MAX);
 		hudShiftAmount = (int) clamp(hudShiftAmount, 0, 32);
 		hudBarYOffset = (int) clamp(hudBarYOffset, -64, 64);
 	}

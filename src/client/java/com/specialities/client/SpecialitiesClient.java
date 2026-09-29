@@ -1,8 +1,10 @@
 package com.specialities.client;
 
+import com.specialities.LevelCapPayload;
 import com.specialities.Specialities;
 import com.specialities.SkillUpdatePayload;
 import com.specialities.config.ConfigManager;
+import com.specialities.skills.LevelCap;
 //? if >=1.20.5 {
 //?} else {
 /*import com.specialities.SkillsFullPayload;
@@ -171,20 +173,28 @@ public class SpecialitiesClient implements ClientModInitializer {
 		// hooks run after mod construction, so the node's client entrypoint installs the sinks
 		// from the mod constructor, not from client setup — the node's own agent owns that
 		// ordering and must assert it on the Tier-2 boot.
+		//
+		// The level-cap receiver (GitHub issue #6) is one shared call on every arm:
+		// LevelCap.acceptFromServer, which makes this client derive every level it shows
+		// through the SERVER's cap rather than its own config.
 		//? if fabric && >=1.20.5 {
 		ClientPlayNetworking.registerGlobalReceiver(SkillUpdatePayload.TYPE,
 				(payload, context) -> SkillHudState.onUpdate(payload, context.client()));
 		ClientPlayNetworking.registerGlobalReceiver(StealthStatePayload.TYPE,
 				(payload, context) -> StealthVignette.onUpdate(payload, context.client()));
+		ClientPlayNetworking.registerGlobalReceiver(LevelCapPayload.TYPE,
+				(payload, context) -> LevelCap.acceptFromServer(payload.maxLevel()));
 		//?} elif neoforge {
 		/*Net.INSTANCE.clientReceivers(
 				payload -> SkillHudState.onUpdate(payload, Minecraft.getInstance()),
-				payload -> StealthVignette.onUpdate(payload, Minecraft.getInstance()));
+				payload -> StealthVignette.onUpdate(payload, Minecraft.getInstance()),
+				payload -> LevelCap.acceptFromServer(payload.maxLevel()));
 		*///?} elif forge {
 		/*Net.INSTANCE.clientReceivers(
 				payload -> SkillHudState.onUpdate(payload, Minecraft.getInstance()),
 				payload -> StealthVignette.onUpdate(payload, Minecraft.getInstance()),
-				payload -> SkillStore.INSTANCE.setSkills(Minecraft.getInstance().player, payload.skills()));
+				payload -> SkillStore.INSTANCE.setSkills(Minecraft.getInstance().player, payload.skills()),
+				payload -> LevelCap.acceptFromServer(payload.maxLevel()));
 		*///?} else {
 		/*ClientPlayNetworking.registerGlobalReceiver(SkillUpdatePayload.TYPE,
 				(payload, player, responseSender) -> SkillHudState.onUpdate(payload, Minecraft.getInstance()));
@@ -192,6 +202,8 @@ public class SpecialitiesClient implements ClientModInitializer {
 				(payload, player, responseSender) -> StealthVignette.onUpdate(payload, Minecraft.getInstance()));
 		ClientPlayNetworking.registerGlobalReceiver(SkillsFullPayload.TYPE,
 				(payload, player, responseSender) -> SkillStore.INSTANCE.setSkills(player, payload.skills()));
+		ClientPlayNetworking.registerGlobalReceiver(LevelCapPayload.TYPE,
+				(payload, player, responseSender) -> LevelCap.acceptFromServer(payload.maxLevel()));
 		*///?}
 
 		// Nothing of this exists below 1.21.11 — the HUD is entirely GuiMixin's job there,

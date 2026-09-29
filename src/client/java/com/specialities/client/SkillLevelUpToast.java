@@ -49,7 +49,8 @@ import org.jspecify.annotations.Nullable;
  * </pre>
  *
  * The "epic" challenge-complete jingle only plays when the level-up crosses 50
- * or 100; otherwise just the regular quiet toast whoosh.
+ * or a multiple of 100 (100, and with extended levels 200, 300, ...); otherwise
+ * just the regular quiet toast whoosh.
  */
 public class SkillLevelUpToast implements Toast {
 	// 1.20.1 has no GUI sprite atlas, so there is no `toast/advancement` sprite. The backdrop
@@ -121,7 +122,9 @@ public class SkillLevelUpToast implements Toast {
 	*///?}
 
 	private boolean crossesMilestone() {
-		return (this.fromLevel < 50 && this.newLevel >= 50) || (this.fromLevel < 100 && this.newLevel >= 100);
+		// Crossing 50, or entering a new hundred. Identical to the old "50 or 100" rule for
+		// every level-up that stays within 0..100.
+		return (this.fromLevel < 50 && this.newLevel >= 50) || this.newLevel / 100 > this.fromLevel / 100;
 	}
 
 	// Toast's draw hook is extractRenderState on 26.x and render on 1.21.11; `text` is
