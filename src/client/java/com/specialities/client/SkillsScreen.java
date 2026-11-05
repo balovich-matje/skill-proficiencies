@@ -29,6 +29,7 @@ import net.minecraft.client.gui.screens.Screen;
 // and `pose()` returning a Matrix3x2fStack (below it a PoseStack, so the quarter turn is
 // `rotateAround(Axis.ZP.rotation(rad), px, py, 0)` between pushPose/popPose).
 //? if >=1.21.11 {
+import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.renderer.RenderPipelines;
 //?} else {
@@ -198,7 +199,9 @@ public class SkillsScreen extends Screen {
 			return true;
 		}
 
-		if (event.button() != 0) {
+		// Never a literal: 26.3's SDL backend renumbered the buttons (left is 1, right is 3).
+		// A compile-time constant, so older nodes still compile this to the same instructions.
+		if (event.button() != InputConstants.MOUSE_BUTTON_LEFT) {
 			return false;
 		}
 	//?} else {
