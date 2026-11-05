@@ -320,9 +320,10 @@ tasks {
 
 // Archetypes compiles against `com.specialities:specialities:<mod.version>` from
 // mavenLocal. Exactly ONE node may own that coordinate; the version string must stay
-// bare (`1.5.0`, not `1.5.0+26.2`) so the other repo needs no change.
+// bare (`1.5.0`, not `1.5.0+26.2`) so the other repo needs no change. Named, not `>=`:
+// a version comparison hands the same coordinate to every newer node too.
 publishing {
-	if (sc.current.parsed >= "26.2") {
+	if (sc.current.project == "26.2-fabric") {
 		publications.create<MavenPublication>("mavenJava") {
 			from(components["java"])
 			groupId = sc.properties["mod.group"]
