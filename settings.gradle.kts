@@ -34,6 +34,10 @@ stonecutter {
 
 		// ---- Phase A: both shipping versions and the three legacy nodes. ----
 		// ---- Phase B: the loader axis, one node per loader. See docs/MULTIVERSION.md §1.3.
+		// 26.3 node (eighth). Registered as its own commit per the bottleneck-file rule. Newest
+		// Fabric node, so it takes the bare Modrinth version number from 26.2. 26.2-fabric stays
+		// the active + VCS node (see vcsVersion below): this one compiles from generated sources.
+		match("26.3", "fabric")
 		match("26.2", "fabric")
 		match("26.1", "fabric", version = "26.1.2")
 		// First OBFUSCATED node. Nothing extra is needed to get the remap pipeline:
