@@ -185,7 +185,11 @@ public abstract class LivingEntityMixin {
 	 * 25% of the skill bonus.
 	 */
 	@ModifyReturnValue(method = "getVisibilityPercent", at = @At("RETURN"))
-	private double specialities$sneakVisibility(final double original, final @Nullable Entity targetingEntity) {
+	private double specialities$sneakVisibility(final double original,
+			//? if >=26.3 {
+			/*final ServerLevel targetLevel,
+			*///?}
+			final @Nullable Entity targetingEntity) {
 		if (!((Object) this instanceof ServerPlayer player) || !player.isDiscrete()) {
 			return original;
 		}

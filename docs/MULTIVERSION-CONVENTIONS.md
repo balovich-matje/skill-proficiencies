@@ -25,6 +25,9 @@ re-run after every Stage-6 commit and is the gate to re-run on any further share
 nodes** (NeoForge's `RegisterGuiLayersEvent.wrapLayer` path and Forge's `ForgeGuiMixin`). No
 Minecraft client has been launched on any node. See §6 R-11.
 
+**`26.3-fabric` is the eighth node (added for 1.7.0).** It compiles from generated sources;
+`26.2-fabric` stays the active + VCS node. §6 R-23 is what it cost.
+
 A post-Stage-5 **balance-parity review** of the newest node then found four behavioural
 divergences that every build-shaped gate had passed, all four inside one re-rooted event.
 They are fixed; §5k and §6 R-20 are what that cost, and the checks in R-20's first two
@@ -82,8 +85,9 @@ boundary (`>=26` vs `>=26.1`) is the most likely silent-divergence bug in this p
 
 | Predicate | True for | Boundary it encodes |
 |---|---|---|
-| `>=26.2` | 26.2 | `BlockItemTags`; `advancements.triggers`; `Minecraft.gui.setScreen`/`toastManager()`; `Minecraft.gui.hud.isHidden()` (F1 state; `Options.hideGui` is gone — below: that field) |
-| `>=26.1` | 26.2, 26.1 | Java 25; Cloth/ModMenu artifacts; `ItemInstance` (the `Block.getDrops` tool param and the matching `EnchantmentHelper.getItemEnchantmentLevel` overload); the extract-vs-immediate render hooks (`GuiGraphicsExtractor`, `Screen`/`AbstractWidget`/`Toast`/`HudElement` `extract*` vs `render*`, `text()` vs `drawString()`, `fakeItem()` vs `renderFakeItem()`); **fabric-api:** `PayloadTypeRegistry.clientboundPlay()/serverboundPlay()` (vs `playS2C()/playC2S()`), `creativetab.v1.CreativeModeTabEvents` (vs `itemgroup.v1.ItemGroupEvents`), `Screens.getWidgets` (vs `getButtons`) |
+| `>=26.3` | 26.3 | `net.minecraft.util.Prediction` + `Inventory.placeItemBackInInventory(ItemStack,Prediction)` (below: `(ItemStack)`); `BrewingStandBlockEntity.doBrew(ServerLevel,BlockPos,BrewingStandBlockEntity)` (below: `(Level,BlockPos,NonNullList)`); `LivingEntity.getVisibilityPercent(ServerLevel,Entity)` (below: `(Entity)`) |
+| `>=26.2` | 26.3, 26.2 | `BlockItemTags`; `advancements.triggers`; `Minecraft.gui.setScreen`/`toastManager()`; `Minecraft.gui.hud.isHidden()` (F1 state; `Options.hideGui` is gone — below: that field) |
+| `>=26.1` | 26.3, 26.2, 26.1 | Java 25; Cloth/ModMenu artifacts; `ItemInstance` (the `Block.getDrops` tool param and the matching `EnchantmentHelper.getItemEnchantmentLevel` overload); the extract-vs-immediate render hooks (`GuiGraphicsExtractor`, `Screen`/`AbstractWidget`/`Toast`/`HudElement` `extract*` vs `render*`, `text()` vs `drawString()`, `fakeItem()` vs `renderFakeItem()`); **fabric-api:** `PayloadTypeRegistry.clientboundPlay()/serverboundPlay()` (vs `playS2C()/playC2S()`), `creativetab.v1.CreativeModeTabEvents` (vs `itemgroup.v1.ItemGroupEvents`), `Screens.getWidgets` (vs `getButtons`) |
 | `>=1.21.11` | 26.x, 1.21.11 | `Identifier`; **`net.minecraft.util.Util`**; `HudElementRegistry`/`VanillaHudElements`/`HudElement` (the whole `client.rendering.v1.hud` package); `.projectile.arrow` package; `ItemTags.SPEARS`; **`Items.IRON_SPEAR`**; `getAtlasManager`; `AtlasIds`; `getFieldOfViewModifier(ZF)F`; `MouseButtonEvent`; `pose()` returning `Matrix3x2fStack`; **`PermissionCheck.Require`** / the `net.minecraft.server.permissions` stack; copper armor; `advancements.criterion` (vs `critereon` below) — **added in Stage 4a:** `net.minecraft.util.ARGB` (vs `FastColor.ARGB32`); `RenderPipelines`; the 3-arg `Toast.render` interface shape and `ToastManager` (vs `ToastComponent` + a `Visibility render(GuiGraphics, ToastComponent, long)` that draws *and* returns visibility, with no `getSoundEvent()`); `Minecraft.getToastManager()` (vs `getToasts()`); `client.input.MouseButtonEvent` in widget/screen click signatures (vs `onClick(double,double)` / `mouseClicked(double,double,int)`); `setTooltipForNextFrame` (vs `renderTooltip(Font,List,Optional,int,int)`); `Item$Properties.setId`; jspecify-vs-jetbrains `@Nullable` (§5e-bis); `ServerPlayer.jumpFromGround` (it is on `Player` below, and runs on both sides there); `EnchantmentHelper.getComponentType` being **public** (private on 1.21.1); `client.renderer.item.properties.numeric.UseDuration` + `net.minecraft.world.entity.ItemOwner` |
 | `>=1.21.2` | 26.x, 1.21.11 | `LivingEntity.hurtServer` (this is §3.2's worked example, and it had **never actually landed** until Stage 4a); `InteractionResult` returns (`Item.use` returns `InteractionResultHolder<ItemStack>` below); `Equippable` / the `minecraft:equippable` component (below: `net.minecraft.world.item.Equipable`, implemented by both `ArmorItem` and `ElytraItem`); `MobEffects.SPEED` (the rename of `MOVEMENT_SPEED`) |
 | `>=1.21` | 26.x, 1.21.11, 1.21.1 | `Holder<Attribute>`; `ResourceKey` enchantments; data components; **singular `tags/item/` datapack directory** — **Stage 5 added:** id-keyed `AttributeModifier` (below: `(UUID, String name, double, Operation)`, `getAmount()` not `amount()`, and the three Operation constants are ADDITION/MULTIPLY_BASE/MULTIPLY_TOTAL); `Attributes.*` typed `Holder<Attribute>`; `EnchantmentHelper.getDamageProtection(ServerLevel,LivingEntity,DamageSource)F` (below: `(Iterable,DamageSource)I`, no victim); `getFishingLuckBonus`/`getFishingTimeReduction` carrying a fisher (below: `getFishingLuckBonus(ItemStack)I` / `getFishingSpeedBonus(ItemStack)I`); the looting loot path being `getEnchantmentLevel(Holder,LivingEntity)` (below: `getMobLooting(LivingEntity)I`); `Attributes.SWEEPING_DAMAGE_RATIO` (below: `EnchantmentHelper.getSweepingDamageRatio(LivingEntity)F`); `ItemEnchantments`/`DataComponents.ENCHANTMENTS` (below: `EnchantmentHelper.getEnchantments`/`setEnchantments` over a `Map<Enchantment,Integer>`); `EnchantmentTags` (below: `Enchantment.isDiscoverable`/`isTreasureOnly`/`isCurse`); `Identifier.withDefaultNamespace`/`fromNamespaceAndPath` (below: the two constructors); `AbstractArrow.getWeaponItem()`; the `Arrow(Level,d,d,d,ItemStack,ItemStack)` constructor; `EquipmentSlot.Type.HUMANOID_ARMOR` (below: `ARMOR`); `net.minecraft.client.DeltaTracker`; `FastColor.ARGB32.color(int,int)` and `colorFromFloat` (below: only the four-channel `color(a,r,g,b)`); the GUI **sprite atlas** as a whole — no `Minecraft.getGuiSprites()`, no `blitSprite`, no `hud/`, `toast/` or `transferable_list/` sprite ids |
@@ -958,6 +962,40 @@ java.lang.IllegalStateException: Registry is already frozen
   compiles. Ask, per loader, *which lifecycle window each step needs* — and note that the one
   step whose window is wrong here is the one that only fails at `<clinit>`, i.e. at the first
   touch of the class, which can be far from the call you moved.
+
+### R-23 — the 26.3 port: one compile error per three compile-green breaks
+
+`:26.3-fabric:build` needed one two-line fork to go green. The other three breaks were invisible
+to it, and two of them were boot-level. Found by diffing the 26.2 and 26.3 decompiled sources of
+every class the mod imports or targets, then a static resolver over the shipped jar.
+
+- **Compile error, fixed with `>=26.3`:** `Inventory.placeItemBackInInventory` gained a
+  `Prediction` argument. Both mod call sites run on the server with no client prediction behind
+  them, so they pass `Prediction.SERVER_ONLY`, as vanilla's own server-side callers do
+  (`MerchantMenu`, `AbstractContainerMenu`). When the inventory is full the overflow drop now
+  also swings the hand, because 26.3's `LivingEntity.drop` always swings. Vanilla behaviour.
+- **Boot crash, compiled fine, `>=26.3`:** `getVisibilityPercent` gained a leading `ServerLevel`.
+  `@ModifyReturnValue` may capture a PREFIX of the target's arguments, and the handler captured
+  `(Entity)`. The bare-name selector still resolved, which is why nothing complained earlier.
+- **Boot crash, compiled fine, `>=26.3`:** `doBrew` went from `Level` to `ServerLevel`.
+  `@Local(argsOnly = true)` matches the EXACT type, not an assignable one.
+- **Silently dead feature, compiled AND booted fine, no predicate:** 26.3 replaced GLFW with SDL
+  and renumbered the mouse buttons, left 0 -> 1 and right 1 -> 3. `SkillsScreen`'s
+  `event.button() != 0` would have made every expand arrow ignore every click. Read
+  `InputConstants.MOUSE_BUTTON_LEFT` instead: it is a compile-time constant, so older nodes
+  compile to the same instructions and need no fork. **Never compare a button or key against a
+  literal on `>=1.21.11`.** Widgets going through `AbstractWidget.isValidClickButton` are fine.
+- **Not a mod bug, build wiring:** `publishing { if (sc.current.parsed >= "26.2") }` would have
+  handed the mavenLocal coordinate to both 26.x nodes. It now names `26.2-fabric`. Any `>=` on the
+  newest node's version in a build script has this shape, so grep them when registering a node.
+
+Both boot crashes were measured, not reasoned: the pre-fix jar dies on `sneakVisibility` with
+`InvalidInjectionException`, and the fixed jar with only the old brewing class put back dies with
+`InjectionError` from `@Local`. Both runs still exited 0, so an exit code proves nothing here.
+
+**Check to run per new node, because the compiler does not:** resolve every mixin selector,
+`@At` target, `@Shadow`, `@Accessor` and handler argument shape against that node's game jars. A
+client mixin cannot reach a server boot, so this static pass is the only automatic check it gets.
 
 ## 7. Release / balance workflow after Stage 1
 

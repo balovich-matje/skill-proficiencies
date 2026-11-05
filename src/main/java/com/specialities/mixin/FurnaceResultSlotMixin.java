@@ -12,6 +12,9 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import net.minecraft.server.level.ServerPlayer;
+//? if >=26.3 {
+/*import net.minecraft.util.Prediction;
+*///?}
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.FurnaceResultSlot;
@@ -77,7 +80,11 @@ public abstract class FurnaceResultSlotMixin {
 
 		while (extra > 0) {
 			int stack = Math.min(extra, maxStack);
+			//? if >=26.3 {
+			/*serverPlayer.getInventory().placeItemBackInInventory(new ItemStack(taken.getItem(), stack), Prediction.SERVER_ONLY);
+			*///?} else {
 			serverPlayer.getInventory().placeItemBackInInventory(new ItemStack(taken.getItem(), stack));
+			//?}
 			extra -= stack;
 		}
 	}

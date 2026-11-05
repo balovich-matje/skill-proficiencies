@@ -11,6 +11,9 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
 import net.minecraft.core.BlockPos;
+//? if >=26.3 {
+/*import net.minecraft.server.level.ServerLevel;
+*///?}
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -27,7 +30,11 @@ public abstract class BrewingStandBlockEntityMixin {
 			at = @At(value = "INVOKE", target = "Lnet/minecraft/world/item/ItemStack;shrink(I)V"))
 	private static void specialities$alchemy(final ItemStack ingredient, final int amount,
 			final Operation<Void> original,
+			//? if >=26.3 {
+			/*@Local(argsOnly = true) final ServerLevel level, @Local(argsOnly = true) final BlockPos pos) {
+			*///?} else {
 			@Local(argsOnly = true) final Level level, @Local(argsOnly = true) final BlockPos pos) {
+			//?}
 		ServerPlayer owner = Artisan.brewingOwner(level, pos);
 
 		if (owner != null && !owner.isCreative()) {

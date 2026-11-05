@@ -15,6 +15,9 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import net.minecraft.server.level.ServerPlayer;
+//? if >=26.3 {
+/*import net.minecraft.util.Prediction;
+*///?}
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.CraftingContainer;
@@ -85,7 +88,11 @@ public abstract class ResultSlotMixin {
 
 		for (int i = 0; i < returns; i++) {
 			Item material = consumed.get(random.nextInt(consumed.size()));
+			//? if >=26.3 {
+			/*serverPlayer.getInventory().placeItemBackInInventory(new ItemStack(material), Prediction.SERVER_ONLY);
+			*///?} else {
 			serverPlayer.getInventory().placeItemBackInInventory(new ItemStack(material));
+			//?}
 		}
 	}
 }
