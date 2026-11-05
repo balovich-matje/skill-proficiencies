@@ -828,6 +828,9 @@ the node directory name, *not* `sc.current.version`:
 | `1.21.11-fabric` | `1.5.0+1.21.11` | `1.21.11` | `specialities-1.5.0+1.21.11.jar` |
 | `1.21.1-fabric` | `1.5.0+1.21.1` | `1.21`, `1.21.1` | `specialities-1.5.0+1.21.1.jar` |
 
+**From 1.7.0 the bare number belongs to `26.3-fabric`** and `26.2-fabric` uploads `+26.2`, exactly
+as this rule predicts; published numbers are untouched. The tables here keep their 1.5.0 examples.
+
 "Newest node" is computed, not hardcoded: `sc.versions.none { it.parsed > sc.current.parsed }`.
 Note the 26.1 row — the node's Minecraft version is 26.1.2 but every published 26.1 version
 number has been `+26.1`, and the jar file name keeps the full `+26.1.2`. Modrinth does not care
