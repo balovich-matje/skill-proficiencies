@@ -739,6 +739,15 @@ Bytecode-proven to be r,g,b,a and to manage its own `enableBlend`/`disableBlend`
   to vanilla's `blitSprite` of it. All four sprite ids used were checked present in that jar.
 - **`setColor` is still not the shared path** and the rejection above stands: it is gone in
   1.21.6+. It is used on 1.21.1 only for the one draw that has no tinted overload.
+- **The styled skill-bar fill (post-1.7.0) is the second such draw.** It needs a TINTED,
+  PARTIAL-width blit of a 182x5 layer: `>=1.21.11` has the partial-sprite `blitSprite` with an
+  ARGB int; 1.21.1 has the partial-sprite overload without colour (the colour-taking sprite
+  ones are private), so `setColor` + blend armed by hand + `disableBlend` after (vanilla's
+  `renderExperienceBar` end state there); 1.20.1 binds the same PNG as a plain texture
+  (`textures/gui/sprites/hud/…png`, no atlas) via the 9-arg `blit(rl, x, y, u, v, w, h, texW,
+  texH)` + `setColor`. All three live in `SkillXpHudBar.blitFill`, the fill's only fork. The
+  art is greyscale on purpose: a skill tint multiplied over vanilla's green progress sprite
+  goes muddy for every non-green skill. Generator: `docs/art/make_skill_bar.py`.
 - **CLOSED AT 1.20.1 IN STAGE 5, and R-17 was right about every one of its 1.20.1 claims.**
   The public float-RGBA `blit(x, y, z, w, h, sprite, r, g, b, a)` is present and identical, so
   the converging icons needed no third branch at all; `Gui.GUI_ICONS_LOCATION` really is
