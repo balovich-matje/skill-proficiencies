@@ -748,6 +748,10 @@ Bytecode-proven to be r,g,b,a and to manage its own `enableBlend`/`disableBlend`
   texH)` + `setColor`. All three live in `SkillXpHudBar.blitFill`, the fill's only fork. The
   art is greyscale on purpose: a skill tint multiplied over vanilla's green progress sprite
   goes muddy for every non-green skill. Generator: `docs/art/make_skill_bar.py`.
+  `blitFill` takes a source column `u` (drawn at `x + u`) so the fill animations can light one
+  cell or one column with a third layer, `skill_bar_glow.png`, on all three arms unchanged in
+  shape. The art's notches are the vanilla background's columns — every 10px plus a TWO-column
+  centre notch at 90-91 (18 cells of 9px), identical on 26.3 down to 1.20.1's `icons.png`.
 - **CLOSED AT 1.20.1 IN STAGE 5, and R-17 was right about every one of its 1.20.1 claims.**
   The public float-RGBA `blit(x, y, z, w, h, sprite, r, g, b, a)` is present and identical, so
   the converging icons needed no third branch at all; `Gui.GUI_ICONS_LOCATION` really is

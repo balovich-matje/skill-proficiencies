@@ -40,6 +40,11 @@ import net.minecraft.util.ARGB;
 /*import net.minecraft.util.FastColor;
 *///?}
 import net.minecraft.util.Mth;
+import net.minecraft.util.Util;
+
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 // Every node below 1.21.11 tints through `setColor` (shader colour) with blend armed by hand.
 //? if >=1.21.11 {
 //?} else {
@@ -61,6 +66,11 @@ import net.minecraft.util.Mth;
  * muddy. The sheen exists because a multiply can only darken — without it nothing on
  * the bar could be lighter than the skill colour itself. Background stays vanilla's
  * sprite, referenced, never copied; the body's notches sit in the background's columns.
+ *
+ * <p>Four small fill animations, all tuned in the constants block below: a glint on the
+ * leading edge when XP lands, a brief brightening of a cell the fill just completed, ONE
+ * gentle pulse per XP value in the last tenth of a level, and a colour/fill crossfade when
+ * the shown skill changes. Shared math; only {@link #blitFill} forks per node.
  */
 public final class SkillXpHudBar {
 	// R-17's remaining 1.20.1 delta: that version has NO GUI sprite atlas at all, so there
@@ -83,9 +93,11 @@ public final class SkillXpHudBar {
 	//? if >=1.21 {
 	private static final Identifier BAR_PROGRESS_ART = Specialities.id("hud/skill_bar_progress");
 	private static final Identifier BAR_SHEEN_ART = Specialities.id("hud/skill_bar_sheen");
+	private static final Identifier BAR_GLOW_ART = Specialities.id("hud/skill_bar_glow");
 	//?} else {
 	/*private static final Identifier BAR_PROGRESS_ART = Specialities.id("textures/gui/sprites/hud/skill_bar_progress.png");
 	private static final Identifier BAR_SHEEN_ART = Specialities.id("textures/gui/sprites/hud/skill_bar_sheen.png");
+	private static final Identifier BAR_GLOW_ART = Specialities.id("textures/gui/sprites/hud/skill_bar_glow.png");
 	*///?}
 	private static final int BAR_WIDTH = 182;
 	private static final int BAR_HEIGHT = 5;
@@ -110,6 +122,85 @@ public final class SkillXpHudBar {
 	 * and passes through untouched.
 	 */
 	private static final int MIN_FILL_LUMA = 110;
+
+	// ---- Fill animations: every timing and strength lives here. ----------------------------
+	// All four brighten by drawing BAR_GLOW_ART (a white mask over the fill's interior, zero on
+	// the border and notches) at a per-frame alpha; the crossfade only changes what the normal
+	// fill is drawn with. Time is Util.getMillis(), never a frame count.
+
+	/** (a) Leading-edge glint on an XP gain: starts with the grow, gone this long after. */
+	private static final long GLINT_MS = 500;
+	private static final long GLINT_ATTACK_MS = 60;
+	private static final float GLINT_ALPHA = 0.35F;
+	/** Glint strength per column, the edge column first, then the ones behind it. */
+	private static final float[] GLINT_FALLOFF = {1.0F, 0.55F, 0.25F};
+	/** (b) Segment tick: the cell the fill just completed brightens, then settles. */
+	private static final long TICK_MS = 160;
+	private static final long TICK_ATTACK_MS = 30;
+	private static final float TICK_ALPHA = 0.30F;
+	/** (c) Almost-there pulse: ONE breathe per XP value while in the last tenth of a level. */
+	private static final float PULSE_ZONE = 0.90F;
+	/** Quiet time after a gain's own animation (icons + glint) before the pulse may start. */
+	private static final long PULSE_DELAY_MS = 150;
+	private static final long PULSE_MS = 1100;
+	private static final float PULSE_ALPHA = 0.16F;
+	/** (d) Colour, fill and level-number crossfade when the displayed skill changes. */
+	private static final long CROSSFADE_MS = 300;
+	/** A bar not drawn for longer than this (F1, no skill shown) restarts clean: no fade, no tick. */
+	private static final long CONTINUITY_MS = 250;
+	/** Ceiling on glint + tick + pulse together; each takes from what is left, in that order. */
+	private static final float OVERLAY_ALPHA_CAP = 0.40F;
+
+	/**
+	 * Notch columns of the bar, measured off vanilla's background on every node: every 10px
+	 * and a TWO-column notch at 90-91 in the middle. Mirrors {@code docs/art/make_skill_bar.py}.
+	 */
+	private static final int[] SEPARATORS = {10, 20, 30, 40, 50, 60, 70, 80, 90, 91, 101, 111, 121, 131, 141, 151, 161, 171};
+	/** The 18 cells between notches/borders, first and last interior column each. */
+	private static final int[] CELL_START;
+	private static final int[] CELL_END;
+
+	static {
+		int[] cuts = new int[SEPARATORS.length + 2];
+		cuts[0] = 0;
+		System.arraycopy(SEPARATORS, 0, cuts, 1, SEPARATORS.length);
+		cuts[cuts.length - 1] = BAR_WIDTH - 1;
+		int[] start = new int[cuts.length];
+		int[] end = new int[cuts.length];
+		int n = 0;
+
+		for (int i = 1; i < cuts.length; i++) {
+			if (cuts[i] - cuts[i - 1] > 1) {
+				start[n] = cuts[i - 1] + 1;
+				end[n] = cuts[i] - 1;
+				n++;
+			}
+		}
+		CELL_START = Arrays.copyOf(start, n);
+		CELL_END = Arrays.copyOf(end, n);
+	}
+
+	private static final long NEVER = Long.MIN_VALUE;
+
+	// Frame-to-frame render state. Client render thread only.
+	private static SkillType lastSkill;
+	private static long lastDrawMs = NEVER;
+	private static int lastTint;
+	private static int lastLabelRgb;
+	private static float lastProgress;
+	private static int lastLevel;
+	private static long fadeStartMs = NEVER;
+	private static int fadeFromTint;
+	private static int fadeFromLabelRgb;
+	private static float fadeFromProgress;
+	private static int fadeFromLevel;
+	/** Fill width last frame, -1 = unknown (no tick may fire off it). */
+	private static int prevFillWidth = -1;
+	private static int tickCell = -1;
+	private static long tickStartMs = NEVER;
+	private static long pulseStartMs = NEVER;
+	/** Skill id -> the totalXp its pulse last played at. One pulse per value, per skill. */
+	private static final Map<String, Integer> PULSED_AT_XP = new HashMap<>();
 
 	private SkillXpHudBar() {
 	}
@@ -165,15 +256,71 @@ public final class SkillXpHudBar {
 
 		float progress;
 		int shownLevel;
+		// Where the skill actually IS (not where the grow animation has got to): the pulse's
+		// zone test and its once-per-value key read these.
+		int xpNow;
+		int levelNow;
+		float targetProgress;
 
 		if (showGained) {
 			progress = displayedProgress(age);
 			shownLevel = age < ICON_ANIM_MS + GROW_ANIM_MS / 2 ? SkillHudState.fromLevel() : SkillHudState.level();
+			xpNow = SkillHudState.totalXp();
+			levelNow = SkillHudState.level();
+			targetProgress = progressWithin(xpNow, levelNow);
 		} else {
 			PlayerSkills data = SkillManager.get(minecraft.player);
 			progress = progressWithin(data.totalXp(skill), data.level(skill));
 			shownLevel = data.level(skill);
+			xpNow = data.totalXp(skill);
+			levelNow = shownLevel;
+			targetProgress = progress;
 		}
+
+		long now = Util.getMillis();
+		boolean continuous = lastDrawMs != NEVER && now - lastDrawMs <= CONTINUITY_MS;
+
+		// (d) Crossfade. Starts from what was ON SCREEN last frame (so a switch mid-fade
+		// carries on from the blend, not from the old skill's pure colour), and blends colour,
+		// fill width and label colour together; the number flips at the halfway point. A bar
+		// that was not drawn a moment ago has nothing to fade from and just appears.
+		if (skill != lastSkill) {
+			if (continuous && lastSkill != null) {
+				fadeStartMs = now;
+				fadeFromTint = lastTint;
+				fadeFromLabelRgb = lastLabelRgb;
+				fadeFromProgress = lastProgress;
+				fadeFromLevel = lastLevel;
+			} else {
+				fadeStartMs = NEVER;
+			}
+			prevFillWidth = -1;
+		}
+		if (!continuous) {
+			prevFillWidth = -1;
+		}
+
+		int tint = fillTint(skill.color());
+		int labelRgb = skill.color() & 0xFFFFFF;
+		boolean fading = fadeStartMs != NEVER && now - fadeStartMs < CROSSFADE_MS;
+
+		if (fading) {
+			float t = (now - fadeStartMs) / (float) CROSSFADE_MS;
+			float eased = t * t * (3.0F - 2.0F * t);
+			tint = lerpRgb(eased, fadeFromTint, tint);
+			labelRgb = lerpRgb(eased, fadeFromLabelRgb, labelRgb);
+			progress = Mth.lerp(eased, fadeFromProgress, progress);
+			if (eased < 0.5F) {
+				shownLevel = fadeFromLevel;
+			}
+		}
+
+		lastSkill = skill;
+		lastDrawMs = now;
+		lastTint = tint;
+		lastLabelRgb = labelRgb;
+		lastProgress = progress;
+		lastLevel = shownLevel;
 
 		int left = (graphics.guiWidth() - BAR_WIDTH) / 2;
 		// `hudBarYOffset` is the issue-#4 knob for the half `hudShiftAmount` cannot reach: this
@@ -213,8 +360,42 @@ public final class SkillXpHudBar {
 		// because ours can reach exactly 1.0. The fill covers the full 182x5 like vanilla's
 		// progress sprite, frame rows included.
 		int fillWidth = Math.min(BAR_WIDTH, (int) (progress * (BAR_WIDTH + 1)));
+
+		// (b) Tick trigger: the fill moved right past the end of a cell this frame. Only for
+		// the same skill shown without a break, never during a crossfade (the width there is a
+		// blend, not progress) and never on a level-up sweep (it would strobe every cell; the
+		// toast marks that moment). Several cells in one frame: the last one ticks.
+		boolean levelSweep = showGained && SkillHudState.level() > SkillHudState.fromLevel()
+				&& age < ICON_ANIM_MS + GROW_ANIM_MS;
+		if (!fading && !levelSweep && prevFillWidth >= 0 && fillWidth > prevFillWidth) {
+			for (int i = CELL_END.length - 1; i >= 0; i--) {
+				int cut = CELL_END[i] + 1;
+				if (prevFillWidth < cut && cut <= fillWidth) {
+					tickCell = i;
+					tickStartMs = now;
+					break;
+				}
+			}
+		}
+		prevFillWidth = fillWidth;
+
+		// (c) Pulse trigger: only after an XP gain is shown (never on merely looking at a bar
+		// that is already in the zone — joining a world, switching tools), once that gain's own
+		// icons and glint are over and no crossfade runs, and only if this skill has not pulsed
+		// at this exact XP value yet. One breathe per XP value, never a loop; a re-sent value
+		// (the server re-syncs on some lifecycle events) does not re-arm it.
+		boolean quiet = showGained && !fading && age >= ICON_ANIM_MS + GLINT_MS + PULSE_DELAY_MS;
+		if (quiet && levelNow < Tuning.maxLevel() && targetProgress >= PULSE_ZONE) {
+			Integer pulsedAt = PULSED_AT_XP.get(skill.id());
+			if (pulsedAt == null || pulsedAt != xpNow) {
+				PULSED_AT_XP.put(skill.id(), xpNow);
+				pulseStartMs = now;
+			}
+		}
+
 		if (fillWidth > 0) {
-			drawFill(graphics, left, top, fillWidth, skill.color());
+			drawFill(graphics, left, top, fillWidth, tint);
+			drawFillLights(graphics, left, top, fillWidth, now, showGained ? age : -1L);
 		}
 
 		// Skill level just past the bar's right end (the space above belongs to
@@ -237,25 +418,25 @@ public final class SkillXpHudBar {
 		graphics.text(minecraft.font, label, textX - 1, textY, outline, false);
 		graphics.text(minecraft.font, label, textX, textY + 1, outline, false);
 		graphics.text(minecraft.font, label, textX, textY - 1, outline, false);
-		graphics.text(minecraft.font, label, textX, textY, ARGB.color(0xFF, skill.color()), false);
+		graphics.text(minecraft.font, label, textX, textY, ARGB.color(0xFF, labelRgb), false);
 		//?} elif >=1.21.11 {
 		/*graphics.drawString(minecraft.font, label, textX + 1, textY, outline, false);
 		graphics.drawString(minecraft.font, label, textX - 1, textY, outline, false);
 		graphics.drawString(minecraft.font, label, textX, textY + 1, outline, false);
 		graphics.drawString(minecraft.font, label, textX, textY - 1, outline, false);
-		graphics.drawString(minecraft.font, label, textX, textY, ARGB.color(0xFF, skill.color()), false);
+		graphics.drawString(minecraft.font, label, textX, textY, ARGB.color(0xFF, labelRgb), false);
 		*///?} elif >=1.21 {
 		/*graphics.drawString(minecraft.font, label, textX + 1, textY, outline, false);
 		graphics.drawString(minecraft.font, label, textX - 1, textY, outline, false);
 		graphics.drawString(minecraft.font, label, textX, textY + 1, outline, false);
 		graphics.drawString(minecraft.font, label, textX, textY - 1, outline, false);
-		graphics.drawString(minecraft.font, label, textX, textY, FastColor.ARGB32.color(0xFF, skill.color()), false);
+		graphics.drawString(minecraft.font, label, textX, textY, FastColor.ARGB32.color(0xFF, labelRgb), false);
 		*///?} else {
 		/*graphics.drawString(minecraft.font, label, textX + 1, textY, outline, false);
 		graphics.drawString(minecraft.font, label, textX - 1, textY, outline, false);
 		graphics.drawString(minecraft.font, label, textX, textY + 1, outline, false);
 		graphics.drawString(minecraft.font, label, textX, textY - 1, outline, false);
-		graphics.drawString(minecraft.font, label, textX, textY, argb(0xFF, skill.color()), false);
+		graphics.drawString(minecraft.font, label, textX, textY, argb(0xFF, labelRgb), false);
 		*///?}
 
 		// Converging tool icons while the animation runs.
@@ -289,19 +470,101 @@ public final class SkillXpHudBar {
 	}
 
 	/**
-	 * The styled fill: tinted greyscale body, then the white sheen. The seam for any later
-	 * fill animation (a moving glint, a level-up pulse): vary what is passed to
-	 * {@link #blitFill} here and every node gets it, because only that one call forks.
+	 * The styled fill: greyscale body tinted with {@code tint} (already {@link #fillTint}ed,
+	 * and blended by a crossfade if one runs), then the white sheen. Only {@link #blitFill}
+	 * forks, so every node gets the same fill.
 	 */
 	//? if >=26.1 {
 	private static void drawFill(final GuiGraphicsExtractor graphics, final int left, final int top, final int width,
 	//?} else {
 	/*private static void drawFill(final GuiGraphics graphics, final int left, final int top, final int width,
 	*///?}
-			final int skillColor) {
+			final int tint) {
 		int alpha = Math.round(BASE_ALPHA * 255.0F) << 24;
-		blitFill(graphics, BAR_PROGRESS_ART, left, top, width, alpha | fillTint(skillColor));
-		blitFill(graphics, BAR_SHEEN_ART, left, top, width, alpha | 0xFFFFFF);
+		blitFill(graphics, BAR_PROGRESS_ART, left, top, 0, width, alpha | tint);
+		blitFill(graphics, BAR_SHEEN_ART, left, top, 0, width, alpha | 0xFFFFFF);
+	}
+
+	/**
+	 * Animations (a)-(c): the glow mask drawn over parts of the fill. Strengths come from
+	 * {@link #OVERLAY_ALPHA_CAP} in priority order tick, glint, pulse — each gets at most what
+	 * the ones before it left — so the three together can never pass the cap on any pixel,
+	 * and because every envelope is continuous the hand-back is smooth too.
+	 *
+	 * @param gainAge ms since the shown skill's XP gain, or -1 when no gain is being shown
+	 */
+	//? if >=26.1 {
+	private static void drawFillLights(final GuiGraphicsExtractor graphics, final int left, final int top, final int width,
+	//?} else {
+	/*private static void drawFillLights(final GuiGraphics graphics, final int left, final int top, final int width,
+	*///?}
+			final long now, final long gainAge) {
+		float budget = OVERLAY_ALPHA_CAP;
+
+		float tick = 0.0F;
+		if (tickCell >= 0 && CELL_END[tickCell] < width && tickStartMs != NEVER) {
+			tick = Math.min(budget, TICK_ALPHA * envelope(now - tickStartMs, TICK_ATTACK_MS, TICK_MS));
+		}
+		budget -= tick;
+
+		// The glint rides the leading edge from the start of the grow, so it follows the fill
+		// as it moves and is left sitting on the new edge as it fades.
+		float glint = 0.0F;
+		if (gainAge >= ICON_ANIM_MS) {
+			glint = Math.min(budget, GLINT_ALPHA * envelope(gainAge - ICON_ANIM_MS, GLINT_ATTACK_MS, GLINT_MS));
+		}
+		budget -= glint;
+
+		float pulse = 0.0F;
+		if (pulseStartMs != NEVER && now - pulseStartMs < PULSE_MS) {
+			float s = (float) Math.sin((now - pulseStartMs) / (double) PULSE_MS * Math.PI);
+			pulse = Math.min(budget, PULSE_ALPHA * s * s);
+		}
+
+		int pulseA = glowAlpha(pulse);
+		if (pulseA > 0) {
+			blitFill(graphics, BAR_GLOW_ART, left, top, 0, width, (pulseA << 24) | 0xFFFFFF);
+		}
+		int tickA = glowAlpha(tick);
+		if (tickA > 0) {
+			int u = CELL_START[tickCell];
+			blitFill(graphics, BAR_GLOW_ART, left, top, u, CELL_END[tickCell] - u + 1, (tickA << 24) | 0xFFFFFF);
+		}
+		for (int i = 0; i < GLINT_FALLOFF.length; i++) {
+			int column = width - 1 - i;
+			int a = glowAlpha(glint * GLINT_FALLOFF[i]);
+			if (column >= 0 && a > 0) {
+				blitFill(graphics, BAR_GLOW_ART, left, top, column, 1, (a << 24) | 0xFFFFFF);
+			}
+		}
+	}
+
+	/** Overlay strength 0..1 -> the 0..255 alpha byte, scaled by {@link #BASE_ALPHA}. */
+	private static int glowAlpha(final float strength) {
+		return Mth.clamp(Math.round(strength * BASE_ALPHA * 255.0F), 0, 255);
+	}
+
+	/**
+	 * Light-up shape shared by the glint and the tick: linear rise over {@code attack} ms, then
+	 * an ease-out fall to zero at {@code total} ms. 0..1, and 0 outside.
+	 */
+	static float envelope(final long t, final long attack, final long total) {
+		if (t < 0 || t >= total) {
+			return 0.0F;
+		}
+		if (t < attack) {
+			return t / (float) attack;
+		}
+		float fall = 1.0F - (t - attack) / (float) (total - attack);
+		return fall * fall;
+	}
+
+	/** Per-channel blend of two 0xRRGGBB colours; {@code t} 0 = {@code from}, 1 = {@code to}. */
+	static int lerpRgb(final float t, final int from, final int to) {
+		int r = Math.round(Mth.lerp(t, (from >> 16) & 0xFF, (to >> 16) & 0xFF));
+		int g = Math.round(Mth.lerp(t, (from >> 8) & 0xFF, (to >> 8) & 0xFF));
+		int b = Math.round(Mth.lerp(t, from & 0xFF, to & 0xFF));
+		return (r << 16) | (g << 8) | b;
 	}
 
 	/**
@@ -327,8 +590,9 @@ public final class SkillXpHudBar {
 	}
 
 	/**
-	 * Draws the left {@code width} columns of one 182x5 fill layer at ({@code x}, {@code y}),
-	 * multiplied by {@code argb}. The ONLY forked draw of the fill.
+	 * Draws columns {@code u .. u+width-1} of one 182x5 fill layer where they belong on a bar
+	 * whose left edge is at ({@code x}, {@code y}), multiplied by {@code argb}. The ONLY forked
+	 * draw of the fill; {@code u} lets the animations light one cell or one column.
 	 *
 	 * <ul>
 	 * <li>{@code >=1.21.11} (26.x extract + 1.21.11 immediate): the partial-sprite
@@ -349,15 +613,15 @@ public final class SkillXpHudBar {
 	//?} else {
 	/*private static void blitFill(final GuiGraphics graphics, final Identifier art, final int x, final int y,
 	*///?}
-			final int width, final int argb) {
+			final int u, final int width, final int argb) {
 		//? if >=1.21.11 {
-		graphics.blitSprite(RenderPipelines.GUI_TEXTURED, art, BAR_WIDTH, BAR_HEIGHT, 0, 0, x, y, width, BAR_HEIGHT, argb);
+		graphics.blitSprite(RenderPipelines.GUI_TEXTURED, art, BAR_WIDTH, BAR_HEIGHT, u, 0, x + u, y, width, BAR_HEIGHT, argb);
 		//?} elif >=1.21 {
 		/*RenderSystem.enableBlend();
 		RenderSystem.defaultBlendFunc();
 		graphics.setColor(((argb >> 16) & 0xFF) / 255.0F, ((argb >> 8) & 0xFF) / 255.0F, (argb & 0xFF) / 255.0F,
 				((argb >>> 24) & 0xFF) / 255.0F);
-		graphics.blitSprite(art, BAR_WIDTH, BAR_HEIGHT, 0, 0, x, y, width, BAR_HEIGHT);
+		graphics.blitSprite(art, BAR_WIDTH, BAR_HEIGHT, u, 0, x + u, y, width, BAR_HEIGHT);
 		graphics.setColor(1.0F, 1.0F, 1.0F, 1.0F);
 		RenderSystem.disableBlend();
 		*///?} else {
@@ -365,7 +629,7 @@ public final class SkillXpHudBar {
 		RenderSystem.defaultBlendFunc();
 		graphics.setColor(((argb >> 16) & 0xFF) / 255.0F, ((argb >> 8) & 0xFF) / 255.0F, (argb & 0xFF) / 255.0F,
 				((argb >>> 24) & 0xFF) / 255.0F);
-		graphics.blit(art, x, y, 0.0F, 0.0F, width, BAR_HEIGHT, BAR_WIDTH, BAR_HEIGHT);
+		graphics.blit(art, x + u, y, (float) u, 0.0F, width, BAR_HEIGHT, BAR_WIDTH, BAR_HEIGHT);
 		graphics.setColor(1.0F, 1.0F, 1.0F, 1.0F);
 		*///?}
 	}
