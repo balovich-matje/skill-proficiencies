@@ -80,7 +80,7 @@
 	"tooltip.specialities.next_ricochet": "Next ricochet at level %s",
 	"tooltip.specialities.sea_luck": "+%s Luck of the Sea",
 	"tooltip.specialities.lure": "+%s Lure (rod + skill capped at Lure V)",
-	"tooltip.specialities.hearts": "+%s max hearts",
+	"tooltip.specialities.hearts": "+%s max health",
 	"tooltip.specialities.toughness": "+%s armor toughness",
 	"tooltip.specialities.fall_damage": "-%s%% fall damage",
 	"tooltip.specialities.sprint_hunger": "-%s%% hunger drain while sprinting",

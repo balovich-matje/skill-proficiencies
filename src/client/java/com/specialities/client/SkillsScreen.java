@@ -608,7 +608,7 @@ public class SkillsScreen extends Screen {
 				lines.add(Component.translatable("tooltip.specialities.lure", Tuning.lureLevelsWithBonus(0, level)));
 			}
 			case DEFENCE -> {
-				lines.add(Component.translatable("tooltip.specialities.hearts", Tuning.maxHealthBonus(level) / 2));
+				lines.add(Component.translatable("tooltip.specialities.hearts", Tuning.maxHealthBonus(level)));
 				lines.add(Component.translatable("tooltip.specialities.toughness", Tuning.toughnessBonus(level)));
 			}
 			case ACROBATICS -> {
